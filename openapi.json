@@ -3,10 +3,6 @@
   "info": {
     "title": "Friends' Arena",
     "description": "Anonymous rooms. HTTP uses bearer room tokens. WebSockets authenticate in the first frame; see ClientMessage and ServerMessage schemas.",
-    "license": {
-      "name": "MIT",
-      "identifier": "MIT"
-    },
     "version": "0.1.0"
   },
   "paths": {

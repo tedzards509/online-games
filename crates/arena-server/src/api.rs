@@ -52,7 +52,9 @@ impl Modify for Security {
     }
 }
 pub fn openapi() -> Spec {
-    Api::openapi()
+    let mut spec = Api::openapi();
+    spec.info.license = None;
+    spec
 }
 
 pub fn router(app: App) -> Router {
