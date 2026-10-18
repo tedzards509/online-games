@@ -198,11 +198,8 @@ async fn identity_capacity_and_origin_checks() {
 }
 
 #[tokio::test]
-async fn four_games_over_real_websockets_persist_and_export_replays() {
-    let directory = tempfile::tempdir().unwrap();
-    let database = format!("sqlite://{}", directory.path().join("test.db").display());
-    let server = Server::open(&database).await;
-    let mut memberships = vec![];
+async fn four_games_over_real_websockets_export_and_archive_replays() {
+    let server = Server::open("sqlite::memory:").await;
     let mut rng = rand::rngs::StdRng::seed_from_u64(7);
     for kind in ["mancala", "crazy_eights", "shithead", "skyjo"] {
         let alice = server.member(kind).await;
@@ -263,7 +260,36 @@ async fn four_games_over_real_websockets_persist_and_export_replays() {
                     true
                 })
                 .collect();
-            let action = candidates[rng.gen_range(0..candidates.len())];
+            let action = if kind == "shithead" {
+                let state = &views[player]["view"]["state"];
+                let hand = state["hand"].as_array().unwrap();
+                let source = if hand.is_empty() {
+                    state["players"][player]["up"].as_array().unwrap()
+                } else {
+                    hand
+                };
+                candidates
+                    .iter()
+                    .copied()
+                    .filter(|a| a["action"]["type"] == "play")
+                    .min_by_key(|a| {
+                        let indices = a["action"]["indices"].as_array().unwrap();
+                        let rank = source[indices[0].as_u64().unwrap() as usize]["rank"]
+                            .as_u64()
+                            .unwrap();
+                        (
+                            match rank {
+                                2 => 15,
+                                10 => 16,
+                                rank => rank,
+                            },
+                            std::cmp::Reverse(indices.len()),
+                        )
+                    })
+                    .unwrap_or(candidates[rng.gen_range(0..candidates.len())])
+            } else {
+                candidates[rng.gen_range(0..candidates.len())]
+            };
             let socket = if player == 0 { &mut host } else { &mut guest };
             send(
                 socket,
@@ -299,30 +325,68 @@ async fn four_games_over_real_websockets_persist_and_export_replays() {
         let fresh = snapshot(&mut host, revision + 1).await;
         assert!(fresh["outcome"].is_null());
         assert_eq!(fresh["replays"].as_array().unwrap().len(), 1);
-        memberships.push(alice);
     }
+}
+
+#[tokio::test]
+async fn game_and_room_tokens_survive_restart() {
+    let directory = tempfile::tempdir().unwrap();
+    let database = format!("sqlite://{}", directory.path().join("restart.db").display());
+    let server = Server::open(&database).await;
+    let member = server.member("skyjo").await;
+    let path = format!("/api/rooms/{}", member.code);
+    server
+        .request(
+            "POST",
+            &format!("{path}/join"),
+            json!({"nickname":"Bob"}),
+            None,
+        )
+        .await;
+    let mut socket = server.socket(&member).await;
+    snapshot(&mut socket, 2).await;
+    send(&mut socket, json!({"type":"start", "revision":2})).await;
+    snapshot(&mut socket, 3).await;
+    send(&mut socket, json!({"type":"move", "revision":3, "action":{"game":"skyjo", "action":{"type":"reveal", "index":0}}})).await;
+    let expected = snapshot(&mut socket, 4).await;
+    socket.close(None).await.unwrap();
+    drop(socket);
     drop(server);
     let restarted = Server::open(&database).await;
-    for member in memberships {
-        let (status, room) = restarted
-            .request(
-                "GET",
-                &format!("/api/rooms/{}", member.code),
-                Value::Null,
-                Some(&member.token),
-            )
-            .await;
-        assert_eq!(status, StatusCode::OK);
-        assert!(!room["view"].is_null());
-        let mut socket = restarted.socket(&member).await;
-        let live = snapshot(&mut socket, room["revision"].as_u64().unwrap()).await;
-        assert_eq!(live, room);
-    }
+    let (status, room) = restarted
+        .request("GET", &path, Value::Null, Some(&member.token))
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(room, expected);
+    let mut socket = restarted.socket(&member).await;
+    assert_eq!(snapshot(&mut socket, 4).await, expected);
 }
 
 #[test]
 fn openapi_has_distinct_game_schemas() {
     let spec = serde_json::to_value(api::openapi()).unwrap();
+    fn check_refs(value: &Value, spec: &Value) {
+        match value {
+            Value::Object(object) => {
+                if let Some(reference) = object.get("$ref").and_then(Value::as_str) {
+                    assert!(
+                        spec.pointer(reference.strip_prefix('#').unwrap()).is_some(),
+                        "missing {reference}"
+                    );
+                }
+                for child in object.values() {
+                    check_refs(child, spec);
+                }
+            }
+            Value::Array(array) => {
+                for child in array {
+                    check_refs(child, spec);
+                }
+            }
+            _ => {}
+        }
+    }
+    check_refs(&spec, &spec);
     for name in [
         "MancalaAction",
         "CrazyEightsAction",
