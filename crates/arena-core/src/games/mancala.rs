@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[schema(as = MancalaAction)]
 pub struct Action {
     pub pit: usize,
 }
@@ -15,6 +16,7 @@ pub struct Mancala {
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
+#[schema(as = MancalaView)]
 pub struct View {
     pub board: [u16; 14],
 }

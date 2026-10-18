@@ -16,6 +16,7 @@ pub enum Source {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[schema(as = SkyjoAction)]
 pub enum Action {
     Reveal { index: usize },
     Draw { source: Source },
@@ -58,6 +59,7 @@ pub struct CellView {
     pub removed: bool,
 }
 #[derive(Debug, Clone, Serialize, ToSchema)]
+#[schema(as = SkyjoView)]
 pub struct View {
     pub grids: Vec<Vec<CellView>>,
     pub top: Option<i8>,
@@ -71,18 +73,17 @@ impl Skyjo {
     fn eliminate(&mut self, player: Player, events: &mut Vec<Event>) {
         for column in 0..4 {
             let indices = [column, column + 4, column + 8];
-            if let Some(first) = self.grids[player][column] {
-                if first.revealed
-                    && indices.iter().all(|&i| {
-                        self.grids[player][i].is_some_and(|c| c.revealed && c.value == first.value)
-                    })
-                {
-                    for i in indices {
-                        self.discard
-                            .push(self.grids[player][i].take().unwrap().value);
-                    }
-                    events.push(Event::ColumnRemoved { player, column });
+            if let Some(first) = self.grids[player][column]
+                && first.revealed
+                && indices.iter().all(|&i| {
+                    self.grids[player][i].is_some_and(|c| c.revealed && c.value == first.value)
+                })
+            {
+                for i in indices {
+                    self.discard
+                        .push(self.grids[player][i].take().unwrap().value);
                 }
+                events.push(Event::ColumnRemoved { player, column });
             }
         }
     }

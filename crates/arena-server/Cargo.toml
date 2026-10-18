@@ -11,3 +11,17 @@ serde_json.workspace = true
 rand.workspace = true
 thiserror.workspace = true
 utoipa.workspace = true
+axum = { version = "0.8", features = ["ws"] }
+tokio = { version = "1", features = ["full"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite", "migrate", "macros"] }
+uuid = { version = "1", features = ["v4"] }
+sha2 = "0.10"
+futures-util = "0.3"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tower-http = { version = "0.6", features = ["trace", "fs"] }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+tokio-tungstenite = "0.29"
+tempfile = "3"

@@ -9,6 +9,7 @@ use utoipa::ToSchema;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[schema(as = ShitheadAction)]
 pub enum Action {
     Play { indices: Vec<usize> },
     Blind { index: usize },
@@ -34,12 +35,14 @@ pub struct Shithead {
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
+#[schema(as = ShitheadPlayerView)]
 pub struct PlayerView {
     pub count: usize,
     pub up: Vec<Card>,
     pub down: usize,
 }
 #[derive(Debug, Clone, Serialize, ToSchema)]
+#[schema(as = ShitheadView)]
 pub struct View {
     pub hand: Vec<Card>,
     pub players: Vec<PlayerView>,
