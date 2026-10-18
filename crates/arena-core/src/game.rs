@@ -53,24 +53,35 @@ pub enum Event {
     Finished { outcome: Outcome },
 }
 
+pub trait GameEvent: Clone + PartialEq + Serialize + DeserializeOwned {
+    fn finished(outcome: Outcome) -> Self;
+}
+
+impl GameEvent for Event {
+    fn finished(outcome: Outcome) -> Self {
+        Self::Finished { outcome }
+    }
+}
+
 /// A deterministic ruleset. No transport, identity, persistence, or clock dependencies.
 /// `advance` receives a legal action; callers normally use `Session::act`.
 pub trait Game: Clone {
     type Action: Clone + PartialEq + Serialize + DeserializeOwned;
+    type Event: GameEvent;
     type View: Serialize;
     fn new(players: usize, seed: Seed) -> Result<Self, Error>;
     fn turn(&self) -> Turn;
     fn outcome(&self) -> Option<Outcome>;
     fn legal_actions(&self) -> Vec<Self::Action>;
-    fn advance(&mut self, action: &Self::Action) -> Vec<Event>;
+    fn advance(&mut self, action: &Self::Action) -> Vec<Self::Event>;
     fn view(&self, viewer: Player) -> Self::View;
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
-pub struct Record<A> {
+pub struct Record<A, E> {
     pub player: Player,
     pub action: A,
-    pub events: Vec<Event>,
+    pub events: Vec<E>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,8 +89,8 @@ pub struct Session<G: Game> {
     pub(crate) state: G,
     pub(crate) seed: Seed,
     pub(crate) players: usize,
-    #[serde(bound(deserialize = "G::Action: DeserializeOwned"))]
-    pub(crate) records: Vec<Record<G::Action>>,
+    #[serde(bound(deserialize = "G::Action: DeserializeOwned, G::Event: DeserializeOwned"))]
+    pub(crate) records: Vec<Record<G::Action, G::Event>>,
 }
 
 impl<G: Game> Session<G> {
@@ -94,10 +105,14 @@ impl<G: Game> Session<G> {
     pub fn state(&self) -> &G {
         &self.state
     }
-    pub fn records(&self) -> &[Record<G::Action>] {
+    pub fn records(&self) -> &[Record<G::Action, G::Event>] {
         &self.records
     }
-    pub fn act(&mut self, player: Player, action: G::Action) -> Result<&Record<G::Action>, Error> {
+    pub fn act(
+        &mut self,
+        player: Player,
+        action: G::Action,
+    ) -> Result<&Record<G::Action, G::Event>, Error> {
         if self.state.outcome().is_some() {
             return Err(Error::Finished);
         }
@@ -109,7 +124,7 @@ impl<G: Game> Session<G> {
         }
         let mut events = self.state.advance(&action);
         if let Some(outcome) = self.state.outcome() {
-            events.push(Event::Finished { outcome });
+            events.push(G::Event::finished(outcome));
         }
         self.records.push(Record {
             player,

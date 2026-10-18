@@ -184,33 +184,6 @@ export interface components {
     ErrorBody: {
       error: string;
     };
-    Event:
-      | {
-          player: components['schemas']['usize'];
-          /** @enum {string} */
-          type: 'played';
-        }
-      | {
-          count: number;
-          player: components['schemas']['usize'];
-          /** @enum {string} */
-          type: 'captured';
-        }
-      | {
-          /** @enum {string} */
-          type: 'burned';
-        }
-      | {
-          column: number;
-          player: components['schemas']['usize'];
-          /** @enum {string} */
-          type: 'column_removed';
-        }
-      | {
-          outcome: components['schemas']['Outcome'];
-          /** @enum {string} */
-          type: 'finished';
-        };
     /** @enum {string} */
     GameKind: 'mancala' | 'crazy_eights' | 'shithead' | 'skyjo';
     JoinRoom: {
@@ -237,7 +210,7 @@ export interface components {
     PlayerView: {
       nickname: string;
     };
-    Record_Action: {
+    Record_Action_Event: {
       action:
         | {
             action: components['schemas']['MancalaAction'];
@@ -259,14 +232,41 @@ export interface components {
             /** @enum {string} */
             game: 'skyjo';
           };
-      events: components['schemas']['Event'][];
+      events: (
+        | {
+            player: components['schemas']['usize'];
+            /** @enum {string} */
+            type: 'played';
+          }
+        | {
+            count: number;
+            player: components['schemas']['usize'];
+            /** @enum {string} */
+            type: 'captured';
+          }
+        | {
+            /** @enum {string} */
+            type: 'burned';
+          }
+        | {
+            column: number;
+            player: components['schemas']['usize'];
+            /** @enum {string} */
+            type: 'column_removed';
+          }
+        | {
+            outcome: components['schemas']['Outcome'];
+            /** @enum {string} */
+            type: 'finished';
+          }
+      )[];
       player: components['schemas']['usize'];
     };
     /** @description Includes hidden information; only share after the game has ended. */
     Replay: {
       game: components['schemas']['GameKind'];
       players: number;
-      records: components['schemas']['Record_Action'][];
+      records: components['schemas']['Record_Action_Event'][];
       seed: number[];
       /** Format: int32 */
       version: number;

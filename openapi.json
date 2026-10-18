@@ -559,106 +559,6 @@
           }
         }
       },
-      "Event": {
-        "oneOf": [
-          {
-            "type": "object",
-            "required": [
-              "player",
-              "type"
-            ],
-            "properties": {
-              "player": {
-                "$ref": "#/components/schemas/usize"
-              },
-              "type": {
-                "type": "string",
-                "enum": [
-                  "played"
-                ]
-              }
-            }
-          },
-          {
-            "type": "object",
-            "required": [
-              "player",
-              "count",
-              "type"
-            ],
-            "properties": {
-              "count": {
-                "type": "integer",
-                "minimum": 0
-              },
-              "player": {
-                "$ref": "#/components/schemas/usize"
-              },
-              "type": {
-                "type": "string",
-                "enum": [
-                  "captured"
-                ]
-              }
-            }
-          },
-          {
-            "type": "object",
-            "required": [
-              "type"
-            ],
-            "properties": {
-              "type": {
-                "type": "string",
-                "enum": [
-                  "burned"
-                ]
-              }
-            }
-          },
-          {
-            "type": "object",
-            "required": [
-              "player",
-              "column",
-              "type"
-            ],
-            "properties": {
-              "column": {
-                "type": "integer",
-                "minimum": 0
-              },
-              "player": {
-                "$ref": "#/components/schemas/usize"
-              },
-              "type": {
-                "type": "string",
-                "enum": [
-                  "column_removed"
-                ]
-              }
-            }
-          },
-          {
-            "type": "object",
-            "required": [
-              "outcome",
-              "type"
-            ],
-            "properties": {
-              "outcome": {
-                "$ref": "#/components/schemas/Outcome"
-              },
-              "type": {
-                "type": "string",
-                "enum": [
-                  "finished"
-                ]
-              }
-            }
-          }
-        ]
-      },
       "GameKind": {
         "type": "string",
         "enum": [
@@ -773,7 +673,7 @@
           }
         }
       },
-      "Record_Action": {
+      "Record_Action_Event": {
         "type": "object",
         "required": [
           "player",
@@ -860,7 +760,104 @@
           "events": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/Event"
+              "oneOf": [
+                {
+                  "type": "object",
+                  "required": [
+                    "player",
+                    "type"
+                  ],
+                  "properties": {
+                    "player": {
+                      "$ref": "#/components/schemas/usize"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "played"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "player",
+                    "count",
+                    "type"
+                  ],
+                  "properties": {
+                    "count": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "player": {
+                      "$ref": "#/components/schemas/usize"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "captured"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "type"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "burned"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "player",
+                    "column",
+                    "type"
+                  ],
+                  "properties": {
+                    "column": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "player": {
+                      "$ref": "#/components/schemas/usize"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "column_removed"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "outcome",
+                    "type"
+                  ],
+                  "properties": {
+                    "outcome": {
+                      "$ref": "#/components/schemas/Outcome"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "finished"
+                      ]
+                    }
+                  }
+                }
+              ]
             }
           },
           "player": {
@@ -889,7 +886,7 @@
           "records": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/Record_Action"
+              "$ref": "#/components/schemas/Record_Action_Event"
             }
           },
           "seed": {

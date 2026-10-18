@@ -1,5 +1,5 @@
 use crate::{
-    game::{Error, Game, Outcome, Player, Record, Seed, Session, Turn},
+    game::{Error, Event, Game, Outcome, Player, Record, Seed, Session, Turn},
     games::{crazy_eights, mancala, shithead, skyjo},
 };
 use serde::{Deserialize, Serialize};
@@ -173,8 +173,8 @@ impl Match {
     }
 }
 
-impl<A: Clone> Record<A> {
-    fn map_action<B>(&self, f: impl FnOnce(A) -> B) -> Record<B> {
+impl<A: Clone, E: Clone> Record<A, E> {
+    fn map_action<B>(&self, f: impl FnOnce(A) -> B) -> Record<B, E> {
         Record {
             player: self.player,
             action: f(self.action.clone()),
@@ -191,7 +191,7 @@ pub struct Replay {
     pub players: usize,
     #[schema(value_type = Vec<u8>, min_items = 32, max_items = 32)]
     pub seed: Seed,
-    pub records: Vec<Record<Action>>,
+    pub records: Vec<Record<Action, Event>>,
 }
 
 impl Replay {

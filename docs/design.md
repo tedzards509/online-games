@@ -14,6 +14,8 @@ Ported ideas, not source: deterministic setup, typed actions/events, per-player 
 
 `arena-core` owns rules, random state, turn order, legal actions, observations, and replay validation. `Game` can be used directly for simulations; `Session` validates before mutation and records accepted actions and resulting events. It keeps one current state, not a state copy per event. `Deck<C>` is independent of the standard playing card type; Skyjo uses numeric cards, and Mancala uses neither.
 
+Actions, events, and observations are associated types of `Game`. The included games share an `Event` enum, but another ruleset can provide its own `GameEvent` and still use `Session` and `Record<A, E>`.
+
 `arena-server` owns anonymous identities, rooms, persistence, and transport. Private engine state is persisted but never sent as a live observation. Replays include the seed and therefore reveal every card; downloads are restricted to finished games and room members.
 
 Replay format version 1 fixes the initial rules and RNG/dealing behavior. Rules or RNG changes that alter historical results need a new replay version, not silent reinterpretation of existing files.

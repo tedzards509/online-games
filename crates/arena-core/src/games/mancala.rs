@@ -23,6 +23,7 @@ pub struct View {
 
 impl Game for Mancala {
     type Action = Action;
+    type Event = Event;
     type View = View;
     fn new(players: usize, _: Seed) -> Result<Self, Error> {
         if players != 2 {
