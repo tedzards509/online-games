@@ -97,8 +97,49 @@ fn all_games_finish_and_replay_exactly() {
             let replay = game.replay();
             let restored = replay.simulate().unwrap();
             assert_eq!(
-                serde_json::to_value(game).unwrap(),
+                serde_json::to_value(&game).unwrap(),
                 serde_json::to_value(restored).unwrap()
+            );
+            let before = serde_json::to_value(&game).unwrap();
+            assert!(
+                game.act(game.turn().player, replay.records[0].action.clone())
+                    .is_err()
+            );
+            assert_eq!(serde_json::to_value(game).unwrap(), before);
+            let mut altered = replay.clone();
+            altered.records[0].events.clear();
+            assert!(altered.simulate().is_err());
+        }
+    }
+}
+
+#[test]
+fn every_supported_player_count_completes_and_invalid_counts_are_rejected() {
+    for kind in [
+        GameKind::Mancala,
+        GameKind::CrazyEights,
+        GameKind::Shithead,
+        GameKind::Skyjo,
+    ] {
+        for count in [0, 1, kind.max_players() + 1, usize::MAX] {
+            assert!(Match::new(kind, count, [0; 32]).is_err());
+        }
+        for count in 2..=kind.max_players() {
+            let mut game = Match::new(kind, count, [count as u8; 32]).unwrap();
+            let mut rng = ChaCha12Rng::from_seed([count as u8; 32]);
+            for _ in 0..20000 {
+                if game.outcome().is_some() {
+                    break;
+                }
+                let player = game.turn().player;
+                let actions = game.legal_actions(player);
+                assert!(!actions.is_empty(), "{kind:?} with {count} players stalled");
+                game.act(player, actions[rng.gen_range(0..actions.len())].clone())
+                    .unwrap();
+            }
+            assert!(
+                game.outcome().is_some(),
+                "{kind:?} with {count} players did not finish"
             );
         }
     }

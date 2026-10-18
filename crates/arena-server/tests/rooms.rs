@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 use std::time::Duration;
 use tokio::{net::TcpStream, task::JoinHandle, time::timeout};
 use tokio_tungstenite::{
-    MaybeTlsStream, WebSocketStream, connect_async,
+    MaybeTlsStream, WebSocketStream, connect_async, connect_async_with_config,
     tungstenite::{Message, client::IntoClientRequest},
 };
 use tower::ServiceExt;
@@ -86,10 +86,11 @@ impl Server {
         serde_json::from_value(value).unwrap()
     }
     async fn socket(&self, member: &Membership) -> Socket {
-        let (mut socket, _) = connect_async(format!(
-            "ws://{}/api/rooms/{}/ws",
-            self.address, member.code
-        ))
+        let (mut socket, _) = connect_async_with_config(
+            format!("ws://{}/api/rooms/{}/ws", self.address, member.code),
+            None,
+            true,
+        )
         .await
         .unwrap();
         send(
@@ -202,7 +203,7 @@ async fn four_games_over_real_websockets_persist_and_export_replays() {
     let database = format!("sqlite://{}", directory.path().join("test.db").display());
     let server = Server::open(&database).await;
     let mut memberships = vec![];
-    let mut rng = rand_chacha_for_test();
+    let mut rng = rand::rngs::StdRng::seed_from_u64(7);
     for kind in ["mancala", "crazy_eights", "shithead", "skyjo"] {
         let alice = server.member(kind).await;
         let mut host = server.socket(&alice).await;
@@ -247,7 +248,22 @@ async fn four_games_over_real_websockets_persist_and_export_replays() {
             let player = views[0]["turn"]["player"].as_u64().unwrap() as usize;
             let revision = views[0]["revision"].as_u64().unwrap();
             let actions = views[player]["legal_actions"].as_array().unwrap();
-            let action = &actions[rng.gen_range(0..actions.len())];
+            // Make progress rather than voluntarily cycling pickups or replacing revealed cards.
+            let candidates: Vec<_> = actions
+                .iter()
+                .filter(|a| {
+                    if kind == "shithead" && actions.len() > 1 {
+                        return a["action"]["type"] != "pickup";
+                    }
+                    if kind == "skyjo" && a["action"]["type"] == "replace" {
+                        let index = a["action"]["index"].as_u64().unwrap() as usize;
+                        return views[player]["view"]["state"]["grids"][player][index]["value"]
+                            .is_null();
+                    }
+                    true
+                })
+                .collect();
+            let action = candidates[rng.gen_range(0..candidates.len())];
             let socket = if player == 0 { &mut host } else { &mut guest };
             send(
                 socket,
@@ -304,10 +320,6 @@ async fn four_games_over_real_websockets_persist_and_export_replays() {
     }
 }
 
-fn rand_chacha_for_test() -> rand::rngs::StdRng {
-    rand::rngs::StdRng::seed_from_u64(7)
-}
-
 #[test]
 fn openapi_has_distinct_game_schemas() {
     let spec = serde_json::to_value(api::openapi()).unwrap();
@@ -326,4 +338,64 @@ fn openapi_has_distinct_game_schemas() {
             "missing {name}"
         );
     }
+}
+
+#[tokio::test]
+async fn failed_persistence_and_duplicate_commands_do_not_advance_the_room() {
+    use sqlx::Connection;
+    let directory = tempfile::tempdir().unwrap();
+    let database = format!("sqlite://{}", directory.path().join("atomic.db").display());
+    let server = Server::open(&database).await;
+    let alice = server.member("mancala").await;
+    let path = format!("/api/rooms/{}", alice.code);
+    let (_, bob) = server
+        .request(
+            "POST",
+            &format!("{path}/join"),
+            json!({"nickname":"Bob"}),
+            None,
+        )
+        .await;
+    let bob: Membership = serde_json::from_value(bob).unwrap();
+    let mut host = server.socket(&alice).await;
+    let mut guest = server.socket(&bob).await;
+    snapshot(&mut host, 2).await;
+    snapshot(&mut guest, 2).await;
+    send(&mut host, json!({"type":"start", "revision":2})).await;
+    let initial = snapshot(&mut host, 3).await;
+    snapshot(&mut guest, 3).await;
+    let command = json!({"type":"move", "revision":3, "action": initial["legal_actions"][0]});
+
+    send(&mut guest, command.clone()).await;
+    assert_eq!(receive(&mut guest).await["error"], "Not your turn");
+    snapshot(&mut guest, 3).await;
+
+    let mut database = sqlx::SqliteConnection::connect(&database).await.unwrap();
+    sqlx::query("CREATE TRIGGER fail_update BEFORE UPDATE ON rooms BEGIN SELECT RAISE(ABORT, 'test write failure'); END;").execute(&mut database).await.unwrap();
+    send(&mut host, command.clone()).await;
+    assert_eq!(receive(&mut host).await["error"], "Storage error");
+    assert_eq!(snapshot(&mut host, 3).await, initial);
+    let (_, persisted) = server
+        .request("GET", &path, Value::Null, Some(&alice.token))
+        .await;
+    assert_eq!(persisted, initial);
+    let (data,): (String,) = sqlx::query_as("SELECT data FROM rooms WHERE code = ?")
+        .bind(&alice.code)
+        .fetch_one(&mut database)
+        .await
+        .unwrap();
+    assert_eq!(serde_json::from_str::<Value>(&data).unwrap()["revision"], 3);
+    sqlx::query("DROP TRIGGER fail_update")
+        .execute(&mut database)
+        .await
+        .unwrap();
+
+    send(&mut host, command.clone()).await;
+    snapshot(&mut host, 4).await;
+    snapshot(&mut guest, 4).await;
+    send(&mut host, command).await;
+    assert_eq!(receive(&mut host).await["error"], "Room changed; try again");
+    let unchanged = snapshot(&mut host, 4).await;
+    assert_eq!(unchanged["revision"], 4);
+    assert_eq!(unchanged["view"]["state"]["board"][0], 0);
 }

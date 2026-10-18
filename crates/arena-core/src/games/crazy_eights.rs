@@ -15,6 +15,56 @@ pub enum Action {
     Draw,
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn card(rank: u8, suit: Suit) -> Card {
+        Card { rank, suit }
+    }
+
+    #[test]
+    fn eight_changes_suit_and_other_special_ranks_do_not() {
+        let mut game = CrazyEights::new(2, [0; 32]).unwrap();
+        game.hands[0] = vec![card(8, Suit::Clubs), card(3, Suit::Clubs)];
+        game.discard = vec![card(14, Suit::Hearts)];
+        game.suit = Suit::Hearts;
+        assert_eq!(game.legal_actions().len(), 4);
+        game.advance(&Action::Play {
+            index: 0,
+            suit: Some(Suit::Diamonds),
+        });
+        assert_eq!(game.suit, Suit::Diamonds);
+        game.hands[1] = vec![card(2, Suit::Diamonds), card(11, Suit::Spades)];
+        assert_eq!(
+            game.legal_actions(),
+            vec![Action::Play {
+                index: 0,
+                suit: None
+            }]
+        );
+        game.advance(&Action::Play {
+            index: 0,
+            suit: None,
+        });
+        assert_eq!(game.turn.player, 0);
+    }
+
+    #[test]
+    fn exhausted_stock_passes_until_everyone_is_blocked() {
+        let mut game = CrazyEights::new(2, [0; 32]).unwrap();
+        game.deck = Deck::new(vec![]);
+        game.discard = vec![card(3, Suit::Hearts)];
+        game.suit = Suit::Hearts;
+        game.hands = vec![vec![card(4, Suit::Clubs)], vec![card(5, Suit::Spades)]];
+        assert_eq!(game.legal_actions(), vec![Action::Draw]);
+        game.advance(&Action::Draw);
+        assert!(game.outcome.is_none());
+        game.advance(&Action::Draw);
+        assert!(game.outcome.unwrap().winners.is_empty());
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CrazyEights {
     hands: Vec<Vec<Card>>,

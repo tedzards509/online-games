@@ -118,6 +118,12 @@ test('narrow viewport has no horizontal overflow', async ({ page }) => {
   await expect(
     page.getByRole('heading', { name: 'Mancala', exact: true }),
   ).toBeVisible();
+  const code = new URL(page.url()).pathname.split('/').pop();
+  await page.request.post(`/api/rooms/${code}/join`, {
+    data: { nickname: 'Bob' },
+  });
+  await page.getByRole('button', { name: 'Start game' }).click();
+  await expect(page.getByLabel('Mancala board')).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,

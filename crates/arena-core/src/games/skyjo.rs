@@ -14,6 +14,87 @@ pub enum Source {
     Discard,
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn cell(value: i8, revealed: bool) -> Option<Cell> {
+        Some(Cell { value, revealed })
+    }
+
+    #[test]
+    fn distribution_has_150_cards() {
+        let game = Skyjo::new(8, [0; 32]).unwrap();
+        let mut values = vec![];
+        let mut deck = game.deck.clone();
+        while let Some(value) = deck.draw() {
+            values.push(value);
+        }
+        values.extend(game.discard);
+        values.extend(game.grids.into_iter().flatten().flatten().map(|c| c.value));
+        assert_eq!(values.len(), 150);
+        assert_eq!(values.iter().filter(|&&v| v == -2).count(), 5);
+        assert_eq!(values.iter().filter(|&&v| v == 0).count(), 15);
+        for value in -1..=12 {
+            if value != 0 {
+                assert_eq!(values.iter().filter(|&&v| v == value).count(), 10);
+            }
+        }
+    }
+
+    #[test]
+    fn stock_card_is_private_and_discard_must_be_replaced() {
+        let mut game = Skyjo::new(2, [0; 32]).unwrap();
+        game.phase = Phase::Draw;
+        game.advance(&Action::Draw {
+            source: Source::Stock,
+        });
+        assert!(game.view(0).pending.is_some());
+        assert!(game.view(1).pending.is_none());
+        assert!(game.legal_actions().contains(&Action::Discard));
+        game.advance(&Action::Discard);
+        assert_eq!(game.phase, Phase::Reveal);
+        assert!(
+            game.legal_actions()
+                .iter()
+                .all(|a| matches!(a, Action::Reveal { .. }))
+        );
+        game.advance(&Action::Reveal { index: 0 });
+        game.advance(&Action::Draw {
+            source: Source::Discard,
+        });
+        assert!(!game.legal_actions().contains(&Action::Discard));
+    }
+
+    #[test]
+    fn matching_columns_are_removed_and_final_turn_scores_double_on_tie() {
+        let mut game = Skyjo::new(2, [0; 32]).unwrap();
+        game.grids = vec![vec![None; 12]; 2];
+        for i in [0, 4, 8] {
+            game.grids[0][i] = cell(7, true);
+        }
+        game.grids[0][1] = cell(5, true);
+        game.grids[1][1] = cell(5, false);
+        let mut events = vec![];
+        game.end_turn(&mut events);
+        assert!(events.contains(&Event::ColumnRemoved {
+            player: 0,
+            column: 0
+        }));
+        assert_eq!(game.finisher, Some(0));
+        assert!(game.outcome.is_none());
+        game.grids[1][1].as_mut().unwrap().revealed = true;
+        game.end_turn(&mut events);
+        assert_eq!(
+            game.outcome.unwrap(),
+            Outcome {
+                winners: vec![1],
+                scores: Some(vec![10, 5])
+            }
+        );
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 #[schema(as = SkyjoAction)]

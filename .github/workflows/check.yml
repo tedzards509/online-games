@@ -1,0 +1,30 @@
+name: Check
+on: [push, pull_request]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo test --workspace --locked
+      - run: npm --prefix frontend ci
+      - run: cargo run -q -p arena-server -- --openapi > openapi.json
+      - run: npm --prefix frontend run api:generate
+      - run: git diff --exit-code -- openapi.json frontend/src/lib/api.generated.ts
+      - run: npm --prefix frontend run check
+      - run: npm --prefix frontend run build
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: npm test
+        working-directory: frontend

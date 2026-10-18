@@ -16,6 +16,86 @@ pub enum Action {
     Pickup,
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Session, cards::Suit};
+
+    fn card(rank: u8) -> Card {
+        Card {
+            rank,
+            suit: Suit::Clubs,
+        }
+    }
+
+    #[test]
+    fn reset_burn_and_four_of_a_kind() {
+        let mut game = Shithead::new(2, [0; 32]).unwrap();
+        game.pile = vec![card(14)];
+        assert!(game.playable(card(2)));
+        assert!(game.playable(card(10)));
+        assert!(!game.playable(card(13)));
+        game.pile.push(card(2));
+        assert!(game.playable(card(3)));
+        game.players[0].hand = vec![card(10)];
+        let events = game.advance(&Action::Play { indices: vec![0] });
+        assert!(events.contains(&Event::Burned));
+        assert!(game.pile.is_empty());
+        assert_eq!(game.turn.player, 0);
+        game.pile = vec![card(7), card(7)];
+        game.players[0].hand = vec![card(7), card(7)];
+        game.advance(&Action::Play {
+            indices: vec![0, 1],
+        });
+        assert!(game.pile.is_empty());
+        assert_eq!(game.turn.player, 0);
+    }
+
+    #[test]
+    fn blind_failure_picks_up_without_exposing_other_down_cards() {
+        let mut game = Shithead::new(2, [0; 32]).unwrap();
+        game.deck = Deck::new(vec![]);
+        game.pile = vec![card(14)];
+        game.players[0] = Cards {
+            hand: vec![],
+            up: vec![],
+            down: vec![card(3), card(4)],
+        };
+        assert!(game.legal_actions().contains(&Action::Blind { index: 0 }));
+        game.advance(&Action::Blind { index: 0 });
+        assert_eq!(game.players[0].hand, vec![card(14), card(3)]);
+        assert_eq!(game.view(1).players[0].down, 1);
+        assert_eq!(game.turn.player, 1);
+    }
+
+    #[test]
+    fn repeated_or_unsorted_indices_are_rejected() {
+        let mut game = Session::<Shithead>::new(2, [0; 32]).unwrap();
+        let before = serde_json::to_value(&game).unwrap();
+        assert_eq!(
+            game.act(
+                0,
+                Action::Play {
+                    indices: vec![0, 0]
+                }
+            )
+            .unwrap_err(),
+            Error::IllegalMove
+        );
+        assert_eq!(
+            game.act(
+                0,
+                Action::Play {
+                    indices: vec![1, 0]
+                }
+            )
+            .unwrap_err(),
+            Error::IllegalMove
+        );
+        assert_eq!(serde_json::to_value(game).unwrap(), before);
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Cards {
     hand: Vec<Card>,
