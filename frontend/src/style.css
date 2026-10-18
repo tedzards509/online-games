@@ -1,0 +1,314 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #222923;
+  background: #f6f5f1;
+  font-synthesis: none;
+  line-height: 1.5;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+main {
+  max-width: 960px;
+  margin: auto;
+  padding: 24px;
+}
+header,
+.room-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+header {
+  margin-bottom: 48px;
+}
+a {
+  color: inherit;
+}
+.brand {
+  text-decoration: none;
+  font-weight: 650;
+}
+h1 {
+  font-size: 1.6rem;
+  font-weight: 600;
+  margin: 0 0 24px;
+}
+h2 {
+  font-size: 1.2rem;
+}
+h3 {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+  border: 1px solid #b6bcb6;
+  border-radius: 6px;
+  padding: 10px 16px;
+  background: #fff;
+}
+button {
+  cursor: pointer;
+}
+button:hover:not(:disabled) {
+  border-color: #315b42;
+  background: #edf2eb;
+}
+button:disabled {
+  cursor: default;
+}
+button:disabled:not(.card):not(.number-card):not(.pit) {
+  opacity: 0.45;
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+a:focus-visible,
+summary:focus-visible {
+  outline: 3px solid #437c5b;
+  outline-offset: 3px;
+}
+button.primary {
+  background: #315b42;
+  color: white;
+  border-color: #315b42;
+}
+button.primary:hover:not(:disabled) {
+  background: #244632;
+}
+button.quiet {
+  background: transparent;
+  border-color: transparent;
+}
+label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+input,
+select {
+  width: 100%;
+  min-width: 0;
+}
+.entry {
+  width: min(100%, 360px);
+  margin: 0 auto;
+}
+.entry form {
+  display: grid;
+  gap: 16px;
+  margin-top: 24px;
+}
+.divider {
+  border-top: 1px solid #d7dad3;
+  margin-top: 32px;
+}
+.code-input {
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+.recent {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 32px;
+  font-family: monospace;
+}
+.muted {
+  color: #646c64;
+  font-size: 0.9rem;
+}
+.error {
+  color: #922f25;
+  background: #fbece7;
+  padding: 12px 16px;
+  border-radius: 6px;
+}
+.players {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px;
+}
+.players li {
+  padding: 5px 10px;
+  border: 1px solid #d5d9d1;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+.players li.active {
+  border-color: #315b42;
+  background: #e8eee3;
+}
+.turn {
+  font-weight: 550;
+}
+.table-center,
+.actions,
+.hand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 24px 0;
+}
+.card,
+.empty-card {
+  width: 64px;
+  height: 90px;
+  padding: 8px;
+  font-size: 1.2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.card {
+  border: 1px solid #a7afa4;
+}
+.card.red {
+  color: #b33432;
+}
+.card.back,
+.number-card.back {
+  background: #e0e6de;
+  color: #5c6b5b;
+}
+.card.selected {
+  border: 2px solid #315b42;
+  transform: translateY(-6px);
+}
+.card:disabled {
+  background: #f3f3ee;
+}
+.hand:has(button:not(:disabled)) .card:disabled {
+  opacity: 0.5;
+}
+.small .card {
+  width: 40px;
+  height: 56px;
+  padding: 3px;
+  font-size: 0.9rem;
+}
+.opponents {
+  display: flex;
+  justify-content: space-around;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+}
+.player-cards {
+  text-align: center;
+}
+.mancala {
+  display: flex;
+  gap: 12px;
+  padding: 24px 16px;
+  margin: 32px 0;
+  align-items: stretch;
+  border: 1px solid #cbd0c5;
+  border-radius: 40px;
+  background: #eceee5;
+}
+.store {
+  display: grid;
+  place-items: center;
+  width: 50px;
+  border: 1px solid #c1c9ba;
+  border-radius: 30px;
+  font-size: 1.4rem;
+}
+.pits {
+  flex: 1;
+  display: grid;
+  gap: 16px;
+}
+.pit-row {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+.pit {
+  border-radius: 50%;
+  padding: 16px 0;
+  min-width: 0;
+  background: #f5f5ef;
+}
+.pit:not(:disabled) {
+  border: 2px solid #315b42;
+}
+.skyjo-tables {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 24px 48px;
+}
+.skyjo-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 48px);
+  gap: 6px;
+}
+.number-card {
+  width: 48px;
+  height: 66px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  background: white;
+  border: 1px solid #a7afa4;
+  border-radius: 5px;
+  font-size: 1.1rem;
+}
+.number-card.removed {
+  visibility: hidden;
+}
+.number-card.pending {
+  border: 2px solid #315b42;
+}
+.number-card:not(:disabled):is(button) {
+  border-color: #315b42;
+}
+.replays {
+  margin-top: 48px;
+  font-size: 0.9rem;
+}
+summary {
+  cursor: pointer;
+}
+@media (max-width: 600px) {
+  main {
+    padding: 16px;
+  }
+  header {
+    margin-bottom: 32px;
+  }
+  .mancala {
+    gap: 6px;
+    padding: 20px 8px;
+  }
+  .pit-row {
+    gap: 4px;
+  }
+  .store {
+    width: 32px;
+    font-size: 1rem;
+  }
+  .pit {
+    padding: 12px 0;
+  }
+  .card {
+    width: 52px;
+    height: 74px;
+  }
+}
