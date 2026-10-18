@@ -1,3 +1,5 @@
+//! Cross-ruleset checks for decks, legal actions, private views, and replays.
+
 use arena_core::{
     Action, GameKind, Match,
     cards::{Deck, standard_deck},
@@ -54,6 +56,7 @@ fn all_games_finish_and_replay_exactly() {
         GameKind::CrazyEights,
         GameKind::Shithead,
         GameKind::Skyjo,
+        GameKind::TicTacToe,
     ] {
         for seed in 0..8 {
             let mut game = Match::new(kind, 2, [seed; 32]).unwrap();
@@ -120,6 +123,7 @@ fn every_supported_player_count_completes_and_invalid_counts_are_rejected() {
         GameKind::CrazyEights,
         GameKind::Shithead,
         GameKind::Skyjo,
+        GameKind::TicTacToe,
     ] {
         for count in [0, 1, kind.max_players() + 1, usize::MAX] {
             assert!(Match::new(kind, count, [0; 32]).is_err());

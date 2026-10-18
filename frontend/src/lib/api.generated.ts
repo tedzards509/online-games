@@ -104,6 +104,7 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** @description A command tagged with the ruleset that understands it. */
     Action:
       | {
           action: components['schemas']['MancalaAction'];
@@ -124,11 +125,20 @@ export interface components {
           action: components['schemas']['SkyjoAction'];
           /** @enum {string} */
           game: 'skyjo';
+        }
+      | {
+          action: components['schemas']['TicTacToeAction'];
+          /** @enum {string} */
+          game: 'tic_tac_toe';
         };
-    /** @description Ranks run from two (2) to ace (14). */
+    /** @description A standard playing card; ranks run from two (2) to ace (14). */
     Card: {
-      /** Format: int32 */
+      /**
+       * Format: int32
+       * @description The card's rank, from 2 to 14.
+       */
       rank: number;
+      /** @description The card's printed suit. */
       suit: components['schemas']['Suit'];
     };
     CellView: {
@@ -184,8 +194,11 @@ export interface components {
     ErrorBody: {
       error: string;
     };
-    /** @enum {string} */
-    GameKind: 'mancala' | 'crazy_eights' | 'shithead' | 'skyjo';
+    /**
+     * @description A registered ruleset and its serialized game identifier.
+     * @enum {string}
+     */
+    GameKind: 'mancala' | 'crazy_eights' | 'shithead' | 'skyjo' | 'tic_tac_toe';
     JoinRoom: {
       nickname: string;
     };
@@ -201,8 +214,11 @@ export interface components {
       player: number;
       token: string;
     };
+    /** @description A finished result with optional scores in seat order. */
     Outcome: {
+      /** @description Optional final scores; each ruleset determines how they rank. */
       scores?: number[] | null;
+      /** @description Winning seats; empty for a draw, or multiple seats for a shared win. */
       winners: components['schemas']['usize'][];
     };
     /** @enum {string} */
@@ -210,7 +226,9 @@ export interface components {
     PlayerView: {
       nickname: string;
     };
+    /** @description One accepted action and the ordered effects it produced. */
     Record_Action_Event: {
+      /** @description A command tagged with the ruleset that understands it. */
       action:
         | {
             action: components['schemas']['MancalaAction'];
@@ -231,7 +249,13 @@ export interface components {
             action: components['schemas']['SkyjoAction'];
             /** @enum {string} */
             game: 'skyjo';
+          }
+        | {
+            action: components['schemas']['TicTacToeAction'];
+            /** @enum {string} */
+            game: 'tic_tac_toe';
           };
+      /** @description Rule effects, followed by a terminal event when the game ends. */
       events: (
         | {
             player: components['schemas']['usize'];
@@ -260,15 +284,23 @@ export interface components {
             type: 'finished';
           }
       )[];
+      /** @description The seat that submitted the action. */
       player: components['schemas']['usize'];
     };
     /** @description Includes hidden information; only share after the game has ended. */
     Replay: {
+      /** @description The ruleset needed to interpret the history. */
       game: components['schemas']['GameKind'];
+      /** @description The number of seats present at setup. */
       players: number;
+      /** @description Accepted commands and their expected effects in execution order. */
       records: components['schemas']['Record_Action_Event'][];
+      /** @description The original seed, sufficient to reconstruct hidden card order. */
       seed: number[];
-      /** Format: int32 */
+      /**
+       * Format: int32
+       * @description The rules and randomization format; currently only version 1 is supported.
+       */
       version: number;
     };
     ServerMessage:
@@ -356,13 +388,28 @@ export interface components {
     };
     /** @enum {string} */
     Source: 'stock' | 'discard';
-    /** @enum {string} */
+    /**
+     * @description One of the four standard playing-card suits.
+     * @enum {string}
+     */
     Suit: 'clubs' | 'diamonds' | 'hearts' | 'spades';
+    TicTacToeAction: {
+      index: number;
+    };
+    TicTacToeView: {
+      board: (null | components['schemas']['usize'])[];
+    };
+    /** @description The active seat and a ruleset-managed turn counter, not a room revision. */
     Turn: {
-      /** Format: int64 */
+      /**
+       * Format: int64
+       * @description The number of turn advances since setup.
+       */
       number: number;
+      /** @description The seat that may act next. */
       player: components['schemas']['usize'];
     };
+    /** @description A player's observation tagged with its ruleset. */
     View:
       | {
           /** @enum {string} */
@@ -383,6 +430,11 @@ export interface components {
           /** @enum {string} */
           game: 'skyjo';
           state: components['schemas']['SkyjoView'];
+        }
+      | {
+          /** @enum {string} */
+          game: 'tic_tac_toe';
+          state: components['schemas']['TicTacToeView'];
         };
     usize: number;
   };

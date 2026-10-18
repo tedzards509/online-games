@@ -1,3 +1,5 @@
+//! Deterministic game rules, reusable cards, validated sessions, and replays.
+
 pub mod arena;
 pub mod cards;
 pub mod game;

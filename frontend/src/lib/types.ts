@@ -15,6 +15,7 @@ export const games: Record<GameKind, string> = {
   crazy_eights: 'Crazy Eights',
   shithead: 'Shithead',
   skyjo: 'Skyjo',
+  tic_tac_toe: 'Tic-Tac-Toe',
 };
 
 export const suits: Record<Suit, string> = {

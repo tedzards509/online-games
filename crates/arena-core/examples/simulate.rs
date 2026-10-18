@@ -1,11 +1,17 @@
+//! Runs seeded games with random legal actions, without recording histories.
+
 use arena_core::{
     Game,
-    games::{crazy_eights::CrazyEights, mancala::Mancala, shithead::Shithead, skyjo::Skyjo},
+    games::{
+        crazy_eights::CrazyEights, mancala::Mancala, shithead::Shithead, skyjo::Skyjo,
+        tic_tac_toe::TicTacToe,
+    },
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha12Rng;
 use std::{env, time::Instant};
 
+/// Measures a fixed batch of two-player games for one ruleset.
 fn simulate<G: Game>(count: usize) -> Result<(), Box<dyn std::error::Error>> {
     let mut rng = ChaCha12Rng::from_seed([1; 32]);
     let start = Instant::now();
@@ -27,6 +33,7 @@ fn simulate<G: Game>(count: usize) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Selects a ruleset and optional game count from command-line arguments.
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = env::args().skip(1);
     let kind = args.next().unwrap_or_else(|| "mancala".into());
@@ -36,6 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "crazy_eights" => simulate::<CrazyEights>(count),
         "shithead" => simulate::<Shithead>(count),
         "skyjo" => simulate::<Skyjo>(count),
-        _ => Err("Use mancala, crazy_eights, shithead, or skyjo".into()),
+        "tic_tac_toe" => simulate::<TicTacToe>(count),
+        _ => Err("Use mancala, crazy_eights, shithead, skyjo, or tic_tac_toe".into()),
     }
 }

@@ -1,3 +1,5 @@
+//! Checks that custom action, event, and observation types work with sessions.
+
 use arena_core::{Error, Game, GameEvent, Outcome, Player, Session, Turn, game::Seed};
 use serde::{Deserialize, Serialize};
 

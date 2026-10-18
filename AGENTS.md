@@ -29,6 +29,8 @@ Read `README.md`, `docs/rules.md`, and `docs/design.md` first. This is a small h
 
 ## Changing a game
 
+Follow `docs/adding-a-game.md` for the end-to-end checklist and Tic-Tac-Toe example.
+
 Implement `Game` with its action, event, and view types; reuse `Event` or implement `GameEvent` for a custom event type. Add dispatch in `arena.rs`, board rendering in `GameBoard.svelte`, and a name in `types.ts`. Update `docs/rules.md`. Use unique `#[schema(as = ...)]` names for game-local `Action`/`View` types to avoid OpenAPI collisions. Do not force every game to use all shared utilities.
 
 Add rule-edge tests in the game module, seeded simulations/replay checks in `arena-core/tests`, and server/browser coverage where behavior crosses boundaries. Test malformed indices, rejected-action immutability, hidden information, exhausted decks, termination, and supported player counts.

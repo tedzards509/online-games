@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
 
 async function snapshot(page: Page) {
   return page.evaluate(async () => {
@@ -12,7 +13,13 @@ async function snapshot(page: Page) {
   });
 }
 
-for (const game of ['Mancala', 'Crazy Eights', 'Shithead', 'Skyjo']) {
+for (const game of [
+  'Mancala',
+  'Crazy Eights',
+  'Shithead',
+  'Skyjo',
+  'Tic-Tac-Toe',
+]) {
   test(`${game}: create, join, move, and reconnect`, async ({ browser }) => {
     const hostContext = await browser.newContext();
     const guestContext = await browser.newContext();
@@ -56,6 +63,49 @@ for (const game of ['Mancala', 'Crazy Eights', 'Shithead', 'Skyjo']) {
         .getByRole('button', { name: 'Pit 1: 4 stones', exact: true })
         .click();
       await expect(guest.getByText('Your turn', { exact: true })).toBeVisible();
+    } else if (game === 'Tic-Tac-Toe') {
+      for (const [page, cell] of [
+        [host, 1],
+        [guest, 4],
+        [host, 2],
+        [guest, 5],
+        [host, 3],
+      ] as const) {
+        await page
+          .getByRole('button', { name: `Cell ${cell}: empty`, exact: true })
+          .click();
+      }
+      for (const page of [host, guest]) {
+        await expect(
+          page.getByText('Alice won', { exact: true }),
+        ).toBeVisible();
+        await expect(
+          page.getByLabel('Tic-Tac-Toe board').locator('button:enabled'),
+        ).toHaveCount(0);
+        await expect(
+          page.getByRole('button', { name: 'Cell 3: X', exact: true }),
+        ).toBeVisible();
+      }
+      await host.getByText('Replays (1)', { exact: true }).click();
+      const downloading = host.waitForEvent('download');
+      await host.getByRole('button', { name: 'Game 1 ↓', exact: true }).click();
+      const download = await downloading;
+      const replay = JSON.parse(
+        await readFile((await download.path())!, 'utf8'),
+      );
+      expect(replay.game).toBe('tic_tac_toe');
+      expect(replay.records).toHaveLength(5);
+      expect(replay.records[4].events.at(-1)).toEqual({
+        type: 'finished',
+        outcome: { winners: [0], scores: null },
+      });
+      await host
+        .getByRole('button', { name: 'Play again', exact: true })
+        .click();
+      await expect(host.getByText('Your turn', { exact: true })).toBeVisible();
+      await expect(
+        host.getByRole('button', { name: /^Cell \d: empty$/ }),
+      ).toHaveCount(9);
     } else if (game === 'Skyjo') {
       const grid = host.getByRole('region', { name: "Alice's grid" });
       // A labelled section is a region; each setup reveal is a separate command.

@@ -4,6 +4,7 @@
   import CrazyEights from './CrazyEights.svelte';
   import Shithead from './Shithead.svelte';
   import Skyjo from './Skyjo.svelte';
+  import TicTacToe from './TicTacToe.svelte';
   let {
     room,
     disabled,
@@ -27,4 +28,6 @@
   <Shithead view={room.view.state} {actions} you={room.you} {names} {move} />
 {:else if room.view?.game === 'skyjo'}
   <Skyjo view={room.view.state} {actions} you={room.you} {names} {move} />
+{:else if room.view?.game === 'tic_tac_toe'}
+  <TicTacToe view={room.view.state} {actions} you={room.you} {move} />
 {/if}

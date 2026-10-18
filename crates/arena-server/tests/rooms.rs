@@ -198,10 +198,16 @@ async fn identity_capacity_and_origin_checks() {
 }
 
 #[tokio::test]
-async fn four_games_over_real_websockets_export_and_archive_replays() {
+async fn games_over_real_websockets_export_and_archive_replays() {
     let server = Server::open("sqlite::memory:").await;
     let mut rng = rand::rngs::StdRng::seed_from_u64(7);
-    for kind in ["mancala", "crazy_eights", "shithead", "skyjo"] {
+    for kind in [
+        "mancala",
+        "crazy_eights",
+        "shithead",
+        "skyjo",
+        "tic_tac_toe",
+    ] {
         let alice = server.member(kind).await;
         let mut host = server.socket(&alice).await;
         snapshot(&mut host, 1).await;
@@ -392,10 +398,12 @@ fn openapi_has_distinct_game_schemas() {
         "CrazyEightsAction",
         "ShitheadAction",
         "SkyjoAction",
+        "TicTacToeAction",
         "MancalaView",
         "CrazyEightsView",
         "ShitheadView",
         "SkyjoView",
+        "TicTacToeView",
     ] {
         assert!(
             spec["components"]["schemas"].get(name).is_some(),

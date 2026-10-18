@@ -8,7 +8,7 @@
 - Skyjo has useful seeded randomization, explicit card visibility, and a correct 150-card distribution. However, moves and event application are unfinished. `distribute_cards` returns layouts without assigning them; row/column construction is reversed; one draw path bypasses distribution bookkeeping; replacement pops the discard before validating the target. Iterating a `HashMap` before a seeded shuffle also prevents reproducible deals across processes.
 - The existing `GameState: Debug + Clone` marker imposes no behavioral contract.
 
-Ported ideas, not source: deterministic setup, typed actions/events, per-player observations, and replayable transitions. Tic-Tac-Toe itself is not included in the initial game list.
+Ported ideas, not source: deterministic setup, typed actions/events, per-player observations, and replayable transitions. Tic-Tac-Toe was subsequently added as the worked example for the [new-game checklist](adding-a-game.md).
 
 ## Boundaries
 

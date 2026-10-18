@@ -1,0 +1,20 @@
+# Add a game
+
+Use `crates/arena-core/src/games/tic_tac_toe.rs` and `frontend/src/components/TicTacToe.svelte` as the smallest complete example.
+
+1. **Fix the rules.** Add player counts, turn order, special cases, and win/draw conditions to `docs/rules.md`. Choose a stable snake-case game ID.
+2. **Implement the core.** Add `crates/arena-core/src/games/<id>.rs` and export it from `games/mod.rs`. Implement `Game` with action, event, and view types. State needs `Clone`, `Serialize`, and `Deserialize`; actions also need `PartialEq`; actions/views need `ToSchema` with unique names such as `TicTacToeAction`.
+   - `new`: validate player count; use only the supplied seed for randomness (ignore it for deterministic games).
+   - `legal_actions`: list exactly the active player's valid commands; return none after completion.
+   - `advance`: apply a legal command, update turns/outcomes, and emit effects. `Session::act` validates first and appends the final event.
+   - `view`: expose only information that this viewer may see.
+   Reuse `Event` for arena integration. Custom `GameEvent` types work with generic sessions; integrating them into `Match` also requires adapting its replay event representation. Cards and decks are optional.
+3. **Register it.** In `arena.rs`, extend `GameKind`, `max_players`, `Action`, `View`, `Match`, `dispatch!`, and every ruleset match arm. Add the ruleset to `examples/simulate.rs`. Existing replay-version-1 rules must remain unchanged; adding a new ID alone needs no version bump. Rooms and SQLite need no game-specific code or migration.
+4. **Wire the board.** Regenerate the protocol, then add a board in `frontend/src/components/`, dispatch it in `GameBoard.svelte`, and add its name in `lib/types.ts`:
+   ```sh
+   cargo run -q -p arena-server -- --openapi > openapi.json
+   npm --prefix frontend run api:generate
+   ```
+   Render the projected view and submit actions from `legal_actions`. Let the existing connection handle authentication, revisions, pending state, and reconnects; use accessible buttons and labels.
+5. **Test the integration.** Add rule-edge tests beside the ruleset: wins, draws, invalid indices, wrong turns, unchanged state/log on rejection, and post-game moves. Cover hidden information and exhausted decks where applicable. Include the game in the core simulation/player-count tables, server WebSocket/replay and schema tests, and browser tests. Tic-Tac-Toe also checks every reachable position against its expected legal actions and outcome.
+6. **Submit.** Run all README checks and format the frontend with `npm --prefix frontend run format`. Check `git diff --check`; include source, tests, rules, and both generated API files in focused conventional commits. Open a pull request summarizing the rules and checks. Do not include local IDE files or change unrelated work.

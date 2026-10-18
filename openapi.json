@@ -344,12 +344,31 @@
                 ]
               }
             }
+          },
+          {
+            "type": "object",
+            "required": [
+              "action",
+              "game"
+            ],
+            "properties": {
+              "action": {
+                "$ref": "#/components/schemas/TicTacToeAction"
+              },
+              "game": {
+                "type": "string",
+                "enum": [
+                  "tic_tac_toe"
+                ]
+              }
+            }
           }
-        ]
+        ],
+        "description": "A command tagged with the ruleset that understands it."
       },
       "Card": {
         "type": "object",
-        "description": "Ranks run from two (2) to ace (14).",
+        "description": "A standard playing card; ranks run from two (2) to ace (14).",
         "required": [
           "suit",
           "rank"
@@ -358,10 +377,12 @@
           "rank": {
             "type": "integer",
             "format": "int32",
+            "description": "The card's rank, from 2 to 14.",
             "minimum": 0
           },
           "suit": {
-            "$ref": "#/components/schemas/Suit"
+            "$ref": "#/components/schemas/Suit",
+            "description": "The card's printed suit."
           }
         }
       },
@@ -561,11 +582,13 @@
       },
       "GameKind": {
         "type": "string",
+        "description": "A registered ruleset and its serialized game identifier.",
         "enum": [
           "mancala",
           "crazy_eights",
           "shithead",
-          "skyjo"
+          "skyjo",
+          "tic_tac_toe"
         ]
       },
       "JoinRoom": {
@@ -631,6 +654,7 @@
       },
       "Outcome": {
         "type": "object",
+        "description": "A finished result with optional scores in seat order.",
         "required": [
           "winners"
         ],
@@ -643,13 +667,15 @@
             "items": {
               "type": "integer",
               "format": "int32"
-            }
+            },
+            "description": "Optional final scores; each ruleset determines how they rank."
           },
           "winners": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/usize"
-            }
+            },
+            "description": "Winning seats; empty for a draw, or multiple seats for a shared win."
           }
         }
       },
@@ -675,6 +701,7 @@
       },
       "Record_Action_Event": {
         "type": "object",
+        "description": "One accepted action and the ordered effects it produced.",
         "required": [
           "player",
           "action",
@@ -754,8 +781,27 @@
                     ]
                   }
                 }
+              },
+              {
+                "type": "object",
+                "required": [
+                  "action",
+                  "game"
+                ],
+                "properties": {
+                  "action": {
+                    "$ref": "#/components/schemas/TicTacToeAction"
+                  },
+                  "game": {
+                    "type": "string",
+                    "enum": [
+                      "tic_tac_toe"
+                    ]
+                  }
+                }
               }
-            ]
+            ],
+            "description": "A command tagged with the ruleset that understands it."
           },
           "events": {
             "type": "array",
@@ -763,6 +809,7 @@
               "oneOf": [
                 {
                   "type": "object",
+                  "description": "A player performed an accepted action.",
                   "required": [
                     "player",
                     "type"
@@ -781,6 +828,7 @@
                 },
                 {
                   "type": "object",
+                  "description": "A player captured pieces from the board.",
                   "required": [
                     "player",
                     "count",
@@ -804,6 +852,7 @@
                 },
                 {
                   "type": "object",
+                  "description": "The current play pile was removed from the game.",
                   "required": [
                     "type"
                   ],
@@ -818,6 +867,7 @@
                 },
                 {
                   "type": "object",
+                  "description": "A matching column was removed from a player's layout.",
                   "required": [
                     "player",
                     "column",
@@ -841,6 +891,7 @@
                 },
                 {
                   "type": "object",
+                  "description": "The session reached its final outcome.",
                   "required": [
                     "outcome",
                     "type"
@@ -857,11 +908,14 @@
                     }
                   }
                 }
-              ]
-            }
+              ],
+              "description": "Common rule effects that the included games can record without exposing cards."
+            },
+            "description": "Rule effects, followed by a terminal event when the game ends."
           },
           "player": {
-            "$ref": "#/components/schemas/usize"
+            "$ref": "#/components/schemas/usize",
+            "description": "The seat that submitted the action."
           }
         }
       },
@@ -877,17 +931,20 @@
         ],
         "properties": {
           "game": {
-            "$ref": "#/components/schemas/GameKind"
+            "$ref": "#/components/schemas/GameKind",
+            "description": "The ruleset needed to interpret the history."
           },
           "players": {
             "type": "integer",
+            "description": "The number of seats present at setup.",
             "minimum": 0
           },
           "records": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Record_Action_Event"
-            }
+            },
+            "description": "Accepted commands and their expected effects in execution order."
           },
           "seed": {
             "type": "array",
@@ -896,12 +953,14 @@
               "format": "int32",
               "minimum": 0
             },
+            "description": "The original seed, sufficient to reconstruct hidden card order.",
             "maxItems": 32,
             "minItems": 32
           },
           "version": {
             "type": "integer",
             "format": "int32",
+            "description": "The rules and randomization format; currently only version 1 is supported.",
             "minimum": 0
           }
         }
@@ -1292,6 +1351,7 @@
       },
       "Suit": {
         "type": "string",
+        "description": "One of the four standard playing-card suits.",
         "enum": [
           "clubs",
           "diamonds",
@@ -1299,8 +1359,42 @@
           "spades"
         ]
       },
+      "TicTacToeAction": {
+        "type": "object",
+        "required": [
+          "index"
+        ],
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "TicTacToeView": {
+        "type": "object",
+        "required": [
+          "board"
+        ],
+        "properties": {
+          "board": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/usize"
+                }
+              ]
+            }
+          }
+        }
+      },
       "Turn": {
         "type": "object",
+        "description": "The active seat and a ruleset-managed turn counter, not a room revision.",
         "required": [
           "player",
           "number"
@@ -1309,10 +1403,12 @@
           "number": {
             "type": "integer",
             "format": "int64",
+            "description": "The number of turn advances since setup.",
             "minimum": 0
           },
           "player": {
-            "$ref": "#/components/schemas/usize"
+            "$ref": "#/components/schemas/usize",
+            "description": "The seat that may act next."
           }
         }
       },
@@ -1389,8 +1485,27 @@
                 "$ref": "#/components/schemas/SkyjoView"
               }
             }
+          },
+          {
+            "type": "object",
+            "required": [
+              "state",
+              "game"
+            ],
+            "properties": {
+              "game": {
+                "type": "string",
+                "enum": [
+                  "tic_tac_toe"
+                ]
+              },
+              "state": {
+                "$ref": "#/components/schemas/TicTacToeView"
+              }
+            }
           }
-        ]
+        ],
+        "description": "A player's observation tagged with its ruleset."
       },
       "usize": {
         "type": "integer",

@@ -1,6 +1,6 @@
 # Friends' Arena
 
-A small live-game arena for friends: **Shithead, Crazy Eights, Skyjo, and Mancala**. Anonymous rooms, nicknames, reconnectable seats, and downloadable replays. No accounts.
+A small live-game arena for friends: **Shithead, Crazy Eights, Skyjo, Mancala, and Tic-Tac-Toe**. Anonymous rooms, nicknames, reconnectable seats, and downloadable replays. No accounts.
 
 ## Run locally
 
@@ -42,7 +42,7 @@ This is a **single-server, trusted-friends foundation**, not a public service: n
 - `crates/arena-core`: deterministic rules, shared cards/decks, `Game` trait, validated sessions, action/event logs, player views, replays. No I/O or async runtime.
 - `crates/arena-server`: Axum/Tokio, SQLite, anonymous membership, personalized per-room WebSockets.
 - `frontend`: Svelte 5 SPA, generated API types, one board component per game.
-- [Design and `../spiele` review](docs/design.md) · [Wire protocol](docs/protocol.md) · [Agent guidance](AGENTS.md)
+- [Add a game](docs/adding-a-game.md) · [Design and `../spiele` review](docs/design.md) · [Wire protocol](docs/protocol.md) · [Agent guidance](AGENTS.md)
 
 OpenAPI: [`openapi.json`](openapi.json), also served at `/api/openapi.json`. After changing API types/routes:
 
@@ -57,6 +57,7 @@ Checks:
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
 npm --prefix frontend run check
 npm --prefix frontend run build
 cd frontend
@@ -64,7 +65,7 @@ npx playwright install chromium
 npm test
 ```
 
-Playwright starts isolated in-memory backend and Vite processes; ports 3000 and 5173 must be free. Backend integration tests use real WebSockets and temporary SQLite databases.
+Playwright starts isolated in-memory backend and Vite processes on ports 13000 and 15173, leaving development servers alone. Those test ports must be free. Backend integration tests use real WebSockets and temporary SQLite databases.
 
 Run headless games or validate an exported replay:
 

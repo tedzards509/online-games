@@ -31,3 +31,7 @@ On your turn either take the visible discard and replace any remaining grid card
 The first player with no hidden cards triggers the last turn for every other player. Then reveal all cards, remove matching columns, and total remaining values. Double the finisher's positive score if it is not **strictly** lower than every opponent's. Lowest score wins; tied lowest players share the win. No cumulative 100-point match yet.
 
 Grid indices are row-major: 0–3, 4–7, 8–11. Removed slots stay in place and cannot be targeted. A draw from an empty, unrecyclable stock is unavailable; the discard remains usable.
+
+## Tic-Tac-Toe (2 players)
+
+Seat 0 is X and starts; seat 1 is O. Alternate placing one mark in an empty cell of a 3×3 board. Three of your marks in a row, column, or diagonal wins immediately. A full board without a winning line is a draw. No moves are accepted after either result. Indices are row-major, 0–8; all board information is public. The seed has no effect.
