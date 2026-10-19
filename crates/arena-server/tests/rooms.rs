@@ -551,7 +551,12 @@ async fn benched_host_records_crew_results_atomically_and_replays_remain_accessi
             .await;
         assert_eq!(status, StatusCode::OK);
         let replay: arena_core::Replay = serde_json::from_value(value).unwrap();
-        assert_eq!(replay.records.len(), 2);
+        assert_eq!(replay.records.len(), 1);
+        assert_eq!(
+            replay.resolution.as_ref().unwrap().resolution,
+            arena_core::Resolution::SharedResult { won: true }
+        );
+        assert_eq!(replay.resolution.as_ref().unwrap().events.len(), 1);
         assert_eq!(
             replay.simulate().unwrap().outcome().unwrap().winners,
             vec![0, 1, 2]
@@ -587,7 +592,7 @@ async fn benched_host_records_crew_results_atomically_and_replays_remain_accessi
 }
 
 #[tokio::test]
-async fn tempel_key_is_a_host_control_independent_of_seating_and_restart_preserves_state() {
+async fn tempel_initial_key_is_configuration_and_restart_preserves_state() {
     let directory = tempfile::tempdir().unwrap();
     let database = format!("sqlite://{}", directory.path().join("tempel.db").display());
     for count in [3, 10] {
@@ -597,28 +602,25 @@ async fn tempel_key_is_a_host_control_independent_of_seating_and_restart_preserv
         let (mut sockets, mut views) = start(
             &server,
             &members,
-            json!({"game":"tempel_des_schreckens","rules":{}}),
+            json!({"game":"tempel_des_schreckens","rules":{"initial_key":1}}),
             seats,
         )
         .await;
-        assert_eq!(views[0]["game"]["can_choose_key"], true);
+        assert_eq!(views[0]["game"]["config"]["rules"]["initial_key"], 1);
         reject(
             &mut sockets[count],
             &views[count],
-            json!({"type":"game","message":{"type":"choose_key","player":1}}),
+            json!({"type":"configure","config":{"game":"tempel_des_schreckens","rules":{"initial_key":2}}}),
         )
         .await;
         reject(&mut sockets[count],&views[count],json!({"type":"game","message":{"type":"move","action":{"game":"tempel_des_schreckens","action":{"type":"choose_key","player":1}}}})).await;
-        views[0] = commit(
+        reject(
             &mut sockets[0],
             &views[0],
             json!({"type":"game","message":{"type":"choose_key","player":1}}),
         )
         .await;
         let revision = views[0]["revision"].as_u64().unwrap();
-        for p in 1..=count {
-            views[p] = snapshot(&mut sockets[p], revision).await;
-        }
         for p in 1..=count {
             send(&mut sockets[p],at(&views[p],json!({"type":"game","message":{"type":"move","action":views[p]["game"]["legal_actions"][0]}}))).await;
         }
@@ -660,6 +662,7 @@ async fn games_over_real_websockets_export_and_archive_replays() {
         let config = match kind {
             "crazy_eights" => crazy_eights_config(),
             "shithead" => json!({"game":kind,"rules":{"four_card_bombs":false}}),
+            "tempel_des_schreckens" => json!({"game":kind,"rules":{"initial_key":count-1}}),
             _ => json!({"game":kind,"rules":{}}),
         };
         let (mut sockets, mut views) =
@@ -669,9 +672,7 @@ async fn games_over_real_websockets_export_and_archive_replays() {
                 break;
             }
             let game = &views[0]["game"];
-            let (player, message) = if game["can_choose_key"] == true {
-                (0, json!({"type":"choose_key","player":count-1}))
-            } else if game["turn"]["players"].as_array().unwrap().is_empty() {
+            let (player, message) = if game["turn"]["players"].as_array().unwrap().is_empty() {
                 (0, json!({"type":"finish","won":true}))
             } else {
                 let player = game["turn"]["players"][0].as_u64().unwrap() as usize;
@@ -904,6 +905,9 @@ fn openapi_has_distinct_game_schemas() {
         "TempelAction",
         "TempelCard",
         "TempelRole",
+        "TempelGameConfig",
+        "Resolution",
+        "ResolutionRecord_Event",
         "Config",
         "GameConfig",
         "CrazyEightsGameConfig",

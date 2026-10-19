@@ -609,7 +609,7 @@
                 ]
               },
               "rules": {
-                "$ref": "#/components/schemas/GameConfig"
+                "$ref": "#/components/schemas/TempelGameConfig"
               }
             }
           },
@@ -908,25 +908,6 @@
                 ]
               }
             }
-          },
-          {
-            "type": "object",
-            "description": "External result recorded by seat zero; the server authorizes the room host.",
-            "required": [
-              "won",
-              "type"
-            ],
-            "properties": {
-              "type": {
-                "type": "string",
-                "enum": [
-                  "finish"
-                ]
-              },
-              "won": {
-                "type": "boolean"
-              }
-            }
           }
         ]
       },
@@ -1151,26 +1132,6 @@
                 "type": "boolean"
               }
             }
-          },
-          {
-            "type": "object",
-            "description": "Selects Tempel's initial key holder; only the room host may submit it.",
-            "required": [
-              "player",
-              "type"
-            ],
-            "properties": {
-              "player": {
-                "type": "integer",
-                "minimum": 0
-              },
-              "type": {
-                "type": "string",
-                "enum": [
-                  "choose_key"
-                ]
-              }
-            }
           }
         ],
         "description": "Messages routed to the identified game. Host controls are not player moves."
@@ -1182,14 +1143,10 @@
           "config",
           "players",
           "can_finish",
-          "can_choose_key",
           "turn",
           "legal_actions"
         ],
         "properties": {
-          "can_choose_key": {
-            "type": "boolean"
-          },
           "can_finish": {
             "type": "boolean"
           },
@@ -1633,7 +1590,7 @@
               },
               {
                 "$ref": "#/components/schemas/Config",
-                "description": "Explicit setup options; absent from version-1 files."
+                "description": "Explicit setup options for configurable games."
               }
             ]
           },
@@ -1652,6 +1609,17 @@
               "$ref": "#/components/schemas/Record_Action_Event"
             },
             "description": "Accepted commands and their expected effects in execution order."
+          },
+          "resolution": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ResolutionRecord_Event",
+                "description": "An optional terminal external decision, applied after all player actions."
+              }
+            ]
           },
           "seed": {
             "type": "array",
@@ -1691,6 +1659,154 @@
             "items": {
               "$ref": "#/components/schemas/MemberView"
             }
+          }
+        }
+      },
+      "Resolution": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "Records the group's declared win or loss.",
+            "required": [
+              "won",
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "shared_result"
+                ]
+              },
+              "won": {
+                "type": "boolean"
+              }
+            }
+          }
+        ],
+        "description": "An external game decision, independent of player actions and room authority."
+      },
+      "ResolutionRecord_Event": {
+        "type": "object",
+        "description": "A terminal external input and its effects, without an acting player.",
+        "required": [
+          "resolution",
+          "events"
+        ],
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "description": "A player performed an accepted action.",
+                  "required": [
+                    "player",
+                    "type"
+                  ],
+                  "properties": {
+                    "player": {
+                      "$ref": "#/components/schemas/usize"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "played"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "description": "A player captured pieces from the board.",
+                  "required": [
+                    "player",
+                    "count",
+                    "type"
+                  ],
+                  "properties": {
+                    "count": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "player": {
+                      "$ref": "#/components/schemas/usize"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "captured"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "description": "The current play pile was removed from the game.",
+                  "required": [
+                    "type"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "burned"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "description": "A matching column was removed from a player's layout.",
+                  "required": [
+                    "player",
+                    "column",
+                    "type"
+                  ],
+                  "properties": {
+                    "column": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "player": {
+                      "$ref": "#/components/schemas/usize"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "column_removed"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "description": "The session reached its final outcome.",
+                  "required": [
+                    "outcome",
+                    "type"
+                  ],
+                  "properties": {
+                    "outcome": {
+                      "$ref": "#/components/schemas/Outcome"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "finished"
+                      ]
+                    }
+                  }
+                }
+              ],
+              "description": "Common rule effects that the included games can record without exposing cards."
+            },
+            "description": "Effects including the terminal event."
+          },
+          "resolution": {
+            "$ref": "#/components/schemas/Resolution",
+            "description": "The accepted external decision."
           }
         }
       },
@@ -2141,24 +2257,6 @@
           {
             "type": "object",
             "required": [
-              "player",
-              "type"
-            ],
-            "properties": {
-              "player": {
-                "$ref": "#/components/schemas/usize"
-              },
-              "type": {
-                "type": "string",
-                "enum": [
-                  "choose_key"
-                ]
-              }
-            }
-          },
-          {
-            "type": "object",
-            "required": [
               "type"
             ],
             "properties": {
@@ -2246,10 +2344,22 @@
           }
         }
       },
+      "TempelGameConfig": {
+        "type": "object",
+        "description": "Public setup options; player indices refer to the ordered game players.",
+        "required": [
+          "initial_key"
+        ],
+        "properties": {
+          "initial_key": {
+            "$ref": "#/components/schemas/usize"
+          }
+        },
+        "additionalProperties": false
+      },
       "TempelPhase": {
         "type": "string",
         "enum": [
-          "choose_key",
           "inspect",
           "reveal"
         ]
@@ -2269,6 +2379,7 @@
           "cards",
           "ready",
           "phase",
+          "key",
           "round",
           "round_reveals",
           "revealed",
@@ -2300,14 +2411,7 @@
             "description": "Counts of this viewer's unrevealed cards, without their positions."
           },
           "key": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/usize"
-              }
-            ]
+            "$ref": "#/components/schemas/usize"
           },
           "phase": {
             "$ref": "#/components/schemas/TempelPhase"

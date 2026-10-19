@@ -1,14 +1,14 @@
 //! Cross-ruleset checks for decks, legal actions, private views, and replays.
 
 use arena_core::{
-    Action, GameKind, Match,
+    Action, GameKind, Match, Resolution,
     cards::{Deck, standard_deck},
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha12Rng;
 
 #[test]
-fn crew_full_deals_conserve_cards_persist_and_replay_until_host_decides() {
+fn crew_full_deals_conserve_cards_persist_and_replay_with_external_resolution() {
     use arena_core::{View, games::the_crew::Action as CrewAction};
     for players in 3..=5 {
         for seed in 0..8 {
@@ -44,16 +44,16 @@ fn crew_full_deals_conserve_cards_persist_and_replay_until_host_decides() {
             assert!(view.trick.is_empty());
             assert!(game.outcome().is_none());
             assert_eq!(
-                game.legal_actions(0),
+                game.resolutions(),
                 vec![
-                    Action::TheCrew(CrewAction::Finish { won: true }),
-                    Action::TheCrew(CrewAction::Finish { won: false })
+                    Resolution::SharedResult { won: true },
+                    Resolution::SharedResult { won: false }
                 ]
             );
-            assert!((1..players).all(|p| game.legal_actions(p).is_empty()));
+            assert!((0..players).all(|p| game.legal_actions(p).is_empty()));
+            assert!(game.turn().players.is_empty());
             let won = seed % 2 == 0;
-            game.act(0, Action::TheCrew(CrewAction::Finish { won }))
-                .unwrap();
+            game.resolve(Resolution::SharedResult { won }).unwrap();
             assert_eq!(
                 game.outcome().unwrap().winners,
                 if won {
@@ -63,6 +63,21 @@ fn crew_full_deals_conserve_cards_persist_and_replay_until_host_decides() {
                 }
             );
             let replay = game.replay();
+            assert_eq!(replay.records.len(), played);
+            assert_eq!(
+                replay.resolution.as_ref().unwrap().resolution,
+                Resolution::SharedResult { won }
+            );
+            let mut altered = replay.clone();
+            altered.resolution.as_mut().unwrap().events.clear();
+            assert!(altered.simulate().is_err());
+            let mut altered = replay.clone();
+            altered.resolution.as_mut().unwrap().resolution =
+                Resolution::SharedResult { won: !won };
+            assert!(altered.simulate().is_err());
+            let saved = serde_json::to_value(&game).unwrap();
+            let restored: Match = serde_json::from_value(saved.clone()).unwrap();
+            assert_eq!(serde_json::to_value(restored).unwrap(), saved);
             assert_eq!(replay.version, 1);
             assert_eq!(replay.simulate().unwrap().replay(), replay);
         }
@@ -399,8 +414,13 @@ fn tempel_all_player_counts_keep_hidden_state_private_and_resume_seeded_rounds()
     use arena_core::games::tempel_des_schreckens::{Action as TempelAction, Phase};
     for players in 3..=10 {
         let mut outcomes = [false; 2];
-        for seed in 0..32 {
-            let mut game = Match::new(GameKind::TempelDesSchreckens, players, [seed; 32]).unwrap();
+        for seed in 0..128 {
+            let config = arena_core::Config::TempelDesSchreckens(
+                arena_core::games::tempel_des_schreckens::GameConfig {
+                    initial_key: seed as usize % players,
+                },
+            );
+            let mut game = Match::with_config(config.clone(), players, [seed; 32]).unwrap();
             let mut rng = ChaCha12Rng::from_seed([seed + 32; 32]);
             let mut steps = 0;
             while game.outcome().is_none() {
@@ -434,7 +454,7 @@ fn tempel_all_player_counts_keep_hidden_state_private_and_resume_seeded_rounds()
                     serde_json::to_value(restored).unwrap()
                 );
                 steps += 1;
-                assert!(steps <= 1 + players * 8);
+                assert!(steps <= players * 8);
             }
             let arena_core::View::TempelDesSchreckens(view) = game.view(0) else {
                 unreachable!()
@@ -457,6 +477,7 @@ fn tempel_all_player_counts_keep_hidden_state_private_and_resume_seeded_rounds()
                 assert!(game.legal_actions(player).is_empty());
             }
             let replay = game.replay();
+            assert_eq!(replay.config.as_ref(), Some(&config));
             assert_eq!(replay.version, 1);
             assert_eq!(replay.simulate().unwrap().replay(), replay);
             let before = serde_json::to_value(&game).unwrap();

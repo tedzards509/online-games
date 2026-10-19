@@ -206,7 +206,7 @@ export interface components {
       | {
           /** @enum {string} */
           game: 'tempel_des_schreckens';
-          rules: components['schemas']['GameConfig'];
+          rules: components['schemas']['TempelGameConfig'];
         }
       | {
           /** @enum {string} */
@@ -284,11 +284,6 @@ export interface components {
           index: number;
           /** @enum {string} */
           type: 'communicate';
-        }
-      | {
-          /** @enum {string} */
-          type: 'finish';
-          won: boolean;
         };
     CrewCard: {
       color: components['schemas']['CrewColor'];
@@ -355,14 +350,8 @@ export interface components {
           /** @enum {string} */
           type: 'finish';
           won: boolean;
-        }
-      | {
-          player: number;
-          /** @enum {string} */
-          type: 'choose_key';
         };
     GameSnapshot: {
-      can_choose_key: boolean;
       can_finish: boolean;
       config: components['schemas']['Config'];
       id: string;
@@ -483,6 +472,7 @@ export interface components {
       players: number;
       /** @description Accepted commands and their expected effects in execution order. */
       records: components['schemas']['Record_Action_Event'][];
+      resolution?: null | components['schemas']['ResolutionRecord_Event'];
       /** @description The original seed, sufficient to reconstruct hidden card order. */
       seed: number[];
       /**
@@ -495,6 +485,46 @@ export interface components {
       config: components['schemas']['Config'];
       id: string;
       players: components['schemas']['MemberView'][];
+    };
+    /** @description An external game decision, independent of player actions and room authority. */
+    Resolution: {
+      /** @enum {string} */
+      type: 'shared_result';
+      won: boolean;
+    };
+    /** @description A terminal external input and its effects, without an acting player. */
+    ResolutionRecord_Event: {
+      /** @description Effects including the terminal event. */
+      events: (
+        | {
+            player: components['schemas']['usize'];
+            /** @enum {string} */
+            type: 'played';
+          }
+        | {
+            count: number;
+            player: components['schemas']['usize'];
+            /** @enum {string} */
+            type: 'captured';
+          }
+        | {
+            /** @enum {string} */
+            type: 'burned';
+          }
+        | {
+            column: number;
+            player: components['schemas']['usize'];
+            /** @enum {string} */
+            type: 'column_removed';
+          }
+        | {
+            outcome: components['schemas']['Outcome'];
+            /** @enum {string} */
+            type: 'finished';
+          }
+      )[];
+      /** @description The accepted external decision. */
+      resolution: components['schemas']['Resolution'];
     };
     ServerMessage:
       | {
@@ -601,11 +631,6 @@ export interface components {
     Suit: 'clubs' | 'diamonds' | 'hearts' | 'spades';
     TempelAction:
       | {
-          player: components['schemas']['usize'];
-          /** @enum {string} */
-          type: 'choose_key';
-        }
-      | {
           /** @enum {string} */
           type: 'ready';
         }
@@ -627,8 +652,12 @@ export interface components {
       cards: components['schemas']['TempelCounts'];
       guardians: number;
     };
+    /** @description Public setup options; player indices refer to the ordered game players. */
+    TempelGameConfig: {
+      initial_key: components['schemas']['usize'];
+    };
     /** @enum {string} */
-    TempelPhase: 'choose_key' | 'inspect' | 'reveal';
+    TempelPhase: 'inspect' | 'reveal';
     /** @enum {string} */
     TempelRole: 'adventurer' | 'guardian';
     TempelView: {
@@ -637,7 +666,7 @@ export interface components {
       distribution: components['schemas']['TempelDistribution'];
       /** @description Counts of this viewer's unrevealed cards, without their positions. */
       hand_counts: components['schemas']['TempelCounts'];
-      key?: null | components['schemas']['usize'];
+      key: components['schemas']['usize'];
       phase: components['schemas']['TempelPhase'];
       ready: boolean[];
       revealed: components['schemas']['TempelCounts'];

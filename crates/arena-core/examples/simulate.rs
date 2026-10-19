@@ -20,7 +20,15 @@ fn simulate<G: Game>(count: usize, players: usize) -> Result<(), Box<dyn std::er
         let mut game = G::new(players, rng.r#gen())?;
         let mut steps = 0;
         while game.outcome().is_none() {
-            let player = game.turn().players[0];
+            let Some(player) = game.turn().players.first().copied() else {
+                let resolution = game
+                    .resolutions()
+                    .first()
+                    .copied()
+                    .ok_or("Simulation stalled")?;
+                game.resolve(resolution);
+                continue;
+            };
             let legal = game.legal_actions(player);
             if legal.is_empty() || steps >= 100_000 {
                 return Err("Simulation stalled".into());

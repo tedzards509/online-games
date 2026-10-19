@@ -5,10 +5,12 @@
     config,
     disabled,
     change,
+    players,
   }: {
     config: Schemas['Config'] | null | undefined;
     disabled: boolean;
     change: (config: Schemas['Config'] | null) => void;
+    players: string[];
   } = $props();
   function select(value: string) {
     if (!value) return change(null);
@@ -18,7 +20,9 @@
         ? { game, rules: { ...crazyEightsDefaults } }
         : game === 'shithead'
           ? { game, rules: { four_card_bombs: false } }
-          : { game, rules: {} },
+          : game === 'tempel_des_schreckens'
+            ? { game, rules: { initial_key: 0 } }
+            : { game, rules: {} },
     );
   }
 </script>
@@ -65,6 +69,22 @@
           rules: { four_card_bombs: e.currentTarget.checked },
         })}
     />Four-card bombs bypass rank restrictions</label
+  >
+{:else if config?.game === 'tempel_des_schreckens'}
+  <label
+    >Initial key holder<select
+      {disabled}
+      value={config.rules.initial_key}
+      onchange={(e) =>
+        change({
+          game: 'tempel_des_schreckens',
+          rules: { initial_key: Number(e.currentTarget.value) },
+        })}
+    >
+      {#each players.length ? players : ['Player 1'] as name, index}<option
+          value={index}>{name}</option
+        >{/each}
+    </select></label
   >
 {/if}
 

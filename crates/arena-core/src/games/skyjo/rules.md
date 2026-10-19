@@ -5,7 +5,7 @@
 - Two to eight players; one shuffled 150-card deck: five −2, fifteen 0, and ten each of −1 and 1–12.
 - Deal each player twelve face-down cards in a 3×4 grid; turn one further card face-up as the discard. Remaining cards
   form the stock.
-- Start in simultaneous setup with every seat eligible. Seats follow the host-selected player order, wrap in increasing
+- Start in simultaneous setup with every seat eligible. Seats follow a fixed player order, wrap in increasing
   order during ordinary play, and remain fixed for the game.
 - State consists of grids (values, visibility, removed slots), stock, discard pile, eligible seats, phase, pending drawn
   card/source, first finisher, and result.

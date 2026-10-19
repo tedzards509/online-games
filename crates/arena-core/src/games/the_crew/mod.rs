@@ -1,6 +1,6 @@
 use crate::{
     cards::Deck,
-    game::{Error, Event, Game, Outcome, Player, Seed, Turn},
+    game::{Error, Event, Game, Outcome, Player, Resolution, Seed, Turn},
 };
 use rand::SeedableRng;
 use rand_chacha::ChaCha12Rng;
@@ -53,10 +53,6 @@ pub enum Action {
     Communicate {
         index: usize,
         declaration: Declaration,
-    },
-    /// External result recorded by seat zero; the server authorizes the room host.
-    Finish {
-        won: bool,
     },
 }
 
@@ -219,25 +215,36 @@ impl Game for TheCrew {
                 }
             }
         }
-        if player == 0 {
-            actions.extend([Action::Finish { won: true }, Action::Finish { won: false }]);
-        }
         actions
+    }
+
+    fn resolutions(&self) -> Vec<Resolution> {
+        if self.outcome.is_some() {
+            vec![]
+        } else {
+            vec![
+                Resolution::SharedResult { won: true },
+                Resolution::SharedResult { won: false },
+            ]
+        }
+    }
+
+    fn resolve(&mut self, resolution: Resolution) -> Vec<Event> {
+        let Resolution::SharedResult { won } = resolution;
+        self.outcome = Some(Outcome {
+            winners: if won {
+                (0..self.hands.len()).collect()
+            } else {
+                vec![]
+            },
+            scores: None,
+        });
+        vec![]
     }
 
     fn advance(&mut self, player: Player, action: &Action) -> Vec<Event> {
         let mut events = vec![Event::Played { player }];
         match *action {
-            Action::Finish { won } => {
-                self.outcome = Some(Outcome {
-                    winners: if won {
-                        (0..self.hands.len()).collect()
-                    } else {
-                        vec![]
-                    },
-                    scores: None,
-                })
-            }
             Action::Communicate { index, declaration } => {
                 self.communications[player] = Some(Communication {
                     card: self.hands[player][index],
@@ -575,17 +582,17 @@ mod tests {
     }
 
     #[test]
-    fn player_zero_records_external_results_at_any_time_without_scores() {
+    fn external_results_have_no_player_and_do_not_change_player_history() {
         for won in [false, true] {
             for partial in [false, true] {
                 let mut s = Session::<TheCrew>::new(3, [2; 32]).unwrap();
-                reject(&mut s, 1, Action::Finish { won });
-                reject(&mut s, usize::MAX, Action::Finish { won });
                 if partial {
                     let player = s.state.next_player;
                     s.act(player, Action::Play { index: 0 }).unwrap();
                 }
-                let record = s.act(0, Action::Finish { won }).unwrap();
+                let actions = s.records().to_vec();
+                let turn_number = s.state.turn().number;
+                let record = s.resolve(Resolution::SharedResult { won }).unwrap();
                 let outcome = Outcome {
                     winners: if won { vec![0, 1, 2] } else { vec![] },
                     scores: None,
@@ -597,10 +604,19 @@ mod tests {
                     })
                 );
                 assert_eq!(s.state.outcome(), Some(outcome));
+                assert_eq!(s.records(), actions);
+                assert_eq!(s.state.turn().number, turn_number);
+                assert_eq!(s.resolution().unwrap().events.len(), 1);
                 for player in 0..3 {
                     assert!(s.state.legal_actions(player).is_empty());
                 }
-                reject(&mut s, 0, Action::Finish { won });
+                let before = serde_json::to_value(&s).unwrap();
+                assert_eq!(
+                    s.resolve(Resolution::SharedResult { won }).unwrap_err(),
+                    Error::Finished
+                );
+                reject(&mut s, 0, Action::Play { index: 0 });
+                assert_eq!(serde_json::to_value(&s).unwrap(), before);
             }
         }
     }

@@ -37,7 +37,6 @@ pub struct GameSnapshot {
     /// The requesting member's game-player index; null on the bench.
     pub you: Option<usize>,
     pub can_finish: bool,
-    pub can_choose_key: bool,
     pub turn: Turn,
     pub outcome: Option<Outcome>,
     /// Benched members receive no game observation.
@@ -77,10 +76,6 @@ pub enum GameMessage {
     /// Records The Crew's shared result; only the room host may submit it.
     Finish {
         won: bool,
-    },
-    /// Selects Tempel's initial key holder; only the room host may submit it.
-    ChooseKey {
-        player: usize,
     },
 }
 

@@ -22,7 +22,6 @@ function fixture(game: Partial<GameSnapshot> = {}): Snapshot {
       players: members,
       you: 0,
       can_finish: false,
-      can_choose_key: false,
       turn: { players: [0, 1], number: 0 },
       outcome: null,
       view: { game: 'tic_tac_toe', state: { board: Array(9).fill(null) } },
@@ -388,7 +387,7 @@ test('The Crew: benched host records results independently of player order', asy
   for (const context of contexts) await context.close();
 });
 
-test('Tempel des Schreckens: hidden cards, host key control, rounds, and reconnect', async ({
+test('Tempel des Schreckens: configured key, hidden cards, rounds, and reconnect', async ({
   browser,
 }) => {
   const contexts = await Promise.all([0, 1, 2].map(() => browser.newContext()));
@@ -405,10 +404,13 @@ test('Tempel des Schreckens: hidden cards, host key control, rounds, and reconne
     .getByRole('combobox', { name: 'Game', exact: true })
     .selectOption('tempel_des_schreckens');
   for (const name of names) await seat(host, name);
-  await host.getByRole('button', { name: 'Start game', exact: true }).click();
   await host
-    .getByRole('button', { name: 'Give key to Bob', exact: true })
-    .click();
+    .getByRole('combobox', { name: 'Initial key holder', exact: true })
+    .selectOption({ label: 'Bob' });
+  await expect(guest.getByRole('region', { name: 'Game rules' })).toContainText(
+    'Initial key: Player 3',
+  );
+  await host.getByRole('button', { name: 'Start game', exact: true }).click();
   await expect(guest.getByText('Key: Bob', { exact: true })).toBeVisible();
   const role = (await snapshot(guest)).game.view.state.role;
   await guest.reload();
@@ -450,9 +452,7 @@ test('Tempel des Schreckens: hidden cards, host key control, rounds, and reconne
   }
   expect((await snapshot(host)).game.outcome).not.toBeNull();
   await host.getByRole('button', { name: 'Play again', exact: true }).click();
-  await expect(
-    host.getByRole('button', { name: 'Give key to Carol', exact: true }),
-  ).toBeVisible();
+  await expect(host.getByText('Key: Bob', { exact: true })).toBeVisible();
   expect(errors).toEqual([]);
   for (const context of contexts) await context.close();
 });

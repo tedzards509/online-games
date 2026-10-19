@@ -83,10 +83,6 @@ export class RoomConnection {
     this.gameMessage({ type: 'finish', won });
   }
 
-  chooseKey(player: number): void {
-    this.gameMessage({ type: 'choose_key', player });
-  }
-
   private gameMessage(message: Schemas['GameMessage']): void {
     if (this.room?.game)
       this.send({

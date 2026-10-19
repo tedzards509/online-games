@@ -10,6 +10,14 @@ use utoipa::ToSchema;
 const ROUNDS: usize = 4;
 const INITIAL_HAND_SIZE: usize = 5;
 
+/// Public setup options; player indices refer to the ordered game players.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+#[schema(as = TempelGameConfig)]
+pub struct GameConfig {
+    pub initial_key: Player,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 #[schema(as = TempelCard)]
@@ -76,7 +84,6 @@ fn distribution(players: usize) -> Result<Distribution, Error> {
 #[serde(rename_all = "snake_case")]
 #[schema(as = TempelPhase)]
 pub enum Phase {
-    ChooseKey,
     Inspect,
     Reveal,
 }
@@ -85,7 +92,6 @@ pub enum Phase {
 #[serde(tag = "type", rename_all = "snake_case")]
 #[schema(as = TempelAction)]
 pub enum Action {
-    ChooseKey { player: Player },
     Ready,
     Reveal { player: Player, index: usize },
 }
@@ -102,7 +108,7 @@ pub struct TempelDesSchreckens {
     hands: Vec<Vec<Slot>>,
     ready: Vec<bool>,
     phase: Phase,
-    key: Option<Player>,
+    key: Player,
     round: usize,
     round_reveals: usize,
     revealed: Counts,
@@ -121,7 +127,7 @@ pub struct View {
     pub cards: Vec<Vec<Option<Card>>>,
     pub ready: Vec<bool>,
     pub phase: Phase,
-    pub key: Option<Player>,
+    pub key: Player,
     pub round: usize,
     pub round_reveals: usize,
     pub revealed: Counts,
@@ -158,13 +164,16 @@ impl TempelDesSchreckens {
 }
 
 impl Game for TempelDesSchreckens {
-    type Config = crate::game::GameConfig;
+    type Config = GameConfig;
     type Action = Action;
     type Event = Event;
     type View = View;
 
-    fn with_config(players: usize, seed: Seed, _: Self::Config) -> Result<Self, Error> {
+    fn with_config(players: usize, seed: Seed, config: Self::Config) -> Result<Self, Error> {
         let setup = distribution(players)?;
+        if config.initial_key >= players {
+            return Err(Error::Configuration);
+        }
         let mut rng = ChaCha12Rng::from_seed(seed);
         let mut role_deck = Deck::new(
             std::iter::repeat_n(Role::Adventurer, setup.adventurers)
@@ -183,8 +192,8 @@ impl Game for TempelDesSchreckens {
             roles,
             hands: vec![],
             ready: vec![false; players],
-            phase: Phase::ChooseKey,
-            key: None,
+            phase: Phase::Inspect,
+            key: config.initial_key,
             round: 1,
             round_reveals: 0,
             revealed: Counts::default(),
@@ -206,9 +215,8 @@ impl Game for TempelDesSchreckens {
             vec![]
         } else {
             match self.phase {
-                Phase::ChooseKey => vec![0],
                 Phase::Inspect => (0..self.roles.len()).filter(|&p| !self.ready[p]).collect(),
-                Phase::Reveal => vec![self.key.unwrap()],
+                Phase::Reveal => vec![self.key],
             }
         };
         Turn {
@@ -224,9 +232,6 @@ impl Game for TempelDesSchreckens {
             return vec![];
         }
         match self.phase {
-            Phase::ChooseKey => (0..self.roles.len())
-                .map(|player| Action::ChooseKey { player })
-                .collect(),
             Phase::Inspect => vec![Action::Ready],
             Phase::Reveal => self
                 .hands
@@ -244,10 +249,6 @@ impl Game for TempelDesSchreckens {
     }
     fn advance(&mut self, player: Player, action: &Action) -> Vec<Event> {
         match *action {
-            Action::ChooseKey { player } => {
-                self.key = Some(player);
-                self.phase = Phase::Inspect;
-            }
             Action::Ready => {
                 self.ready[player] = true;
                 if self.ready.iter().all(|&ready| ready) {
@@ -262,7 +263,7 @@ impl Game for TempelDesSchreckens {
                 slot.revealed = true;
                 self.revealed.add(slot.card);
                 self.round_reveals += 1;
-                self.key = Some(target);
+                self.key = target;
                 let totals = distribution(self.roles.len()).unwrap().cards;
                 if self.revealed.gold == totals.gold {
                     self.finish(Role::Adventurer);
@@ -388,8 +389,9 @@ mod tests {
                     assert!(value.get(private).is_none());
                 }
             }
-            assert_eq!(s.state.turn().players, vec![0]);
-            assert_eq!(s.state.phase, Phase::ChooseKey);
+            assert_eq!(s.state.turn().players, (0..players).collect::<Vec<_>>());
+            assert_eq!(s.state.phase, Phase::Inspect);
+            assert_eq!(s.state.key, 0);
         }
         for players in [0, 1, 2, 11, usize::MAX] {
             assert!(matches!(
@@ -418,41 +420,47 @@ mod tests {
     }
 
     #[test]
-    fn player_zero_records_external_key_choice_and_readiness_is_simultaneous() {
-        for key in 0..3 {
-            let mut s = session(3);
-            reject(&mut s, 1, Action::ChooseKey { player: key });
-            reject(&mut s, 0, Action::ChooseKey { player: usize::MAX });
-            reject(&mut s, 0, Action::Ready);
-            s.act(0, Action::ChooseKey { player: key }).unwrap();
-            assert_eq!(s.state.key, Some(key));
-            assert_eq!(s.state.turn().players, vec![0, 1, 2]);
-            reject(&mut s, 0, Action::ChooseKey { player: 0 });
-            reject(
-                &mut s,
-                key,
-                Action::Reveal {
-                    player: (key + 1) % 3,
-                    index: 0,
-                },
-            );
-            for player in [2, 0, 1] {
-                s.act(player, Action::Ready).unwrap();
-                if player != 1 {
-                    reject(&mut s, player, Action::Ready);
+    fn configured_key_is_validated_and_readiness_is_simultaneous() {
+        for players in 3..=10 {
+            for key in 0..players {
+                let config = GameConfig { initial_key: key };
+                let mut s =
+                    Session::<TempelDesSchreckens>::with_config(players, [0; 32], config.clone())
+                        .unwrap();
+                assert_eq!(s.config(), &config);
+                assert_eq!(s.state.key, key);
+                assert_eq!(s.state.turn().players, (0..players).collect::<Vec<_>>());
+                reject(
+                    &mut s,
+                    key,
+                    Action::Reveal {
+                        player: (key + 1) % players,
+                        index: 0,
+                    },
+                );
+                for player in (0..players).rev() {
+                    s.act(player, Action::Ready).unwrap();
+                    if player != 0 {
+                        reject(&mut s, player, Action::Ready);
+                    }
                 }
+                assert_eq!(s.state.phase, Phase::Reveal);
+                assert_eq!(s.state.turn().players, vec![key]);
+                reject(&mut s, key, Action::Ready);
+                reject(&mut s, usize::MAX, Action::Ready);
             }
-            assert_eq!(s.state.phase, Phase::Reveal);
-            assert_eq!(s.state.turn().players, vec![key]);
-            reject(&mut s, key, Action::Ready);
-            reject(&mut s, usize::MAX, Action::Ready);
+            for initial_key in [players, usize::MAX] {
+                assert!(matches!(
+                    TempelDesSchreckens::with_config(players, [0; 32], GameConfig { initial_key }),
+                    Err(Error::Configuration)
+                ));
+            }
         }
     }
 
     #[test]
     fn reveal_moves_the_key_updates_only_public_piles_and_preserves_slot_indices() {
         let mut s = session(3);
-        s.act(0, Action::ChooseKey { player: 0 }).unwrap();
         ready_all(&mut s);
         reject(
             &mut s,
@@ -499,7 +507,7 @@ mod tests {
         let mut expected = Counts::default();
         expected.add(card);
         assert_eq!(s.state.revealed, expected);
-        assert_eq!(s.state.key, Some(1));
+        assert_eq!(s.state.key, 1);
         assert_eq!(s.state.hands[1].len(), 5);
         assert_eq!(s.state.view(0).cards[1][2], Some(card));
         assert_eq!(s.state.view(2).cards[1][2], Some(card));
@@ -527,12 +535,13 @@ mod tests {
 
     #[test]
     fn four_rounds_shrink_rows_keep_key_and_roles_and_expire_after_exactly_n_reveals() {
-        let mut s = session(3);
+        let mut s =
+            Session::<TempelDesSchreckens>::with_config(3, [0; 32], GameConfig { initial_key: 2 })
+                .unwrap();
         for slot in s.state.hands.iter_mut().flatten() {
             slot.card = Card::Empty;
         }
         let roles = s.state.roles.clone();
-        s.act(0, Action::ChooseKey { player: 2 }).unwrap();
         for round in 1..=4 {
             assert_eq!(s.state.round, round);
             assert_eq!(s.state.phase, Phase::Inspect);
@@ -544,7 +553,7 @@ mod tests {
             // Alternate between two rows; the third row remains entirely hidden.
             let mut last_target = 0;
             for _ in 0..3 {
-                let actor = s.state.key.unwrap();
+                let actor = s.state.key;
                 let player = if actor == 0 { 1 } else { 0 };
                 let index = s.state.hands[player]
                     .iter()
@@ -553,7 +562,7 @@ mod tests {
                 s.act(actor, Action::Reveal { player, index }).unwrap();
                 last_target = player;
             }
-            assert_eq!(s.state.key, Some(last_target));
+            assert_eq!(s.state.key, last_target);
             assert_eq!(s.state.roles, roles);
             assert_eq!(s.state.revealed.empty, round * 3);
             if round != 4 {
@@ -579,7 +588,6 @@ mod tests {
     fn all_gold_wins_even_on_the_final_reveal_and_results_freeze_state() {
         for final_reveal in [false, true] {
             let mut s = session(3);
-            s.act(0, Action::ChooseKey { player: 0 }).unwrap();
             ready_all(&mut s);
             s.state.revealed.gold = 4;
             s.state.hands[1][0].card = Card::Gold;
@@ -607,7 +615,7 @@ mod tests {
                     .collect::<Vec<_>>()
             );
             assert!(s.state.outcome.as_ref().unwrap().scores.is_none());
-            assert_eq!(s.state.key, Some(1));
+            assert_eq!(s.state.key, 1);
             assert!(s.state.turn().players.is_empty());
             reject(
                 &mut s,
@@ -617,7 +625,7 @@ mod tests {
                     index: 0,
                 },
             );
-            reject(&mut s, 0, Action::ChooseKey { player: 0 });
+            reject(&mut s, 0, Action::Ready);
             assert!(s.state.view(0).cards[0].iter().all(Option::is_none));
         }
     }
@@ -626,7 +634,6 @@ mod tests {
     fn guardians_need_every_trap_including_three_with_ten_players() {
         for players in [3, 10] {
             let mut s = session(players);
-            s.act(0, Action::ChooseKey { player: 0 }).unwrap();
             ready_all(&mut s);
             let traps = distribution(players).unwrap().cards.traps;
             s.state.hands[1][0].card = Card::Trap;

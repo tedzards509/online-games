@@ -7,10 +7,8 @@
   own role.
 - Shuffle all cards and deal five per player. Players know their own counts of gold, traps, and empty cards, but not
   their positions: all cards are placed face-down in shuffled order. Other players' counts are private.
-- The room host chooses any player to hold the initial key, independently of their own seating. The key holder selects
-  reveals; seat order does not otherwise determine play. Each game uses the room's selected player order and requires a
-  fresh initial key choice. The deterministic core records this external choice through player 0; the room authorizes
-  the host and excludes the choice from normal moves.
+- Configuration supplies `initial_key`, the zero-based player initially holding the key. The key holder selects
+  reveals; seat order does not otherwise determine play. Begin in inspection with every player unready.
 - State consists of roles, card rows and visibility, readiness, phase, key holder, round, reveals this round, three
   cumulative revealed piles, deterministic RNG state, action counter, and result.
 - Public information: card row sizes and face-up cards, ready seats, key holder, round, round reveal count,
@@ -32,7 +30,6 @@
 
 | Phase      | Legal actions                                                                                 | Result                                                                                                                           |
 |------------|-----------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------|
-| Choose key | **ChooseKey(player)**, host only, selecting a valid seat.                                     | Set the initial key holder and begin inspection.                                                                                 |
 | Inspect    | **Ready**, from any player not ready.                                                         | Confirm that player's card counts have been inspected. Once everyone is ready, begin revealing.                                  |
 | Reveal     | **Reveal(player, index)**, key holder only, targeting an unrevealed card of any other player. | Turn the card face-up, add it to its revealed-pile count, and pass the key to its owner. Check the result, then the round limit. |
 
@@ -50,7 +47,8 @@ Revealed cards stay out of play; the three revealed-pile counts persist. Reset r
 stays with the owner of the last revealed card through inspection and into the next round. Roles are not redistributed.
 Owners' remaining counts reflect public reveals without exposing card positions.
 
-No configurable rules (`GameConfig` is empty). The setup table fixes the role and card pools. All traps are required for
+`GameConfig.initial_key` defaults to player 0 and must identify a player in the game; invalid indices reject setup.
+The setup table fixes the role and card pools. All traps are required for
 a trap-based guardian win: two for three to nine players, three for ten players.
 
 ## Goal and termination
@@ -61,5 +59,4 @@ completion before the round-four deadline; collecting the last gold on that reve
 
 The winners are exactly the seats assigned the winning role; an unused role is not a player. There are no scores or
 draws. Terminal state retains the card rows and key holder without redealing; no actions are legal after the result.
-Private roles and unrevealed card positions are not exposed in live views, including after completion; completed replays
-contain full hidden information.
+Private roles and unrevealed card positions remain hidden in player observations, including after completion.

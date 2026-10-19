@@ -1,6 +1,6 @@
 //! Checks that custom action, event, and observation types work with sessions.
 
-use arena_core::{Error, Game, GameEvent, Outcome, Player, Session, Turn, game::Seed};
+use arena_core::{Error, Game, GameEvent, Outcome, Player, Resolution, Session, Turn, game::Seed};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -57,6 +57,58 @@ impl Game for Counter {
     fn view(&self, _: Player) -> bool {
         self.0
     }
+    fn resolutions(&self) -> Vec<Resolution> {
+        if self.0 {
+            vec![]
+        } else {
+            vec![Resolution::SharedResult { won: true }]
+        }
+    }
+    fn resolve(&mut self, _: Resolution) -> Vec<CustomEvent> {
+        self.0 = true;
+        vec![CustomEvent::Changed]
+    }
+}
+
+#[test]
+fn external_resolutions_validate_and_record_custom_events_without_an_actor() {
+    let mut session = Session::<Counter>::new(2, [0; 32]).unwrap();
+    let before = serde_json::to_value(&session).unwrap();
+    assert_eq!(
+        session
+            .resolve(Resolution::SharedResult { won: false })
+            .unwrap_err(),
+        Error::IllegalMove
+    );
+    assert_eq!(serde_json::to_value(&session).unwrap(), before);
+    let resolution = Resolution::SharedResult { won: true };
+    let record = session.resolve(resolution).unwrap();
+    assert_eq!(record.resolution, resolution);
+    assert_eq!(
+        record.events,
+        vec![
+            CustomEvent::Changed,
+            CustomEvent::Ended(Outcome {
+                winners: vec![0],
+                scores: None
+            })
+        ]
+    );
+    assert!(session.records().is_empty());
+    let saved = serde_json::to_value(&session).unwrap();
+    assert!(saved["resolution"].get("player").is_none());
+    assert_eq!(session.resolve(resolution).unwrap_err(), Error::Finished);
+    assert_eq!(session.act(0, true).unwrap_err(), Error::Finished);
+    assert_eq!(serde_json::to_value(&session).unwrap(), saved);
+    let restored: Session<Counter> = serde_json::from_value(saved).unwrap();
+    assert_eq!(restored.resolution(), session.resolution());
+    let mut automatic = Session::<Reaction>::new(3, [0; 32]).unwrap();
+    let before = serde_json::to_value(&automatic).unwrap();
+    assert_eq!(
+        automatic.resolve(resolution).unwrap_err(),
+        Error::IllegalMove
+    );
+    assert_eq!(serde_json::to_value(&automatic).unwrap(), before);
 }
 
 #[test]

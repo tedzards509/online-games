@@ -41,7 +41,7 @@ Host-only setup commands require the exact current revision:
 {"type":"start","revision":4}
 ```
 
-`configure` selects a game and its complete settings atomically; null clears the selection. Shithead uses `{"game":"shithead","rules":{"four_card_bombs":false}}`; other games use empty `rules: {}`. Unknown fields and invalid rule types are rejected. Every accepted setting change is broadcast live. Configuration and seating are locked while the current game is unfinished. Selecting a game does not implicitly seat or bench anyone; `start` validates its player count.
+`configure` selects a game and its complete settings atomically; null clears the selection. Shithead uses `{"game":"shithead","rules":{"four_card_bombs":false}}`; Tempel uses `{"game":"tempel_des_schreckens","rules":{"initial_key":0}}`. Other games use empty `rules: {}`. Unknown fields and invalid rule types are rejected. Every accepted setting change is broadcast live. Configuration and seating are locked while the current game is unfinished. Selecting a game does not implicitly seat or bench anyone; `start` validates its player count and configuration, including the initial key index.
 
 `seat` supplies the complete ordered list of players for the next game. Each ID must identify a distinct member. Everyone absent is on the bench. Starting freezes this roster and configuration into a fresh game with its own ID and explicit start revision. Reordering never changes member identity, authentication, or host authority.
 
@@ -75,15 +75,17 @@ The Crew (3–5 players, without missions) waits for the group's shared win/loss
 {"type":"game","revision":5,"game_id":"…","message":{"type":"finish","won":true}}
 ```
 
-`game.can_finish` is true only for the host while The Crew is unfinished, even if the host is benched. Finish can occur during a trick; a win lists all players, a loss lists none, and neither assigns scores. It is a game lifecycle decision, not a setting or playable action. Other games reject it. Internally, the core records it deterministically through player 0; that player's membership does not confer host authority. Submitting the internal finish through `move` is rejected.
+`game.can_finish` requires host membership and support for `Resolution::SharedResult` in the current game. The Crew accepts it while unfinished, including during a trick; a win lists all players, a loss lists none, and neither assigns scores. The host need not be seated. The server authorizes the request, maps it to the domain resolution, and asks the session to resolve the game. The session validates support, sets the result, and records a separate terminal `resolution` with its effects and no player identity. Player actions contain no finish command. Unsupported and repeated resolutions are rejected. Room authorization is independent of core completion and replay recording.
 
-Tempel des Schreckens (3–10 players) exposes `game.can_choose_key` to the host during initial key selection:
+### Tempel configuration
+
+The host chooses Tempel's initial key holder through the live setup configuration before starting:
 
 ```json
-{"type":"game","revision":5,"game_id":"…","message":{"type":"choose_key","player":1}}
+{"type":"configure","revision":4,"config":{"game":"tempel_des_schreckens","rules":{"initial_key":1}}}
 ```
 
-The target is a game-player index. The host need not be seated. The core records the choice through player 0; clients cannot submit it as a normal move. Each round then uses simultaneous `ready` moves and key-holder `reveal` moves. Players see only their own role and remaining counts, with nulls for every hidden position, including their own row. Key ownership and revealed-pile counts persist across redeals.
+The index refers to the ordered players, not a member ID. Changing the seating order changes which member occupies that position; `start` rejects out-of-range indices. The host need not be seated. The configured game begins in inspection, then uses simultaneous `ready` moves and key-holder `reveal` moves. Players see only their own role and remaining counts, with nulls for every hidden position, including their own row. Key ownership and revealed-pile counts persist across redeals. The initial key is retained in saved setup and replay configuration.
 
 ## Responses, persistence, and reconnects
 
@@ -97,4 +99,4 @@ Schema initialization uses `crates/arena-server/schema.sql`; stored room JSON mu
 
 ## Replays
 
-Only completed games are archived; aborts do not export hidden state. Replay summaries retain the game configuration and member roster. Downloads contain the core replay: rules version, game kind, player count, seed, and accepted actions/events. They intentionally reveal all hidden information. `Replay::simulate` reconstructs and validates the history. All authenticated room members may download completed replays.
+Only completed games are archived; aborts do not export hidden state. Replay summaries retain the game configuration and member roster. Downloads contain the core replay: rules version, game kind, player count, seed, accepted player actions/events, and an optional external resolution record. Replay validation applies the resolution after all player actions and checks its resulting events. Replays intentionally reveal all hidden information. All authenticated room members may download completed replays.

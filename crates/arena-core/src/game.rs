@@ -35,6 +35,9 @@ pub enum Error {
     /// The ruleset does not support the requested number of players.
     #[error("Invalid player count")]
     PlayerCount,
+    /// Setup options are invalid for the requested players.
+    #[error("Invalid game configuration")]
+    Configuration,
     /// The submitting seat is not active.
     #[error("Not your turn")]
     NotYourTurn,
@@ -106,6 +109,23 @@ pub struct Outcome {
     pub scores: Option<Vec<i32>>,
 }
 
+/// An external game decision, independent of player actions and room authority.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+pub enum Resolution {
+    /// Records the group's declared win or loss.
+    SharedResult { won: bool },
+}
+
+/// A terminal external input and its effects, without an acting player.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct ResolutionRecord<E> {
+    /// The accepted external decision.
+    pub resolution: Resolution,
+    /// Effects including the terminal event.
+    pub events: Vec<E>,
+}
+
 /// Common rule effects that the included games can record without exposing cards.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -124,7 +144,7 @@ pub enum Event {
 
 /// An event type that can represent the session's final result.
 pub trait GameEvent: Clone + PartialEq + Serialize + DeserializeOwned {
-    /// Creates the terminal event appended by `Session::act`.
+    /// Creates the terminal event appended by `Session::act` or `Session::resolve`.
     fn finished(outcome: Outcome) -> Self;
 }
 
@@ -159,6 +179,16 @@ pub trait Game: Clone {
     fn legal_actions(&self, player: Player) -> Vec<Self::Action>;
     /// Applies a legal action, updates turn order, and returns effects without a terminal event.
     fn advance(&mut self, player: Player, action: &Self::Action) -> Vec<Self::Event>;
+    /// Lists external decisions currently supported by this ruleset.
+    fn resolutions(&self) -> Vec<Resolution> {
+        vec![]
+    }
+    /// Applies an allowed external decision and sets the final outcome without
+    /// changing the turn counter. Returns effects without a terminal event.
+    /// Like `advance`, this is a trusted path; use `Session::resolve` for validation.
+    fn resolve(&mut self, _: Resolution) -> Vec<Self::Event> {
+        unreachable!("this ruleset has no external resolutions")
+    }
     /// Projects state for one viewer without leaking other players' private information.
     fn view(&self, viewer: Player) -> Self::View;
 }
@@ -184,6 +214,8 @@ pub struct Session<G: Game> {
     pub(crate) config: G::Config,
     #[serde(bound(deserialize = "G::Action: DeserializeOwned, G::Event: DeserializeOwned"))]
     pub(crate) records: Vec<Record<G::Action, G::Event>>,
+    #[serde(default, bound(deserialize = "G::Event: DeserializeOwned"))]
+    pub(crate) resolution: Option<ResolutionRecord<G::Event>>,
 }
 
 impl<G: Game> Session<G> {
@@ -199,6 +231,7 @@ impl<G: Game> Session<G> {
             players,
             config,
             records: Vec::new(),
+            resolution: None,
         })
     }
     /// Borrows the full private state; use `Game::view` for client responses.
@@ -212,6 +245,31 @@ impl<G: Game> Session<G> {
     /// Borrows the accepted-action history in execution order.
     pub fn records(&self) -> &[Record<G::Action, G::Event>] {
         &self.records
+    }
+    /// Borrows the external terminal record, if the game was resolved externally.
+    pub fn resolution(&self) -> Option<&ResolutionRecord<G::Event>> {
+        self.resolution.as_ref()
+    }
+    /// Validates an external decision before applying it and recording completion.
+    /// It has no player or turn requirement; authorization belongs to the caller.
+    pub fn resolve(
+        &mut self,
+        resolution: Resolution,
+    ) -> Result<&ResolutionRecord<G::Event>, Error> {
+        if self.state.outcome().is_some() {
+            return Err(Error::Finished);
+        }
+        if !self.state.resolutions().contains(&resolution) {
+            return Err(Error::IllegalMove);
+        }
+        let mut events = self.state.resolve(resolution);
+        let outcome = self
+            .state
+            .outcome()
+            .expect("a resolution must finish the game");
+        events.push(G::Event::finished(outcome));
+        self.resolution = Some(ResolutionRecord { resolution, events });
+        Ok(self.resolution.as_ref().expect("just recorded"))
     }
     /// Rejects finished, out-of-turn, or illegal actions before changing state or history.
     pub fn act(

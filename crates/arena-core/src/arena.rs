@@ -1,7 +1,10 @@
 //! Runtime game dispatch, transport-facing actions and views, and replay validation.
 
 use crate::{
-    game::{Error, Event, Game, Outcome, Player, Record, Seed, Session, Turn},
+    game::{
+        Error, Event, Game, Outcome, Player, Record, Resolution, ResolutionRecord, Seed, Session,
+        Turn,
+    },
     games::{crazy_eights, mancala, shithead, skyjo, tempel_des_schreckens, the_crew, tic_tac_toe},
 };
 use serde::{Deserialize, Serialize};
@@ -63,7 +66,7 @@ impl GameKind {
     deny_unknown_fields
 )]
 pub enum Config {
-    TempelDesSchreckens(crate::game::GameConfig),
+    TempelDesSchreckens(tempel_des_schreckens::GameConfig),
     TheCrew(crate::game::GameConfig),
     Mancala(crate::game::GameConfig),
     CrazyEights(crazy_eights::GameConfig),
@@ -183,6 +186,14 @@ impl Match {
     /// Returns the final result, if the match has ended.
     pub fn outcome(&self) -> Option<Outcome> {
         dispatch!(self, s => s.state().outcome())
+    }
+    /// Lists domain decisions that can finish this game independently of player turns.
+    pub fn resolutions(&self) -> Vec<Resolution> {
+        dispatch!(self, s => s.state().resolutions())
+    }
+    /// Validates and records an external resolution without attributing it to a player.
+    pub fn resolve(&mut self, resolution: Resolution) -> Result<(), Error> {
+        dispatch!(self, s => s.resolve(resolution).map(|_| ()))
     }
     /// Builds a personalized observation rather than exposing private state.
     pub fn view(&self, player: Player) -> View {
@@ -326,11 +337,12 @@ impl Match {
         let version = game.replay_version();
         Replay {
             version,
-            config: (version > 1).then_some(config),
+            config: (version > 1 || game == GameKind::TempelDesSchreckens).then_some(config),
             game,
             players: dispatch!(self, s => s.players),
             seed: dispatch!(self, s => s.seed),
             records,
+            resolution: dispatch!(self, s => s.resolution.clone()),
         }
     }
 }
@@ -353,7 +365,7 @@ pub struct Replay {
     pub version: u32,
     /// The ruleset needed to interpret the history.
     pub game: GameKind,
-    /// Explicit setup options; absent from version-1 files.
+    /// Explicit setup options for configurable games.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub config: Option<Config>,
     /// The number of seats present at setup.
@@ -363,6 +375,9 @@ pub struct Replay {
     pub seed: Seed,
     /// Accepted commands and their expected effects in execution order.
     pub records: Vec<Record<Action, Event>>,
+    /// An optional terminal external decision, applied after all player actions.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resolution: Option<ResolutionRecord<Event>>,
 }
 
 impl Replay {
@@ -373,12 +388,20 @@ impl Replay {
         }
         let config = match (self.version, &self.config) {
             (1, None) => self.game.default_config(),
+            (1, Some(Config::TempelDesSchreckens(config)))
+                if self.game == GameKind::TempelDesSchreckens =>
+            {
+                Config::TempelDesSchreckens(config.clone())
+            }
             (4, Some(config)) if config.kind() == self.game => config.clone(),
             _ => return Err(Error::Replay),
         };
         let mut game = Match::with_config(config, self.players, self.seed)?;
         for record in &self.records {
             game.act(record.player, record.action.clone())?;
+        }
+        if let Some(record) = &self.resolution {
+            game.resolve(record.resolution)?;
         }
         if game.replay() != *self {
             return Err(Error::Replay);

@@ -225,6 +225,7 @@
       {#if host}
         <RoomSettings
           config={room.config}
+          players={room.seating.map((id) => room.members[id].nickname)}
           disabled={disabled || active}
           change={(config) => connection?.configure(config)}
         />
@@ -313,13 +314,6 @@
                 ? 'Your turn'
                 : `${game.turn.players.map((player) => game.players[player].nickname).join(', ') || 'Nobody'}'s turn`}
             </p>{/if}
-          {#if game.can_choose_key}
-            {#each game.players as player, index}<button
-                {disabled}
-                onclick={() => connection?.chooseKey(index)}
-                >Give key to {player.nickname}</button
-              >{/each}
-          {/if}
           {#if game.can_finish}
             <div class="controls" aria-label="Game result">
               <button

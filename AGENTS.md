@@ -36,6 +36,7 @@ Read `README.md`, `docs/design.md`, and the relevant game's `crates/arena-core/s
 
 - Rules stay synchronous and use explicit seeds. Never introduce clocks, OS randomness, network access, nicknames, or database calls into core game transitions.
 - `Session::act` must reject illegal, out-of-turn, and post-game actions **before** changing state or history. `Game::advance` is the trusted fast path for actions selected from `legal_actions`.
+- External terminal decisions use `Resolution`, not synthetic player actions. `Session::resolve` validates against `Game::resolutions`, records a separate actor-free terminal record, and rejects unsupported/post-game input before mutation. Host authorization stays in the server. Setup choices such as Tempel's `initial_key` belong in game configuration.
 - Keep turn order inside each ruleset, including extra turns and multi-step phases. A room revision is not a game turn number.
 - Only public setup configuration, `Game::view` projections, and the requesting player's legal actions leave the server as game data. Never serialize a `Match`/`Session` as a live response or expose seeds/stock order/other hands. Skyjo's stock draw is visible only to its active player. Tempel des Schreckens exposes the viewer's role and remaining card counts, but no hidden card positions, including their own, or other roles.
 - Replays intentionally contain all hidden information. Only archive a completed game, and only let room members download it. Replay format 1 fixes rules, RNG algorithm, deck order, and action semantics; incompatible changes require a new version and compatibility strategy.
@@ -50,6 +51,8 @@ Read `README.md`, `docs/design.md`, and the relevant game's `crates/arena-core/s
 Follow `docs/adding-a-game.md` for the end-to-end checklist and Tic-Tac-Toe example.
 
 Each game's `rules.md`, tests, and implementation must always agree. Any change to `rules.md` must prompt corresponding test updates and, when behavior changes, game-logic updates. Keep these changes together in the same feature or fix commit; do not document new rules without testing and implementing them.
+
+Game `rules.md` files describe ordered Players, configuration, legal play, and results only. Put room membership, host permissions, seating controls, transport, and persistence specifications in `docs/design.md` and `docs/protocol.md`.
 
 Implement `Game` with its action, event, and view types; reuse `Event` or implement `GameEvent` for a custom event type. Add dispatch in `arena.rs`, board rendering in `GameBoard.svelte`, and a name in `types.ts`. Update the game's `rules.md`. Use unique `#[schema(as = ...)]` names for game-local `Action`/`View` types to avoid OpenAPI collisions. Do not force every game to use all shared utilities.
 

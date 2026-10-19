@@ -19,6 +19,8 @@
     </ul>
   {:else if config.game === 'shithead'}
     <p>Four-card bombs: {config.rules.four_card_bombs ? 'On' : 'Off'}</p>
+  {:else if config.game === 'tempel_des_schreckens'}
+    <p>Initial key: Player {config.rules.initial_key + 1}</p>
   {:else}
     <p class="muted">Standard rules</p>
   {/if}

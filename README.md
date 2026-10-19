@@ -47,7 +47,7 @@ Each game module documents its supported variant, not every house rule:
 - [Skyjo](crates/arena-core/src/games/skyjo/rules.md)
 - [Tic-Tac-Toe](crates/arena-core/src/games/tic_tac_toe/rules.md)
 - [The Crew — without missions](crates/arena-core/src/games/the_crew/rules.md) (3–5 players; the host records a shared win or loss)
-- [Tempel des Schreckens](crates/arena-core/src/games/tempel_des_schreckens/rules.md) (3–10 players; hidden roles and cards)
+- [Tempel des Schreckens](crates/arena-core/src/games/tempel_des_schreckens/rules.md) (3–10 players; hidden roles and cards, configurable initial key holder)
 
 Crazy Eights, Mancala, Shithead, and Skyjo use replay version 4; Tic-Tac-Toe, The Crew, and Tempel des Schreckens use version 1. Back up databases and use separate databases (`DATABASE_URL`) for incompatible rules versions. See [compatibility requirements and revision references](docs/design.md#replay-and-save-compatibility).
 

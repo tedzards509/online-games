@@ -45,11 +45,8 @@
   Role pool: {view.distribution.adventurers} adventurers · {view.distribution
     .guardians} guardians
 </p>
-{#if view.key != null}<p>Key: {names[view.key]}</p>{/if}
+<p>Key: {names[view.key]}</p>
 {#if !finished}
-  {#if view.phase === 'choose_key'}<p>
-      Host chooses the initial key holder
-    </p>{/if}
   {#if view.phase === 'inspect'}<p>
       {view.ready[you]
         ? 'Waiting for other players'

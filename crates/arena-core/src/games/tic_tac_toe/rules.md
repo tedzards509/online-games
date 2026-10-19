@@ -3,7 +3,7 @@
 ## Initial state
 
 - Two players; an empty 3×3 board. Seat 0 is X and starts; seat 1 is O.
-- Seats follow join order; rematches keep the same seats and starting player. The seed has no effect.
+- Players have a fixed order. The seed has no effect.
 - State consists of the board, active seat, and result. All information is public. Cell indices are row-major, 0–8.
 
 ## Actions and eligibility

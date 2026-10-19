@@ -11,6 +11,7 @@ The contract is defined in `crates/arena-core/src/game.rs`; runtime dispatch and
 | `Seed` | Explicit `[u8; 32]` input to setup. The same rules, player count, seed, and actions must reproduce the same states and events. |
 | `Game::Config` / `GameConfig` | Serializable, immutable setup options defined by each game; runtime `Config` tags the game-owned struct. Options are public, unlike private state and seeds. |
 | `Action` | A proposed game-specific command, not an effect or state snapshot. The submitting player is passed separately. |
+| `Resolution` / `ResolutionRecord<E>` | A terminal external domain input and its resulting effects, without an acting player. Each ruleset declares its supported resolutions. Authorization belongs outside the core. |
 | Legal actions | `legal_actions(player)` enumerates that seat's valid commands in the current phase; empty for ineligible seats or after completion. |
 | `Event` | An ordered effect of an accepted action, e.g. placement, capture, or completion. Events describe transitions; they are not commands or independently applied state updates. `GameEvent::finished` constructs the terminal event. |
 | `Turn` | Eligible `players: Vec<Player>` and ruleset-managed `number`. The list is not a queue or priority order. The ruleset owns extra turns, response windows, and multi-action phases. `Turn::advance(count)` rotates a singleton list and increments the counter; it panics for any other list length. Neither field is a room revision. |
@@ -25,6 +26,7 @@ The contract is defined in `crates/arena-core/src/game.rs`; runtime dispatch and
 2. `Session::act(player, action)` rejects completed games, ineligible players, and actions outside `legal_actions(player)` before any mutation or logging.
 3. `advance(player, action)` mutates state, resolves rule effects, updates phases/turn/outcome, and returns events. It assumes a legal action; simulations may call it directly with actions selected from `legal_actions(player)`.
 4. The session appends a terminal event if the game ended, then records the action and events. It stores no per-event state snapshots.
+5. `Game::resolutions` enumerates supported external decisions. `Session::resolve` rejects unsupported or post-game decisions before mutation, calls the trusted `Game::resolve`, and records its effects plus the terminal event in a separate `ResolutionRecord`. Resolutions must finish the game; they have no player or turn requirement and leave the player-action history and turn counter unchanged. Games without external decisions use the empty default implementation. Replays apply player records first, then the optional terminal resolution, and validate all resulting effects.
 
 Rules are synchronous and deterministic: no clocks, OS randomness, I/O, or transport dependencies. See [Add a game](adding-a-game.md) for implementation and integration steps.
 
@@ -48,11 +50,11 @@ The framework uses deterministic setup, typed actions/events, per-player observa
 
 Actions, events, and observations are associated types of `Game`. The included games share an `Event` enum, but another ruleset can provide its own `GameEvent` and still use `Session` and `Record<A, E>`.
 
-The Crew uses its own colored cards with `Deck<Card>`. Its next card-playing seat is separate from eligibility: between tricks other players may communicate. Communications retain their card/declaration after play; private hands are never projected to other seats. Without missions, exhausting playable tricks waits for the host's result decision. The Crew uses replay version 1.
+The Crew uses its own colored cards with `Deck<Card>`. Its next card-playing seat is separate from eligibility: between tricks other players may communicate. Communications retain their card/declaration after play; private hands are never projected to other seats. Without missions, exhausting playable tricks waits for an external `SharedResult` resolution. The Crew uses replay version 1.
 
-Tempel des Schreckens keeps roles private and projects only each viewer's unrevealed card counts, never their positions. Public rows contain face-up card values and hidden placeholders. The host chooses the initial key; simultaneous readiness precedes each reveal phase. The key passes to the revealed card's owner and persists across seeded redeals of unrevealed cards. Revealed-pile counts persist for all four rounds; outcomes list the seats with the winning role.
+Tempel des Schreckens keeps roles private and projects only each viewer's unrevealed card counts, never their positions. Public rows contain face-up card values and hidden placeholders. Its `initial_key` configuration identifies a player and is validated at setup; simultaneous readiness precedes each reveal phase. The key passes to the revealed card's owner and persists across seeded redeals of unrevealed cards. Revealed-pile counts persist for all four rounds; outcomes list the seats with the winning role.
 
-Host controls are nested game messages routed by `crates/arena-server/src/game.rs`, separate from room lifecycle, settings, and normal player moves. The Crew's `finish` records its shared result; Tempel's `choose_key` selects its initial key holder. Personalized `can_finish`/`can_choose_key` capabilities depend on host membership and game phase, not seating. The server authorizes the host, then records the external decision through core player 0 for deterministic replay. Normal moves cannot submit these internal actions. Host controls use the same game identity, FIFO validation, and transactional persistence as moves.
+The host configures Tempel's initial key before starting, using an index into the ordered players. Host game controls are nested messages routed by `crates/arena-server/src/game.rs`. The server authorizes `finish`, translates `won` into `Resolution::SharedResult`, and calls `Match::resolve`; the session records completion independently of room policy. `can_finish` requires host membership and a supported resolution, not a player seat. Normal moves accept only player actions. Host controls use the same game identity, FIFO validation, and transactional persistence as moves.
 
 `arena-server` owns anonymous member identities, rooms, seating, persistence, and transport. A token identifies a stable room member. The creator is the host independently of seating. An ordered subset of members becomes a game's players; omitted members are benched. New members join the bench at any time. Membership IDs and game-player indices are distinct. The game roster is frozen at start and used to translate incoming moves and build personalized views. Benched members receive no game view or legal actions; spectating requires explicit safe projections and board support.
 
@@ -67,6 +69,7 @@ Private engine state is persisted but never sent as a live observation. Completi
 | Games | Supported replay version | Configuration | Saved-session requirement |
 | --- | --- | --- | --- |
 | Crazy Eights, Mancala, Shithead, Skyjo | 4 | Explicit, matching game tag | `rules_version: 4` |
-| Tic-Tac-Toe, The Crew, Tempel des Schreckens | 1 | Omitted; ruleset defaults | No rules-version marker |
+| Tic-Tac-Toe, The Crew | 1 | Omitted; ruleset defaults | No rules-version marker |
+| Tempel des Schreckens | 1 | Explicit `initial_key` | No rules-version marker |
 
 Unsupported replay versions and mismatched saved-session markers are rejected. Stored rooms require the current data model; use a fresh database for incompatible stored data. Database compatibility migrations are not provided.
