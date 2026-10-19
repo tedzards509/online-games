@@ -1,6 +1,6 @@
 # Working on Friends' Arena
 
-Read `README.md`, `docs/rules.md`, and `docs/design.md` first. This is a small hobby framework; keep changes focused. No accounts, monetization, decorative UI, or speculative infrastructure.
+Read `README.md`, `docs/rules.md`, and `docs/design.md` first. This is a small hobby framework to refine collaboratively with the user, not a finished product to embellish autonomously. Keep changes focused on the requested feature. No accounts, monetization, unsolicited decorative UI, or speculative infrastructure.
 
 ## Map
 
@@ -17,13 +17,16 @@ Read `README.md`, `docs/rules.md`, and `docs/design.md` first. This is a small h
 
 ## Code style
 
-- Keep code minimal, modular, and readable. Prefer direct implementations and established libraries over homegrown infrastructure or speculative abstraction layers.
+- Keep code modular, minimal, and clean. Avoid boilerplate, redundant wrappers, speculative abstraction layers, and filler code or prose ("slop"). Prefer direct, readable implementations.
+- Before implementing general-purpose functionality, look for a well-maintained, popular library that meets the requirements. Use it rather than writing a custom equivalent when it covers the need.
 - Separate reusable game contracts from independent rulesets, server orchestration, and board rendering. Reuse cards, decks, and events where useful; do not constrain every game to the same representation.
 - Model actions as commands, events as resulting effects, state as authoritative data, and views as player-specific projections. Keep these distinctions explicit; document the model in `docs/design.md`.
 - Do not assume turns are inherently single-player. Use `Turn.players` for eligibility and pass the acting seat explicitly to rules. Rulesets choose the next eligible seats; the server resolves competing submissions by first successful commit at a room revision. `Turn::advance` is a singleton-only helper and must panic otherwise.
 - Document shared core functions, types, and constants with short Rustdoc descriptions of what they do. Add a short module docstring to every non-game `arena-core` module; the `games*` modules are exempt from that blanket requirement.
 - Keep technical documentation concise and precise: definitions, contracts, invariants, and actionable steps rather than narrative. Update the new-game guide when extension steps change, and validate shared extension points with a small working game.
-- Keep UI text and styling restrained and functional, with accessible labels and keyboard controls. Avoid decorative UI and unrelated product features.
+- Minimize frontend text: include only what is needed to play and operate the app, while preserving accessible labels and keyboard controls. Keep styling functional; add beautification only when the user explicitly requests it, feature by feature.
+- Keep `AGENTS.md` useful for navigating and modifying the codebase, and `README.md` concise, human-readable, and accurate about how to run it. Update them when relevant workflows change.
+- Work with Git. Make understandable, atomic commits with conventional commit messages; keep unrelated changes separate and never discard the user's work.
 
 ## Invariants
 
