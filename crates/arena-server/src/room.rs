@@ -2,7 +2,7 @@ use crate::{
     error::ApiError,
     protocol::{Membership, PlayerView, Snapshot},
 };
-use arena_core::{Config, GameKind, Match};
+use arena_core::{Action, Config, GameKind, Match, games::the_crew};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
@@ -118,22 +118,68 @@ impl Room {
                 .collect(),
             you: player,
             revision: self.revision,
-            turn: self.game.as_ref().map(Match::turn),
+            can_finish: player == 0
+                && self.kind == GameKind::TheCrew
+                && self.game.as_ref().is_some_and(|g| g.outcome().is_none()),
+            turn: self.game.as_ref().map(|game| {
+                let mut turn = game.turn();
+                turn.players
+                    .retain(|&seat| !self.legal_actions(seat).is_empty());
+                turn
+            }),
             outcome: self.game.as_ref().and_then(Match::outcome),
             view: self.game.as_ref().map(|g| g.view(player)),
-            legal_actions: self
-                .game
-                .as_ref()
-                .map(|g| g.legal_actions(player))
-                .unwrap_or_default(),
+            legal_actions: self.legal_actions(player),
             replays: self.replays.clone(),
         }
+    }
+
+    fn legal_actions(&self, player: usize) -> Vec<Action> {
+        self.game
+            .as_ref()
+            .map(|g| {
+                g.legal_actions(player)
+                    .into_iter()
+                    .filter(|a| !matches!(a, Action::TheCrew(the_crew::Action::Finish { .. })))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub fn finish(&mut self, player: usize, won: bool) -> Result<(), ApiError> {
+        if player != 0 {
+            return Err(ApiError::BadRequest("Only the host can finish".into()));
+        }
+        let game = self
+            .game
+            .as_mut()
+            .ok_or_else(|| ApiError::BadRequest("Game has not started".into()))?;
+        if !matches!(game, Match::TheCrew(_)) {
+            return Err(ApiError::BadRequest(
+                "This game determines its own result".into(),
+            ));
+        }
+        game.act(player, Action::TheCrew(the_crew::Action::Finish { won }))?;
+        self.revision += 1;
+        Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn automatic_games_do_not_offer_or_accept_manual_room_results() {
+        let mut room = Room::new("ABC234".into(), GameKind::Mancala.default_config());
+        room.join("Alice").unwrap();
+        room.join("Bob").unwrap();
+        room.start(0).unwrap();
+        assert!(!room.snapshot(0).can_finish);
+        let before = serde_json::to_value(&room).unwrap();
+        assert!(room.finish(0, true).is_err());
+        assert_eq!(serde_json::to_value(&room).unwrap(), before);
+    }
 
     #[test]
     fn legacy_rooms_without_options_use_original_defaults() {

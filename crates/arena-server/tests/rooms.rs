@@ -261,6 +261,151 @@ async fn queued_setup_actions_from_the_same_revision_both_commit() {
 }
 
 #[tokio::test]
+async fn crew_room_finish_is_host_only_atomic_replayable_and_survives_restart() {
+    use sqlx::Connection;
+    let directory = tempfile::tempdir().unwrap();
+    let database = format!("sqlite://{}", directory.path().join("crew.db").display());
+    let server = Server::open(&database).await;
+    let alice = server.member("the_crew").await;
+    let path = format!("/api/rooms/{}", alice.code);
+    let mut members = vec![alice];
+    for name in ["Bob", "Carol"] {
+        let (status, value) = server
+            .request(
+                "POST",
+                &format!("{path}/join"),
+                json!({"nickname":name}),
+                None,
+            )
+            .await;
+        assert_eq!(status, StatusCode::OK);
+        members.push(serde_json::from_value::<Membership>(value).unwrap());
+    }
+    let mut sockets = vec![];
+    for member in &members {
+        let mut socket = server.socket(member).await;
+        snapshot(&mut socket, 3).await;
+        sockets.push(socket);
+    }
+    send(
+        &mut sockets[0],
+        json!({"type":"finish","revision":3,"won":true}),
+    )
+    .await;
+    assert_eq!(receive(&mut sockets[0]).await["type"], "error");
+    snapshot(&mut sockets[0], 3).await;
+    send(&mut sockets[0], json!({"type":"start","revision":3})).await;
+    let mut views = vec![];
+    for socket in &mut sockets {
+        views.push(snapshot(socket, 4).await);
+    }
+    assert_eq!(views[0]["can_finish"], true);
+    assert_eq!(views[1]["can_finish"], false);
+    for view in &views {
+        assert!(
+            view["legal_actions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|a| a["action"]["type"] != "finish")
+        );
+    }
+    send(
+        &mut sockets[1],
+        json!({"type":"finish","revision":4,"won":true}),
+    )
+    .await;
+    assert_eq!(
+        receive(&mut sockets[1]).await["error"],
+        "Only the host can finish"
+    );
+    assert_eq!(snapshot(&mut sockets[1], 4).await, views[1]);
+    send(&mut sockets[0],json!({"type":"move","revision":4,"action":{"game":"the_crew","action":{"type":"finish","won":true}}})).await;
+    assert_eq!(
+        receive(&mut sockets[0]).await["error"],
+        "Use the room finish command"
+    );
+    assert_eq!(snapshot(&mut sockets[0], 4).await, views[0]);
+    let player = views[0]["view"]["state"]["next_player"].as_u64().unwrap() as usize;
+    let action = views[player]["legal_actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["action"]["type"] == "play")
+        .unwrap()
+        .clone();
+    send(
+        &mut sockets[player],
+        json!({"type":"move","revision":4,"action":action}),
+    )
+    .await;
+    for (index, socket) in sockets.iter_mut().enumerate() {
+        views[index] = snapshot(socket, 5).await;
+    }
+    // A failed finish must publish neither the result nor its replay.
+    let mut database_connection = sqlx::SqliteConnection::connect(&database).await.unwrap();
+    sqlx::query("CREATE TRIGGER fail_crew_finish BEFORE UPDATE ON rooms BEGIN SELECT RAISE(FAIL, 'forced'); END").execute(&mut database_connection).await.unwrap();
+    send(
+        &mut sockets[0],
+        json!({"type":"finish","revision":4,"won":true}),
+    )
+    .await;
+    assert_eq!(receive(&mut sockets[0]).await["error"], "Storage error");
+    assert_eq!(snapshot(&mut sockets[0], 5).await, views[0]);
+    sqlx::query("DROP TRIGGER fail_crew_finish")
+        .execute(&mut database_connection)
+        .await
+        .unwrap();
+    send(
+        &mut sockets[0],
+        json!({"type":"finish","revision":4,"won":true}),
+    )
+    .await;
+    for socket in &mut sockets {
+        let finished = snapshot(socket, 6).await;
+        assert_eq!(finished["outcome"]["winners"], json!([0, 1, 2]));
+        assert_eq!(finished["can_finish"], false);
+        assert!(finished["legal_actions"].as_array().unwrap().is_empty());
+        assert_eq!(finished["replays"].as_array().unwrap().len(), 1);
+    }
+    drop(sockets);
+    drop(server);
+    let server = Server::open(&database).await;
+    let mut host = server.socket(&members[0]).await;
+    let finished = snapshot(&mut host, 6).await;
+    let id = finished["replays"][0].as_str().unwrap();
+    let (status, value) = server
+        .request(
+            "GET",
+            &format!("{path}/replays/{id}"),
+            Value::Null,
+            Some(&members[0].token),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let replay: arena_core::Replay = serde_json::from_value(value).unwrap();
+    assert_eq!(replay.records.len(), 2);
+    assert_eq!(
+        replay.simulate().unwrap().outcome().unwrap().winners,
+        vec![0, 1, 2]
+    );
+    send(&mut host, json!({"type":"start","revision":6})).await;
+    let fresh = snapshot(&mut host, 7).await;
+    assert!(fresh["outcome"].is_null());
+    assert_eq!(fresh["can_finish"], true);
+    send(&mut host, json!({"type":"finish","revision":4,"won":false})).await;
+    assert_eq!(receive(&mut host).await["type"], "error");
+    snapshot(&mut host, 7).await;
+    send(&mut host, json!({"type":"finish","revision":7,"won":false})).await;
+    let lost = snapshot(&mut host, 8).await;
+    assert_eq!(lost["outcome"]["winners"], json!([]));
+    assert_eq!(lost["replays"].as_array().unwrap().len(), 2);
+    send(&mut host, json!({"type":"finish","revision":8,"won":false})).await;
+    assert_eq!(receive(&mut host).await["type"], "error");
+    assert_eq!(snapshot(&mut host, 8).await, lost);
+}
+
+#[tokio::test]
 async fn games_over_real_websockets_export_and_archive_replays() {
     let server = Server::open("sqlite::memory:").await;
     let mut rng = rand::rngs::StdRng::seed_from_u64(7);
@@ -598,6 +743,9 @@ fn openapi_has_distinct_game_schemas() {
         "ShitheadView",
         "SkyjoView",
         "TicTacToeView",
+        "CrewView",
+        "CrewAction",
+        "CrewCard",
         "Config",
         "GameConfig",
         "CrazyEightsGameConfig",

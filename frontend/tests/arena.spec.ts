@@ -10,6 +10,7 @@ test('multiple eligible seats become a single responder', async ({ page }) => {
     config: { game: 'tic_tac_toe', rules: {} },
     you: 0,
     revision: 3,
+    can_finish: false,
     players: [{ nickname: 'Alice' }, { nickname: 'Bob' }],
     turn: { players: [0, 1], number: 0 },
     outcome: null,
@@ -84,6 +85,7 @@ test('another player snapshot does not acknowledge a queued move', async ({
     config: { game: 'tic_tac_toe', rules: {} },
     you: 0,
     revision: 3,
+    can_finish: false,
     players: [{ nickname: 'Alice' }, { nickname: 'Bob' }],
     turn: { players: [0, 1], number: 0 },
     outcome: null,
@@ -143,6 +145,7 @@ test('Crazy Eights: choose a suit, draw voluntarily, and resolve draw two', asyn
     game: 'crazy_eights',
     you: 0,
     revision: 3,
+    can_finish: false,
     config: {
       game: 'crazy_eights',
       rules: {
@@ -303,6 +306,120 @@ test('Crazy Eights: host selects fixed rules before opening the room', async ({
   }
   await hostContext.close();
   await guestContext.close();
+});
+
+test('The Crew: communicate, play a trick, reconnect, and finish from the room', async ({
+  browser,
+}) => {
+  const contexts = await Promise.all([0, 1, 2].map(() => browser.newContext()));
+  const pages = await Promise.all(contexts.map((context) => context.newPage()));
+  const [host, guest, third] = pages;
+  const errors: string[] = [];
+  for (const page of pages)
+    page.on('pageerror', (error) => errors.push(error.message));
+  await host.goto('/');
+  await host.getByLabel('Nickname').fill('Alice');
+  await host
+    .getByRole('combobox', { name: 'Game', exact: true })
+    .selectOption({ label: 'The Crew' });
+  await host.getByRole('button', { name: 'Create room' }).click();
+  await expect(
+    host.getByRole('heading', { name: 'The Crew', exact: true }),
+  ).toBeVisible();
+  const path = new URL(host.url()).pathname;
+  await expect(host.getByRole('button', { name: 'Start game' })).toBeDisabled();
+  for (const [page, name] of [
+    [guest, 'Bob'],
+    [third, 'Carol'],
+  ] as const) {
+    await page.goto(path);
+    await page.getByLabel('Nickname').fill(name);
+    await page.getByRole('button', { name: 'Join room' }).click();
+    await expect(host.getByLabel('Players')).toContainText(name);
+  }
+  await host.getByRole('button', { name: 'Start game' }).click();
+  for (const page of pages)
+    await expect(
+      page.getByRole('region', { name: 'Your hand', exact: true }),
+    ).toBeVisible();
+  await expect(
+    host.getByRole('button', { name: 'Finish: won', exact: true }),
+  ).toBeVisible();
+  await expect(
+    guest.getByRole('button', { name: 'Finish: won', exact: true }),
+  ).toHaveCount(0);
+  await guest.getByText('Communicate a card', { exact: true }).click();
+  await guest
+    .getByRole('button', { name: /^Communicate / })
+    .first()
+    .click();
+  await expect
+    .poll(async () => (await snapshot(host)).view.state.communications[1])
+    .not.toBeNull();
+  const communicated = (await snapshot(host)).view.state.communications[1];
+  await guest.reload();
+  await expect(
+    guest.getByText('Communicate a card', { exact: true }),
+  ).toHaveCount(0);
+  expect((await snapshot(guest)).view.state.communications[1]).toEqual(
+    communicated,
+  );
+  for (let i = 0; i < 3; i++) {
+    const before = await snapshot(host);
+    const player = before.view.state.next_player;
+    const page = pages[player];
+    await page
+      .getByRole('region', { name: 'Your hand', exact: true })
+      .locator('button:enabled')
+      .first()
+      .click();
+    await expect
+      .poll(async () => (await snapshot(host)).revision)
+      .toBe(before.revision + 1);
+    if (i === 0)
+      for (const page of pages)
+        await expect(
+          page.getByText('Communicate a card', { exact: true }),
+        ).toHaveCount(0);
+  }
+  await expect(host.getByText(/^Last trick ·/)).toBeVisible();
+  // Finish during the following trick, not only between tricks.
+  const next = (await snapshot(host)).view.state.next_player;
+  await pages[next]
+    .getByRole('region', { name: 'Your hand', exact: true })
+    .locator('button:enabled')
+    .first()
+    .click();
+  await expect
+    .poll(async () => (await snapshot(host)).view.state.trick.length)
+    .toBe(1);
+  await host.getByRole('button', { name: 'Finish: won', exact: true }).click();
+  for (const page of pages)
+    await expect(
+      page.getByText('Alice, Bob, Carol won', { exact: true }),
+    ).toBeVisible();
+  await host.getByText('Replays (1)', { exact: true }).click();
+  const download = host.waitForEvent('download');
+  await host.getByRole('button', { name: 'Game 1 ↓', exact: true }).click();
+  const replay = JSON.parse(
+    await readFile((await (await download).path())!, 'utf8'),
+  );
+  expect(replay.game).toBe('the_crew');
+  expect(replay.records.at(-1).action).toEqual({
+    game: 'the_crew',
+    action: { type: 'finish', won: true },
+  });
+  await host.reload();
+  await expect(
+    host.getByText('Alice, Bob, Carol won', { exact: true }),
+  ).toBeVisible();
+  await host.getByRole('button', { name: 'Play again', exact: true }).click();
+  await expect.poll(async () => (await snapshot(host)).outcome).toBeNull();
+  await host.getByRole('button', { name: 'Finish: lost', exact: true }).click();
+  for (const page of pages)
+    await expect(page.getByText('Lost', { exact: true })).toBeVisible();
+  expect(errors).toEqual([]);
+  for (const context of contexts) await context.close();
 });
 
 for (const game of [

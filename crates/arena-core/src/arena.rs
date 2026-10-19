@@ -2,7 +2,7 @@
 
 use crate::{
     game::{Error, Event, Game, Outcome, Player, Record, Seed, Session, Turn},
-    games::{crazy_eights, mancala, shithead, skyjo, tic_tac_toe},
+    games::{crazy_eights, mancala, shithead, skyjo, the_crew, tic_tac_toe},
 };
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -11,6 +11,7 @@ use utoipa::ToSchema;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum GameKind {
+    TheCrew,
     Mancala,
     CrazyEights,
     Shithead,
@@ -29,6 +30,7 @@ impl GameKind {
     /// Returns the ruleset's default setup options.
     pub fn default_config(self) -> Config {
         match self {
+            Self::TheCrew => Config::TheCrew(Default::default()),
             Self::Mancala => Config::Mancala(Default::default()),
             Self::CrazyEights => Config::CrazyEights(Default::default()),
             Self::Shithead => Config::Shithead(Default::default()),
@@ -39,6 +41,7 @@ impl GameKind {
     /// Returns the largest supported room size for this ruleset.
     pub fn max_players(self) -> usize {
         match self {
+            Self::TheCrew => 5,
             Self::Mancala => 2,
             Self::CrazyEights => 6,
             Self::Shithead => 5,
@@ -57,6 +60,7 @@ impl GameKind {
     deny_unknown_fields
 )]
 pub enum Config {
+    TheCrew(crate::game::GameConfig),
     Mancala(crate::game::GameConfig),
     CrazyEights(crazy_eights::GameConfig),
     Shithead(shithead::GameConfig),
@@ -68,6 +72,7 @@ impl Config {
     /// Returns the ruleset these options belong to.
     pub fn kind(&self) -> GameKind {
         match self {
+            Self::TheCrew(_) => GameKind::TheCrew,
             Self::Mancala(_) => GameKind::Mancala,
             Self::CrazyEights(_) => GameKind::CrazyEights,
             Self::Shithead(_) => GameKind::Shithead,
@@ -81,6 +86,7 @@ impl Config {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "game", content = "action", rename_all = "snake_case")]
 pub enum Action {
+    TheCrew(the_crew::Action),
     Mancala(mancala::Action),
     CrazyEights(crazy_eights::Action),
     Shithead(shithead::Action),
@@ -92,6 +98,7 @@ pub enum Action {
 #[derive(Debug, Clone, Serialize, ToSchema)]
 #[serde(tag = "game", content = "state", rename_all = "snake_case")]
 pub enum View {
+    TheCrew(the_crew::View),
     Mancala(mancala::View),
     CrazyEights(crazy_eights::View),
     Shithead(shithead::View),
@@ -102,6 +109,7 @@ pub enum View {
 /// A private session selected at runtime; never send it as a live response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Match {
+    TheCrew(Session<the_crew::TheCrew>),
     Mancala(Session<mancala::Mancala>),
     CrazyEights(Session<crazy_eights::CrazyEights>),
     Shithead(Session<shithead::Shithead>),
@@ -113,6 +121,7 @@ pub enum Match {
 macro_rules! dispatch {
     ($this:expr, $session:ident => $body:expr) => {
         match $this {
+            Match::TheCrew($session) => $body,
             Match::Mancala($session) => $body,
             Match::CrazyEights($session) => $body,
             Match::Shithead($session) => $body,
@@ -135,6 +144,7 @@ impl Match {
     /// Creates a match with explicit game-owned setup options.
     pub fn with_config(config: Config, players: usize, seed: Seed) -> Result<Self, Error> {
         Ok(match config {
+            Config::TheCrew(c) => Self::TheCrew(Session::with_config(players, seed, c)?),
             Config::Mancala(c) => Self::Mancala(Session::with_config(players, seed, c)?),
             Config::CrazyEights(c) => Self::CrazyEights(Session::with_config(players, seed, c)?),
             Config::Shithead(c) => Self::Shithead(Session::with_config(players, seed, c)?),
@@ -145,6 +155,7 @@ impl Match {
     /// Returns public setup options without exposing private state.
     pub fn config(&self) -> Config {
         match self {
+            Self::TheCrew(s) => Config::TheCrew(s.config().clone()),
             Self::Mancala(s) => Config::Mancala(s.config().clone()),
             Self::CrazyEights(s) => Config::CrazyEights(s.config().clone()),
             Self::Shithead(s) => Config::Shithead(s.config().clone()),
@@ -163,6 +174,7 @@ impl Match {
     /// Builds a personalized observation rather than exposing private state.
     pub fn view(&self, player: Player) -> View {
         match self {
+            Self::TheCrew(s) => View::TheCrew(s.state().view(player)),
             Self::Mancala(s) => View::Mancala(s.state().view(player)),
             Self::CrazyEights(s) => View::CrazyEights(s.state().view(player)),
             Self::Shithead(s) => View::Shithead(s.state().view(player)),
@@ -176,6 +188,12 @@ impl Match {
             return vec![];
         }
         match self {
+            Self::TheCrew(s) => s
+                .state()
+                .legal_actions(player)
+                .into_iter()
+                .map(Action::TheCrew)
+                .collect(),
             Self::Mancala(s) => s
                 .state()
                 .legal_actions(player)
@@ -211,6 +229,9 @@ impl Match {
     /// Validates and records a command, rejecting mismatched game tags.
     pub fn act(&mut self, player: Player, action: Action) -> Result<(), Error> {
         match (self, action) {
+            (Self::TheCrew(s), Action::TheCrew(a)) => {
+                s.act(player, a)?;
+            }
             (Self::Mancala(s), Action::Mancala(a)) => {
                 s.act(player, a)?;
             }
@@ -233,6 +254,11 @@ impl Match {
     /// Exports the seed and full history, including secrets; share only after completion.
     pub fn replay(&self) -> Replay {
         let records = match self {
+            Self::TheCrew(s) => s
+                .records
+                .iter()
+                .map(|r| r.map_action(Action::TheCrew))
+                .collect(),
             Self::Mancala(s) => s
                 .records
                 .iter()
@@ -260,6 +286,7 @@ impl Match {
                 .collect(),
         };
         let game = match self {
+            Self::TheCrew(_) => GameKind::TheCrew,
             Self::Mancala(_) => GameKind::Mancala,
             Self::CrazyEights(_) => GameKind::CrazyEights,
             Self::Shithead(_) => GameKind::Shithead,

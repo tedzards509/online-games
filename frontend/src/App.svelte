@@ -254,7 +254,8 @@
       {#if !room.view}
         {#if room.you === 0}<button
             class="primary"
-            disabled={room.players.length < 2 ||
+            disabled={room.players.length <
+              (room.game === 'the_crew' ? 3 : 2) ||
               connection?.pending ||
               connection?.status !== 'connected'}
             onclick={() => connection?.start()}>Start game</button
@@ -264,7 +265,9 @@
           <h2 role="status">
             {room.outcome.winners.length
               ? `${room.outcome.winners.map((p) => room.players[p].nickname).join(', ')} won`
-              : 'Draw'}
+              : room.game === 'the_crew'
+                ? 'Lost'
+                : 'Draw'}
           </h2>
           {#if room.outcome.scores}<p>
               {room.outcome.scores
@@ -277,11 +280,25 @@
                 connection?.status !== 'connected'}>Play again</button
             >{/if}
         {:else}
-          <p class="turn" role="status">
-            {room.turn?.players.includes(room.you)
-              ? 'Your turn'
-              : `${room.turn?.players.map((player) => room.players[player].nickname).join(', ') || 'Nobody'}'s turn`}
-          </p>
+          {#if room.turn?.players.length}<p class="turn" role="status">
+              {room.turn?.players.includes(room.you)
+                ? 'Your turn'
+                : `${room.turn?.players.map((player) => room.players[player].nickname).join(', ') || 'Nobody'}'s turn`}
+            </p>{/if}
+          {#if room.can_finish}
+            <div class="controls" aria-label="Game result">
+              <button
+                disabled={connection?.pending ||
+                  connection?.status !== 'connected'}
+                onclick={() => connection?.finish(true)}>Finish: won</button
+              >
+              <button
+                disabled={connection?.pending ||
+                  connection?.status !== 'connected'}
+                onclick={() => connection?.finish(false)}>Finish: lost</button
+              >
+            </div>
+          {/if}
         {/if}
         <GameBoard
           {room}

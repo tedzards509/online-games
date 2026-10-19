@@ -12,6 +12,12 @@ Keep the returned token private. For HTTP reads use `Authorization: Bearer <toke
 - `GET /api/rooms/{code}/replays/{id}`: a completed replay; IDs appear in snapshots.
 - `GET /api/health`: 204 when startup, database migration, and room loading have succeeded.
 
+### Host-recorded results
+
+The Crew supports 3–5 players with empty `rules: {}` and no missions. Its snapshots expose personalized `can_finish`: true only for the host while the game is running. The host sends `{"type":"finish","revision":4,"won":true}` (or `false`) as a room command, separate from `move`. It accepts older observed revisions within the current game like queued moves, but rejects future or previous-game revisions. The result lists all seats for a win or no seats for a loss, without scores. Other games reject manual finish and retain automatic results.
+
+Finish commits and archives the replay transactionally, even during a partial trick. Internally the replay contains a game-tagged finish action; sending that internal action via `move` is rejected. It is excluded from snapshot `legal_actions` and turn eligibility. The board's `next_player` identifies the next card-playing seat; other eligible seats may communicate between tricks. Once no complete trick remains, the room waits for a host result. No changes to room membership or game selection are introduced here.
+
 No tokens in URLs, no cookies, and no account identity. Joining is closed once a game has started; existing seats can reconnect at any time. The host is seat 0.
 
 The host selects immutable options before room creation. Supply `config` as `{"game":"crazy_eights","rules":{"ace_are_you_strong":true,"jack_skip":true,"ten_reverse":true,"two_draw_two":true}}` alongside the matching `game` and nickname. Eights are always wild; `eight_wild` is no longer accepted. Shithead uses `{"game":"shithead","rules":{"four_card_bombs":false}}`; other games use empty `rules: {}`. Omitted configuration selects current defaults. Mismatched game tags, unknown rule fields, and nonboolean rule values are rejected. Every HTTP/WebSocket snapshot includes public `config`, even before starting and after reconnecting. Rematches retain it; there is no configuration update command.

@@ -48,6 +48,10 @@ Ported ideas, not source: deterministic setup, typed actions/events, per-player 
 
 Actions, events, and observations are associated types of `Game`. The included games share an `Event` enum, but another ruleset can provide its own `GameEvent` and still use `Session` and `Record<A, E>`.
 
+The Crew uses its own colored cards with `Deck<Card>`. Its next card-playing seat is separate from eligibility: between tricks other players may communicate. Communications retain their original card/declaration after play; private hands are never projected to other seats. Without missions, exhausting playable tricks waits for the host rather than creating an automatic outcome. The new game starts at replay version 1; existing rules revisions are unchanged.
+
+The host's `finish` room command records a shared result only for games that support it (currently The Crew). The room exposes a personalized `can_finish` capability, separate from playable actions and turn eligibility. It translates the command into an internal game finish action for deterministic replay; clients cannot submit that action via `move`. Finish uses the same FIFO validation, current-game revision boundary, atomic persistence, and replay archival as moves. This keeps room lifecycle controls outside board rendering without introducing a multi-game room model yet.
+
 `arena-server` owns anonymous identities, rooms, persistence, and transport. Private engine state is persisted but never sent as a live observation. Replays include the seed and therefore reveal every card; downloads are restricted to finished games and room members.
 
 The host chooses configuration before creating a room. The server checks its game tag, persists it with the room, and includes it in every personalized snapshot. Starts and rematches use those same options. There is no in-room configuration mutation; existing rooms without options use original defaults.

@@ -107,6 +107,11 @@ export interface components {
     /** @description A command tagged with the ruleset that understands it. */
     Action:
       | {
+          action: components['schemas']['CrewAction'];
+          /** @enum {string} */
+          game: 'the_crew';
+        }
+      | {
           action: components['schemas']['MancalaAction'];
           /** @enum {string} */
           game: 'mancala';
@@ -164,6 +169,13 @@ export interface components {
           type: 'start';
         }
       | {
+          /** Format: int64 */
+          revision: number;
+          /** @enum {string} */
+          type: 'finish';
+          won: boolean;
+        }
+      | {
           action: components['schemas']['Action'];
           /** Format: int64 */
           revision: number;
@@ -172,6 +184,11 @@ export interface components {
         };
     /** @description Setup options tagged with the ruleset that defines their `GameConfig` struct. */
     Config:
+      | {
+          /** @enum {string} */
+          game: 'the_crew';
+          rules: components['schemas']['GameConfig'];
+        }
       | {
           /** @enum {string} */
           game: 'mancala';
@@ -234,6 +251,60 @@ export interface components {
       game: components['schemas']['GameKind'];
       nickname: string;
     };
+    CrewAction:
+      | {
+          index: number;
+          /** @enum {string} */
+          type: 'play';
+        }
+      | {
+          declaration: components['schemas']['CrewDeclaration'];
+          index: number;
+          /** @enum {string} */
+          type: 'communicate';
+        }
+      | {
+          /** @enum {string} */
+          type: 'finish';
+          won: boolean;
+        };
+    CrewCard: {
+      color: components['schemas']['CrewColor'];
+      /** Format: int32 */
+      number: number;
+    };
+    /**
+     * @description Printed colors; black is the trump color.
+     * @enum {string}
+     */
+    CrewColor: 'pink' | 'yellow' | 'blue' | 'green' | 'black';
+    CrewCommunication: {
+      card: components['schemas']['CrewCard'];
+      declaration: components['schemas']['CrewDeclaration'];
+    };
+    /**
+     * @description A statement about a card relative to its owner's current hand.
+     * @enum {string}
+     */
+    CrewDeclaration: 'lowest' | 'only' | 'highest';
+    CrewPlay: {
+      card: components['schemas']['CrewCard'];
+      player: components['schemas']['usize'];
+    };
+    CrewTrick: {
+      cards: components['schemas']['CrewPlay'][];
+      winner: components['schemas']['usize'];
+    };
+    CrewView: {
+      awaiting_result: boolean;
+      communications: (null | components['schemas']['CrewCommunication'])[];
+      counts: number[];
+      hand: components['schemas']['CrewCard'][];
+      last_trick?: null | components['schemas']['CrewTrick'];
+      next_player: components['schemas']['usize'];
+      trick: components['schemas']['CrewPlay'][];
+      tricks_won: number[];
+    };
     ErrorBody: {
       error: string;
     };
@@ -243,7 +314,13 @@ export interface components {
      * @description A registered ruleset and its serialized game identifier.
      * @enum {string}
      */
-    GameKind: 'mancala' | 'crazy_eights' | 'shithead' | 'skyjo' | 'tic_tac_toe';
+    GameKind:
+      | 'the_crew'
+      | 'mancala'
+      | 'crazy_eights'
+      | 'shithead'
+      | 'skyjo'
+      | 'tic_tac_toe';
     JoinRoom: {
       nickname: string;
     };
@@ -275,6 +352,11 @@ export interface components {
     Record_Action_Event: {
       /** @description A command tagged with the ruleset that understands it. */
       action:
+        | {
+            action: components['schemas']['CrewAction'];
+            /** @enum {string} */
+            game: 'the_crew';
+          }
         | {
             action: components['schemas']['MancalaAction'];
             /** @enum {string} */
@@ -433,6 +515,8 @@ export interface components {
       top?: number | null;
     };
     Snapshot: {
+      /** @description Whether this seat may record a shared result for the current game. */
+      can_finish: boolean;
       code: string;
       config: components['schemas']['Config'];
       game: components['schemas']['GameKind'];
@@ -471,6 +555,11 @@ export interface components {
     };
     /** @description A player's observation tagged with its ruleset. */
     View:
+      | {
+          /** @enum {string} */
+          game: 'the_crew';
+          state: components['schemas']['CrewView'];
+        }
       | {
           /** @enum {string} */
           game: 'mancala';

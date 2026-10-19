@@ -281,6 +281,24 @@
             ],
             "properties": {
               "action": {
+                "$ref": "#/components/schemas/CrewAction"
+              },
+              "game": {
+                "type": "string",
+                "enum": [
+                  "the_crew"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "action",
+              "game"
+            ],
+            "properties": {
+              "action": {
                 "$ref": "#/components/schemas/MancalaAction"
               },
               "game": {
@@ -448,6 +466,30 @@
             "type": "object",
             "required": [
               "revision",
+              "won",
+              "type"
+            ],
+            "properties": {
+              "revision": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "finish"
+                ]
+              },
+              "won": {
+                "type": "boolean"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "revision",
               "action",
               "type"
             ],
@@ -473,6 +515,24 @@
       },
       "Config": {
         "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "rules",
+              "game"
+            ],
+            "properties": {
+              "game": {
+                "type": "string",
+                "enum": [
+                  "the_crew"
+                ]
+              },
+              "rules": {
+                "$ref": "#/components/schemas/GameConfig"
+              }
+            }
+          },
           {
             "type": "object",
             "required": [
@@ -721,6 +781,225 @@
         },
         "additionalProperties": false
       },
+      "CrewAction": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "index",
+              "type"
+            ],
+            "properties": {
+              "index": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "play"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "index",
+              "declaration",
+              "type"
+            ],
+            "properties": {
+              "declaration": {
+                "$ref": "#/components/schemas/CrewDeclaration"
+              },
+              "index": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "communicate"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Internal replay command, submitted through the room's host-only finish command.",
+            "required": [
+              "won",
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "finish"
+                ]
+              },
+              "won": {
+                "type": "boolean"
+              }
+            }
+          }
+        ]
+      },
+      "CrewCard": {
+        "type": "object",
+        "required": [
+          "color",
+          "number"
+        ],
+        "properties": {
+          "color": {
+            "$ref": "#/components/schemas/CrewColor"
+          },
+          "number": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "CrewColor": {
+        "type": "string",
+        "description": "Printed colors; black is the trump color.",
+        "enum": [
+          "pink",
+          "yellow",
+          "blue",
+          "green",
+          "black"
+        ]
+      },
+      "CrewCommunication": {
+        "type": "object",
+        "required": [
+          "card",
+          "declaration"
+        ],
+        "properties": {
+          "card": {
+            "$ref": "#/components/schemas/CrewCard"
+          },
+          "declaration": {
+            "$ref": "#/components/schemas/CrewDeclaration"
+          }
+        }
+      },
+      "CrewDeclaration": {
+        "type": "string",
+        "description": "A statement about a card relative to its owner's current hand.",
+        "enum": [
+          "lowest",
+          "only",
+          "highest"
+        ]
+      },
+      "CrewPlay": {
+        "type": "object",
+        "required": [
+          "player",
+          "card"
+        ],
+        "properties": {
+          "card": {
+            "$ref": "#/components/schemas/CrewCard"
+          },
+          "player": {
+            "$ref": "#/components/schemas/usize"
+          }
+        }
+      },
+      "CrewTrick": {
+        "type": "object",
+        "required": [
+          "cards",
+          "winner"
+        ],
+        "properties": {
+          "cards": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CrewPlay"
+            }
+          },
+          "winner": {
+            "$ref": "#/components/schemas/usize"
+          }
+        }
+      },
+      "CrewView": {
+        "type": "object",
+        "required": [
+          "hand",
+          "counts",
+          "communications",
+          "trick",
+          "tricks_won",
+          "next_player",
+          "awaiting_result"
+        ],
+        "properties": {
+          "awaiting_result": {
+            "type": "boolean"
+          },
+          "communications": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/CrewCommunication"
+                }
+              ]
+            }
+          },
+          "counts": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "hand": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CrewCard"
+            }
+          },
+          "last_trick": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CrewTrick"
+              }
+            ]
+          },
+          "next_player": {
+            "$ref": "#/components/schemas/usize"
+          },
+          "trick": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CrewPlay"
+            }
+          },
+          "tricks_won": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      },
       "ErrorBody": {
         "type": "object",
         "required": [
@@ -741,6 +1020,7 @@
         "type": "string",
         "description": "A registered ruleset and its serialized game identifier.",
         "enum": [
+          "the_crew",
           "mancala",
           "crazy_eights",
           "shithead",
@@ -867,6 +1147,24 @@
         "properties": {
           "action": {
             "oneOf": [
+              {
+                "type": "object",
+                "required": [
+                  "action",
+                  "game"
+                ],
+                "properties": {
+                  "action": {
+                    "$ref": "#/components/schemas/CrewAction"
+                  },
+                  "game": {
+                    "type": "string",
+                    "enum": [
+                      "the_crew"
+                    ]
+                  }
+                }
+              },
               {
                 "type": "object",
                 "required": [
@@ -1496,10 +1794,15 @@
           "players",
           "you",
           "revision",
+          "can_finish",
           "legal_actions",
           "replays"
         ],
         "properties": {
+          "can_finish": {
+            "type": "boolean",
+            "description": "Whether this seat may record a shared result for the current game."
+          },
           "code": {
             "type": "string"
           },
@@ -1643,6 +1946,24 @@
       },
       "View": {
         "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "state",
+              "game"
+            ],
+            "properties": {
+              "game": {
+                "type": "string",
+                "enum": [
+                  "the_crew"
+                ]
+              },
+              "state": {
+                "$ref": "#/components/schemas/CrewView"
+              }
+            }
+          },
           {
             "type": "object",
             "required": [

@@ -242,9 +242,8 @@ async fn connection(mut socket: WebSocket, app: App, lobby: Arc<Lobby>) {
                         Err(_) => Err(ApiError::BadRequest("Invalid message".into())),
                     };
                     let acknowledged = result.is_ok();
-                    if let Err(error) = result {
-                        if send(&mut socket, &ServerMessage::Error { error: error.to_string() }).await.is_err() { break; }
-                    }
+                    if let Err(error) = result
+                        && send(&mut socket, &ServerMessage::Error { error: error.to_string() }).await.is_err() { break; }
                     let room = lobby.room.lock().await.snapshot(player);
                     last_revision = room.revision;
                     if send(&mut socket, &ServerMessage::Snapshot { room: Box::new(room), acknowledged }).await.is_err() { break; }
@@ -280,12 +279,14 @@ async fn command(
     // when it reaches the head, against the last successfully persisted state.
     let mut room = lobby.room.lock().await;
     let revision = match &message {
-        ClientMessage::Start { revision } | ClientMessage::Move { revision, .. } => *revision,
+        ClientMessage::Start { revision }
+        | ClientMessage::Finish { revision, .. }
+        | ClientMessage::Move { revision, .. } => *revision,
         _ => return Err(ApiError::BadRequest("Already authenticated".into())),
     };
     let invalid_revision = match &message {
         ClientMessage::Start { .. } => revision != room.revision,
-        ClientMessage::Move { .. } => {
+        ClientMessage::Move { .. } | ClientMessage::Finish { .. } => {
             // Joins are closed during a game, so only its accepted moves have
             // advanced the room revision since the start/rematch.
             let started_at = room
@@ -303,20 +304,27 @@ async fn command(
     let mut replay = None;
     match message {
         ClientMessage::Start { .. } => next.start(player)?,
+        ClientMessage::Finish { won, .. } => next.finish(player, won)?,
         ClientMessage::Move { action, .. } => {
+            if matches!(
+                action,
+                arena_core::Action::TheCrew(arena_core::games::the_crew::Action::Finish { .. })
+            ) {
+                return Err(ApiError::BadRequest("Use the room finish command".into()));
+            }
             let game = next
                 .game
                 .as_mut()
                 .ok_or_else(|| ApiError::BadRequest("Game has not started".into()))?;
             game.act(player, action)?;
             next.revision += 1;
-            if game.outcome().is_some() {
-                let id = Uuid::new_v4().to_string();
-                next.replays.push(id.clone());
-                replay = Some((id, game.replay()));
-            }
         }
         ClientMessage::Authenticate { .. } => unreachable!(),
+    }
+    if let Some(game) = next.game.as_ref().filter(|g| g.outcome().is_some()) {
+        let id = Uuid::new_v4().to_string();
+        next.replays.push(id.clone());
+        replay = Some((id, game.replay()));
     }
     app.store
         .save(
@@ -336,6 +344,90 @@ mod tests {
         Action, GameKind,
         games::{skyjo, tic_tac_toe},
     };
+
+    #[tokio::test]
+    async fn crew_communication_and_lead_are_revalidated_in_queue_order() {
+        for communication_first in [false, true] {
+            let app = App::open("sqlite::memory:", "http://localhost:5173")
+                .await
+                .unwrap();
+            let mut room = Room::new("ABC234".into(), GameKind::TheCrew.default_config());
+            for name in ["Alice", "Bob", "Carol"] {
+                room.join(name).unwrap();
+            }
+            room.start(0).unwrap();
+            let arena_core::View::TheCrew(view) = room.game.as_ref().unwrap().view(0) else {
+                unreachable!()
+            };
+            let leader = view.next_player;
+            let speaker = (leader + 1) % 3;
+            let revision = room.revision;
+            let play = room
+                .snapshot(leader)
+                .legal_actions
+                .into_iter()
+                .find(|a| {
+                    matches!(
+                        a,
+                        Action::TheCrew(arena_core::games::the_crew::Action::Play { .. })
+                    )
+                })
+                .unwrap();
+            let communication = room
+                .snapshot(speaker)
+                .legal_actions
+                .into_iter()
+                .find(|a| {
+                    matches!(
+                        a,
+                        Action::TheCrew(arena_core::games::the_crew::Action::Communicate { .. })
+                    )
+                })
+                .unwrap();
+            app.store.save(&room, None).await.unwrap();
+            let lobby = Lobby::new(room);
+            let lead = ClientMessage::Move {
+                revision,
+                action: play,
+            };
+            let communicate = ClientMessage::Move {
+                revision,
+                action: communication,
+            };
+            let (first, second) = if communication_first {
+                tokio::join!(biased; command(&app,&lobby,speaker,communicate),command(&app,&lobby,leader,lead))
+            } else {
+                tokio::join!(biased; command(&app,&lobby,leader,lead),command(&app,&lobby,speaker,communicate))
+            };
+            first.unwrap();
+            assert_eq!(second.is_ok(), communication_first);
+            let room = lobby.room.lock().await;
+            assert_eq!(
+                room.revision,
+                revision + if communication_first { 2 } else { 1 }
+            );
+            let arena_core::View::TheCrew(view) = room.game.as_ref().unwrap().view(0) else {
+                unreachable!()
+            };
+            assert_eq!(view.communications[speaker].is_some(), communication_first);
+            assert_eq!(view.trick.len(), 1);
+            assert_eq!(
+                room.snapshot(0).turn.unwrap().players,
+                vec![view.next_player]
+            );
+            assert!(room.snapshot(0).can_finish);
+            assert_eq!(
+                room.game
+                    .as_ref()
+                    .unwrap()
+                    .replay()
+                    .simulate()
+                    .unwrap()
+                    .replay(),
+                room.game.as_ref().unwrap().replay()
+            );
+        }
+    }
 
     #[tokio::test]
     async fn queued_eligible_players_both_commit_from_the_same_revision() {

@@ -38,6 +38,8 @@ pub struct Snapshot {
     pub players: Vec<PlayerView>,
     pub you: usize,
     pub revision: u64,
+    /// Whether this seat may record a shared result for the current game.
+    pub can_finish: bool,
     pub turn: Option<Turn>,
     pub outcome: Option<Outcome>,
     pub view: Option<View>,
@@ -53,6 +55,7 @@ pub struct Snapshot {
 pub enum ClientMessage {
     Authenticate { token: String },
     Start { revision: u64 },
+    Finish { revision: u64, won: bool },
     Move { revision: u64, action: Action },
 }
 

@@ -11,6 +11,7 @@ export type ClientMessage = Schemas['ClientMessage'];
 export type ServerMessage = Schemas['ServerMessage'];
 
 export const games: Record<GameKind, string> = {
+  the_crew: 'The Crew',
   mancala: 'Mancala',
   crazy_eights: 'Crazy Eights',
   shithead: 'Shithead',

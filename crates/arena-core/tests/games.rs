@@ -8,6 +8,68 @@ use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha12Rng;
 
 #[test]
+fn crew_full_deals_conserve_cards_persist_and_replay_until_host_decides() {
+    use arena_core::{View, games::the_crew::Action as CrewAction};
+    for players in 3..=5 {
+        for seed in 0..8 {
+            let mut game = Match::new(GameKind::TheCrew, players, [seed; 32]).unwrap();
+            let mut rng = ChaCha12Rng::from_seed([seed + 8; 32]);
+            let mut played = 0;
+            loop {
+                let View::TheCrew(view) = game.view(0) else {
+                    unreachable!()
+                };
+                assert_eq!(view.counts.iter().sum::<usize>() + played, 40);
+                if view.awaiting_result {
+                    break;
+                }
+                let seat = view.next_player;
+                let plays: Vec<_> = game
+                    .legal_actions(seat)
+                    .into_iter()
+                    .filter(|a| matches!(a, Action::TheCrew(CrewAction::Play { .. })))
+                    .collect();
+                game.act(seat, plays[rng.gen_range(0..plays.len())].clone())
+                    .unwrap();
+                played += 1;
+                let saved = serde_json::to_value(&game).unwrap();
+                game = serde_json::from_value(saved.clone()).unwrap();
+                assert_eq!(serde_json::to_value(&game).unwrap(), saved);
+            }
+            let View::TheCrew(view) = game.view(0) else {
+                unreachable!()
+            };
+            assert_eq!(played, if players == 3 { 39 } else { 40 });
+            assert_eq!(view.tricks_won.iter().sum::<usize>(), 40 / players);
+            assert!(view.trick.is_empty());
+            assert!(game.outcome().is_none());
+            assert_eq!(
+                game.legal_actions(0),
+                vec![
+                    Action::TheCrew(CrewAction::Finish { won: true }),
+                    Action::TheCrew(CrewAction::Finish { won: false })
+                ]
+            );
+            assert!((1..players).all(|p| game.legal_actions(p).is_empty()));
+            let won = seed % 2 == 0;
+            game.act(0, Action::TheCrew(CrewAction::Finish { won }))
+                .unwrap();
+            assert_eq!(
+                game.outcome().unwrap().winners,
+                if won {
+                    (0..players).collect::<Vec<_>>()
+                } else {
+                    vec![]
+                }
+            );
+            let replay = game.replay();
+            assert_eq!(replay.version, 1);
+            assert_eq!(replay.simulate().unwrap().replay(), replay);
+        }
+    }
+}
+
+#[test]
 fn revised_games_reject_old_replays_and_persisted_rules_markers() {
     for kind in [
         GameKind::CrazyEights,

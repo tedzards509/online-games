@@ -5,6 +5,7 @@
   import Shithead from './Shithead.svelte';
   import Skyjo from './Skyjo.svelte';
   import TicTacToe from './TicTacToe.svelte';
+  import TheCrew from './TheCrew.svelte';
   let {
     room,
     disabled,
@@ -15,7 +16,15 @@
   const names = $derived(room.players.map((p) => p.nickname));
 </script>
 
-{#if room.view?.game === 'mancala'}
+{#if room.view?.game === 'the_crew'}
+  <TheCrew
+    view={room.view.state}
+    {actions}
+    {names}
+    {move}
+    finished={room.outcome !== null}
+  />
+{:else if room.view?.game === 'mancala'}
   <Mancala view={room.view.state} {actions} you={room.you} {move} />
 {:else if room.view?.game === 'crazy_eights'}
   <div class="opponents">

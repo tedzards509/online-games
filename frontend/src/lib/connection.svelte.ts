@@ -79,6 +79,11 @@ export class RoomConnection {
     if (this.room) this.send({ type: 'start', revision: this.room.revision });
   }
 
+  finish(won: boolean): void {
+    if (this.room)
+      this.send({ type: 'finish', revision: this.room.revision, won });
+  }
+
   close(): void {
     this.disposed = true;
     clearTimeout(this.timer);
