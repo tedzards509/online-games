@@ -28,7 +28,7 @@ Read `README.md`, `docs/design.md`, and the relevant game's `crates/arena-core/s
 - Minimize frontend text: include only what is needed to play and operate the app, while preserving accessible labels and keyboard controls. Keep styling functional; add beautification only when the user explicitly requests it, feature by feature.
 - Keep `AGENTS.md` useful for navigating and modifying the codebase, and `README.md` concise, human-readable, and accurate about how to run it. Update them when relevant workflows change.
 - Work with Git. Make understandable, atomic commits with conventional commit messages; keep unrelated changes separate and never discard the user's work.
-- Split cross-layer features into independently working commits: for game configuration, commit the generic `GameConfig` contract, game-specific rules, and room/WebSocket/UI flow separately. Include each layer's tests and documentation with that layer, not in a catch-all final commit.
+- Commit by purpose, not by layer: one fix, feature, or standalone documentation update/refactor per commit. Keep the backend, frontend, generated files, and tests needed for the same change together; keep unrelated changes separate.
 
 ## Invariants
 
