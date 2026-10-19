@@ -19,6 +19,16 @@ pub enum GameKind {
 }
 
 impl GameKind {
+    /// Returns the ruleset's default setup options.
+    pub fn default_config(self) -> Config {
+        match self {
+            Self::Mancala => Config::Mancala(Default::default()),
+            Self::CrazyEights => Config::CrazyEights(Default::default()),
+            Self::Shithead => Config::Shithead(Default::default()),
+            Self::Skyjo => Config::Skyjo(Default::default()),
+            Self::TicTacToe => Config::TicTacToe(Default::default()),
+        }
+    }
     /// Returns the largest supported room size for this ruleset.
     pub fn max_players(self) -> usize {
         match self {
@@ -27,6 +37,35 @@ impl GameKind {
             Self::Shithead => 5,
             Self::Skyjo => 8,
             Self::TicTacToe => 2,
+        }
+    }
+}
+
+/// Setup options tagged with the ruleset that defines their `GameConfig` struct.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(
+    tag = "game",
+    content = "rules",
+    rename_all = "snake_case",
+    deny_unknown_fields
+)]
+pub enum Config {
+    Mancala(crate::game::GameConfig),
+    CrazyEights(crate::game::GameConfig),
+    Shithead(crate::game::GameConfig),
+    Skyjo(crate::game::GameConfig),
+    TicTacToe(crate::game::GameConfig),
+}
+
+impl Config {
+    /// Returns the ruleset these options belong to.
+    pub fn kind(&self) -> GameKind {
+        match self {
+            Self::Mancala(_) => GameKind::Mancala,
+            Self::CrazyEights(_) => GameKind::CrazyEights,
+            Self::Shithead(_) => GameKind::Shithead,
+            Self::Skyjo(_) => GameKind::Skyjo,
+            Self::TicTacToe(_) => GameKind::TicTacToe,
         }
     }
 }
@@ -79,13 +118,27 @@ macro_rules! dispatch {
 impl Match {
     /// Creates the selected ruleset with the supplied seats and seed.
     pub fn new(kind: GameKind, players: usize, seed: Seed) -> Result<Self, Error> {
-        Ok(match kind {
-            GameKind::Mancala => Self::Mancala(Session::new(players, seed)?),
-            GameKind::CrazyEights => Self::CrazyEights(Session::new(players, seed)?),
-            GameKind::Shithead => Self::Shithead(Session::new(players, seed)?),
-            GameKind::Skyjo => Self::Skyjo(Session::new(players, seed)?),
-            GameKind::TicTacToe => Self::TicTacToe(Session::new(players, seed)?),
+        Self::with_config(kind.default_config(), players, seed)
+    }
+    /// Creates a match with explicit game-owned setup options.
+    pub fn with_config(config: Config, players: usize, seed: Seed) -> Result<Self, Error> {
+        Ok(match config {
+            Config::Mancala(c) => Self::Mancala(Session::with_config(players, seed, c)?),
+            Config::CrazyEights(c) => Self::CrazyEights(Session::with_config(players, seed, c)?),
+            Config::Shithead(c) => Self::Shithead(Session::with_config(players, seed, c)?),
+            Config::Skyjo(c) => Self::Skyjo(Session::with_config(players, seed, c)?),
+            Config::TicTacToe(c) => Self::TicTacToe(Session::with_config(players, seed, c)?),
         })
+    }
+    /// Returns public setup options without exposing private state.
+    pub fn config(&self) -> Config {
+        match self {
+            Self::Mancala(s) => Config::Mancala(s.config().clone()),
+            Self::CrazyEights(s) => Config::CrazyEights(s.config().clone()),
+            Self::Shithead(s) => Config::Shithead(s.config().clone()),
+            Self::Skyjo(s) => Config::Skyjo(s.config().clone()),
+            Self::TicTacToe(s) => Config::TicTacToe(s.config().clone()),
+        }
     }
     /// Returns the ruleset's eligible seats and turn counter.
     pub fn turn(&self) -> Turn {
@@ -201,8 +254,11 @@ impl Match {
             Self::Skyjo(_) => GameKind::Skyjo,
             Self::TicTacToe(_) => GameKind::TicTacToe,
         };
+        let config = self.config();
+        let configured = config != game.default_config();
         Replay {
-            version: 1,
+            version: if configured { 2 } else { 1 },
+            config: configured.then_some(config),
             game,
             players: dispatch!(self, s => s.players),
             seed: dispatch!(self, s => s.seed),
@@ -225,10 +281,13 @@ impl<A: Clone, E: Clone> Record<A, E> {
 /// Includes hidden information; only share after the game has ended.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct Replay {
-    /// The rules and randomization format; currently only version 1 is supported.
+    /// Version 1 uses original defaults; version 2 includes explicit configuration.
     pub version: u32,
     /// The ruleset needed to interpret the history.
     pub game: GameKind,
+    /// Explicit rules for version 2; absent from legacy version-1 files.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub config: Option<Config>,
     /// The number of seats present at setup.
     pub players: usize,
     /// The original seed, sufficient to reconstruct hidden card order.
@@ -241,10 +300,12 @@ pub struct Replay {
 impl Replay {
     /// Rebuilds the match, rejecting unsupported versions, invalid actions, or altered effects.
     pub fn simulate(&self) -> Result<Match, Error> {
-        if self.version != 1 {
-            return Err(Error::Replay);
-        }
-        let mut game = Match::new(self.game, self.players, self.seed)?;
+        let config = match (self.version, &self.config) {
+            (1, None) => self.game.default_config(),
+            (2, Some(config)) if config.kind() == self.game => config.clone(),
+            _ => return Err(Error::Replay),
+        };
+        let mut game = Match::with_config(config, self.players, self.seed)?;
         for record in &self.records {
             game.act(record.player, record.action.clone())?;
         }

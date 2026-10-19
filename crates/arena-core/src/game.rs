@@ -8,6 +8,11 @@ pub type Player = usize;
 /// The 32 bytes that determine a game's random setup and subsequent draws.
 pub type Seed = [u8; 32];
 
+/// Empty serializable configuration for games without optional rules.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct GameConfig {}
+
 /// A rejected setup, action, or replay.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum Error {
@@ -116,6 +121,8 @@ impl GameEvent for Event {
 /// A deterministic ruleset. No transport, identity, persistence, or clock dependencies.
 /// `advance` receives a legal action; callers normally use `Session::act`.
 pub trait Game: Clone {
+    /// Serializable setup options owned by this ruleset.
+    type Config: Clone + Default + PartialEq + Serialize + DeserializeOwned;
     /// A comparable command selected from the current legal actions.
     type Action: Clone + PartialEq + Serialize + DeserializeOwned;
     /// Rule effects recorded for each accepted action.
@@ -123,7 +130,11 @@ pub trait Game: Clone {
     /// A player's observation, with private information removed as needed.
     type View: Serialize;
     /// Creates a seeded initial state, rejecting unsupported player counts.
-    fn new(players: usize, seed: Seed) -> Result<Self, Error>;
+    fn new(players: usize, seed: Seed) -> Result<Self, Error> {
+        Self::with_config(players, seed, Self::Config::default())
+    }
+    /// Creates deterministic setup with explicit ruleset options.
+    fn with_config(players: usize, seed: Seed, config: Self::Config) -> Result<Self, Error>;
     /// Returns eligible seats and the ruleset turn counter.
     fn turn(&self) -> Turn;
     /// Returns the final result, or `None` while play continues.
@@ -153,6 +164,8 @@ pub struct Session<G: Game> {
     pub(crate) state: G,
     pub(crate) seed: Seed,
     pub(crate) players: usize,
+    #[serde(default, bound(deserialize = "G::Config: DeserializeOwned"))]
+    pub(crate) config: G::Config,
     #[serde(bound(deserialize = "G::Action: DeserializeOwned, G::Event: DeserializeOwned"))]
     pub(crate) records: Vec<Record<G::Action, G::Event>>,
 }
@@ -160,16 +173,25 @@ pub struct Session<G: Game> {
 impl<G: Game> Session<G> {
     /// Creates a game and an empty history from an explicit seed.
     pub fn new(players: usize, seed: Seed) -> Result<Self, Error> {
+        Self::with_config(players, seed, G::Config::default())
+    }
+    /// Creates a configured game and retains its options for persistence and replay.
+    pub fn with_config(players: usize, seed: Seed, config: G::Config) -> Result<Self, Error> {
         Ok(Self {
-            state: G::new(players, seed)?,
+            state: G::with_config(players, seed, config.clone())?,
             seed,
             players,
+            config,
             records: Vec::new(),
         })
     }
     /// Borrows the full private state; use `Game::view` for client responses.
     pub fn state(&self) -> &G {
         &self.state
+    }
+    /// Borrows the immutable setup options.
+    pub fn config(&self) -> &G::Config {
+        &self.config
     }
     /// Borrows the accepted-action history in execution order.
     pub fn records(&self) -> &[Record<G::Action, G::Event>] {

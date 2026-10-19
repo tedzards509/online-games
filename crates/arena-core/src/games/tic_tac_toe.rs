@@ -48,11 +48,12 @@ impl TicTacToe {
 }
 
 impl Game for TicTacToe {
+    type Config = crate::game::GameConfig;
     type Action = Action;
     type Event = Event;
     type View = View;
 
-    fn new(players: usize, _: Seed) -> Result<Self, Error> {
+    fn with_config(players: usize, _: Seed, _: Self::Config) -> Result<Self, Error> {
         if players != PLAYERS {
             return Err(Error::PlayerCount);
         }

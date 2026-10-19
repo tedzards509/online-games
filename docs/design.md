@@ -20,7 +20,7 @@ The contract is defined in `crates/arena-core/src/game.rs`; runtime dispatch and
 
 ### Transition contract
 
-1. `Game::new(players, seed)` validates player count and constructs deterministic setup.
+1. `Game::with_config(players, seed, config)` validates player count and constructs deterministic setup. `Game::Config` is a game-owned serializable `GameConfig` struct (the shared empty struct suffices for games without options). `new` supplies its defaults. `Session` retains immutable options alongside seed and history; runtime `Config` tags each struct with its game ID.
 2. `Session::act(player, action)` rejects completed games, ineligible players, and actions outside `legal_actions(player)` before any mutation or logging.
 3. `advance(player, action)` mutates state, resolves rule effects, updates phases/turn/outcome, and returns events. It assumes a legal action; simulations may call it directly with actions selected from `legal_actions(player)`.
 4. The session appends a terminal event if the game ended, then records the action and events. It stores no per-event state snapshots.
@@ -47,4 +47,4 @@ Actions, events, and observations are associated types of `Game`. The included g
 
 `arena-server` owns anonymous identities, rooms, persistence, and transport. Private engine state is persisted but never sent as a live observation. Replays include the seed and therefore reveal every card; downloads are restricted to finished games and room members.
 
-Replay format version 1 fixes the initial rules and RNG/dealing behavior. Rules or RNG changes that alter historical results need a new replay version, not silent reinterpretation of existing files.
+Replay format version 1 fixes the initial rules and RNG/dealing behavior and omits configuration. Version 2 records nondefault options explicitly; validation checks the game tag and recreates configured setup. Default matches still export version 1. Existing saved sessions missing configuration load with original defaults. Rules or RNG changes that alter historical results need a new replay version, not silent reinterpretation of existing files.

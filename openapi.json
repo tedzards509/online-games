@@ -471,6 +471,101 @@
         ],
         "description": "Send Authenticate as the first text frame within five seconds. Subsequent\ncommands must carry the most recent Snapshot revision."
       },
+      "Config": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "rules",
+              "game"
+            ],
+            "properties": {
+              "game": {
+                "type": "string",
+                "enum": [
+                  "mancala"
+                ]
+              },
+              "rules": {
+                "$ref": "#/components/schemas/GameConfig"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "rules",
+              "game"
+            ],
+            "properties": {
+              "game": {
+                "type": "string",
+                "enum": [
+                  "crazy_eights"
+                ]
+              },
+              "rules": {
+                "$ref": "#/components/schemas/GameConfig"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "rules",
+              "game"
+            ],
+            "properties": {
+              "game": {
+                "type": "string",
+                "enum": [
+                  "shithead"
+                ]
+              },
+              "rules": {
+                "$ref": "#/components/schemas/GameConfig"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "rules",
+              "game"
+            ],
+            "properties": {
+              "game": {
+                "type": "string",
+                "enum": [
+                  "skyjo"
+                ]
+              },
+              "rules": {
+                "$ref": "#/components/schemas/GameConfig"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "rules",
+              "game"
+            ],
+            "properties": {
+              "game": {
+                "type": "string",
+                "enum": [
+                  "tic_tac_toe"
+                ]
+              },
+              "rules": {
+                "$ref": "#/components/schemas/GameConfig"
+              }
+            }
+          }
+        ],
+        "description": "Setup options tagged with the ruleset that defines their `GameConfig` struct."
+      },
       "CrazyEightsAction": {
         "oneOf": [
           {
@@ -579,6 +674,11 @@
             "type": "string"
           }
         }
+      },
+      "GameConfig": {
+        "type": "object",
+        "description": "Empty serializable configuration for games without optional rules.",
+        "additionalProperties": false
       },
       "GameKind": {
         "type": "string",
@@ -930,6 +1030,17 @@
           "records"
         ],
         "properties": {
+          "config": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Config",
+                "description": "Explicit rules for version 2; absent from legacy version-1 files."
+              }
+            ]
+          },
           "game": {
             "$ref": "#/components/schemas/GameKind",
             "description": "The ruleset needed to interpret the history."
@@ -960,7 +1071,7 @@
           "version": {
             "type": "integer",
             "format": "int32",
-            "description": "The rules and randomization format; currently only version 1 is supported.",
+            "description": "Version 1 uses original defaults; version 2 includes explicit configuration.",
             "minimum": 0
           }
         }

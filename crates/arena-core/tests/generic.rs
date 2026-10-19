@@ -18,15 +18,21 @@ impl GameEvent for CustomEvent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Counter(bool);
 
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+struct CounterConfig {
+    finished: bool,
+}
+
 impl Game for Counter {
+    type Config = CounterConfig;
     type Action = bool;
     type Event = CustomEvent;
     type View = bool;
-    fn new(players: usize, _: Seed) -> Result<Self, Error> {
+    fn with_config(players: usize, _: Seed, config: Self::Config) -> Result<Self, Error> {
         if players != 2 {
             return Err(Error::PlayerCount);
         }
-        Ok(Self(false))
+        Ok(Self(config.finished))
     }
     fn turn(&self) -> Turn {
         Turn::first()
@@ -51,6 +57,22 @@ impl Game for Counter {
     fn view(&self, _: Player) -> bool {
         self.0
     }
+}
+
+#[test]
+fn configuration_controls_setup_and_survives_serialization() {
+    let config = CounterConfig { finished: true };
+    let session = Session::<Counter>::with_config(2, [0; 32], config.clone()).unwrap();
+    assert!(session.state().view(0));
+    assert_eq!(session.config(), &config);
+    let restored: Session<Counter> =
+        serde_json::from_value(serde_json::to_value(&session).unwrap()).unwrap();
+    assert_eq!(restored.config(), &config);
+    assert!(restored.state().view(0));
+    let mut legacy = serde_json::to_value(Session::<Counter>::new(2, [0; 32]).unwrap()).unwrap();
+    legacy.as_object_mut().unwrap().remove("config");
+    let restored: Session<Counter> = serde_json::from_value(legacy).unwrap();
+    assert_eq!(restored.config(), &CounterConfig::default());
 }
 
 #[test]
@@ -81,10 +103,11 @@ struct Reaction {
 }
 
 impl Game for Reaction {
+    type Config = arena_core::game::GameConfig;
     type Action = usize;
     type Event = CustomEvent;
     type View = Option<Player>;
-    fn new(players: usize, _: Seed) -> Result<Self, Error> {
+    fn with_config(players: usize, _: Seed, _: Self::Config) -> Result<Self, Error> {
         if players != 3 {
             return Err(Error::PlayerCount);
         }

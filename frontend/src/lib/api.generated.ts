@@ -169,6 +169,33 @@ export interface components {
           /** @enum {string} */
           type: 'move';
         };
+    /** @description Setup options tagged with the ruleset that defines their `GameConfig` struct. */
+    Config:
+      | {
+          /** @enum {string} */
+          game: 'mancala';
+          rules: components['schemas']['GameConfig'];
+        }
+      | {
+          /** @enum {string} */
+          game: 'crazy_eights';
+          rules: components['schemas']['GameConfig'];
+        }
+      | {
+          /** @enum {string} */
+          game: 'shithead';
+          rules: components['schemas']['GameConfig'];
+        }
+      | {
+          /** @enum {string} */
+          game: 'skyjo';
+          rules: components['schemas']['GameConfig'];
+        }
+      | {
+          /** @enum {string} */
+          game: 'tic_tac_toe';
+          rules: components['schemas']['GameConfig'];
+        };
     CrazyEightsAction:
       | {
           index: number;
@@ -194,6 +221,8 @@ export interface components {
     ErrorBody: {
       error: string;
     };
+    /** @description Empty serializable configuration for games without optional rules. */
+    GameConfig: Record<string, never>;
     /**
      * @description A registered ruleset and its serialized game identifier.
      * @enum {string}
@@ -289,6 +318,7 @@ export interface components {
     };
     /** @description Includes hidden information; only share after the game has ended. */
     Replay: {
+      config?: null | components['schemas']['Config'];
       /** @description The ruleset needed to interpret the history. */
       game: components['schemas']['GameKind'];
       /** @description The number of seats present at setup. */
@@ -299,7 +329,7 @@ export interface components {
       seed: number[];
       /**
        * Format: int32
-       * @description The rules and randomization format; currently only version 1 is supported.
+       * @description Version 1 uses original defaults; version 2 includes explicit configuration.
        */
       version: number;
     };

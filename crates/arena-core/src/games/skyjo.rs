@@ -448,10 +448,11 @@ impl Skyjo {
 }
 
 impl Game for Skyjo {
+    type Config = crate::game::GameConfig;
     type Action = Action;
     type Event = Event;
     type View = View;
-    fn new(players: usize, seed: Seed) -> Result<Self, Error> {
+    fn with_config(players: usize, seed: Seed, _: Self::Config) -> Result<Self, Error> {
         if !(2..=8).contains(&players) {
             return Err(Error::PlayerCount);
         }
