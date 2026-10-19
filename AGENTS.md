@@ -15,6 +15,16 @@ Read `README.md`, `docs/rules.md`, and `docs/design.md` first. This is a small h
 - `frontend/src/components/`: game-specific boards. `App.svelte` handles entry, room navigation, and room chrome.
 - `frontend/src/lib/api.generated.ts`: generated from `openapi.json`; do not edit by hand.
 
+## Code style
+
+- Keep code minimal, modular, and readable. Prefer direct implementations and established libraries over homegrown infrastructure or speculative abstraction layers.
+- Separate reusable game contracts from independent rulesets, server orchestration, and board rendering. Reuse cards, decks, and events where useful; do not constrain every game to the same representation.
+- Model actions as commands, events as resulting effects, state as authoritative data, and views as player-specific projections. Keep these distinctions explicit; document the model in `docs/design.md`.
+- Do not assume turns are inherently single-player. Use `Turn.players` for eligibility and pass the acting seat explicitly to rules. Rulesets choose the next eligible seats; the server resolves competing submissions by first successful commit at a room revision. `Turn::advance` is a singleton-only helper and must panic otherwise.
+- Document shared core functions, types, and constants with short Rustdoc descriptions of what they do. Add a short module docstring to every non-game `arena-core` module; the `games*` modules are exempt from that blanket requirement.
+- Keep technical documentation concise and precise: definitions, contracts, invariants, and actionable steps rather than narrative. Update the new-game guide when extension steps change, and validate shared extension points with a small working game.
+- Keep UI text and styling restrained and functional, with accessible labels and keyboard controls. Avoid decorative UI and unrelated product features.
+
 ## Invariants
 
 - Rules stay synchronous and use explicit seeds. Never introduce clocks, OS randomness, network access, nicknames, or database calls into core game transitions.
