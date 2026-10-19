@@ -8,6 +8,39 @@ use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha12Rng;
 
 #[test]
+fn revised_games_reject_old_replays_and_persisted_rules_markers() {
+    for kind in [
+        GameKind::CrazyEights,
+        GameKind::Mancala,
+        GameKind::Shithead,
+        GameKind::Skyjo,
+    ] {
+        let game = Match::new(kind, 2, [0; 32]).unwrap();
+        let replay = game.replay();
+        assert_eq!(replay.version, 4);
+        for version in 1..4 {
+            let mut old = replay.clone();
+            old.version = version;
+            if version == 1 {
+                old.config = None;
+            }
+            assert!(old.simulate().is_err());
+        }
+        for marker in [None, Some(3)] {
+            let mut saved = serde_json::to_value(&game).unwrap();
+            let session = saved.as_object_mut().unwrap().values_mut().next().unwrap();
+            let state = session["state"].as_object_mut().unwrap();
+            if let Some(version) = marker {
+                state.insert("rules_version".into(), version.into());
+            } else {
+                state.remove("rules_version");
+            }
+            assert!(serde_json::from_value::<Match>(saved).is_err());
+        }
+    }
+}
+
+#[test]
 fn shithead_bomb_configurations_finish_and_replay_with_every_supported_player_count() {
     use arena_core::{Config, games::shithead::GameConfig};
     for four_card_bombs in [false, true] {

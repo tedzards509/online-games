@@ -205,6 +205,68 @@ async fn identity_capacity_and_origin_checks() {
 }
 
 #[tokio::test]
+async fn simultaneous_setup_keeps_both_seats_eligible_but_rejects_stale_commands() {
+    for kind in ["shithead", "skyjo"] {
+        let server = Server::open("sqlite::memory:").await;
+        let alice = server.member(kind).await;
+        let mut host = server.socket(&alice).await;
+        snapshot(&mut host, 1).await;
+        let (_, value) = server
+            .request(
+                "POST",
+                &format!("/api/rooms/{}/join", alice.code),
+                json!({"nickname":"Bob"}),
+                None,
+            )
+            .await;
+        let bob: Membership = serde_json::from_value(value).unwrap();
+        let mut guest = server.socket(&bob).await;
+        snapshot(&mut host, 2).await;
+        snapshot(&mut guest, 2).await;
+        send(&mut host, json!({"type":"start", "revision":2})).await;
+        let initial = snapshot(&mut host, 3).await;
+        let other = snapshot(&mut guest, 3).await;
+        assert_eq!(initial["turn"]["players"], json!([0, 1]));
+        let host_action = initial["legal_actions"][0].clone();
+        let guest_action = other["legal_actions"][0].clone();
+        send(
+            &mut host,
+            json!({"type":"move", "revision":3, "action":host_action}),
+        )
+        .await;
+        snapshot(&mut host, 4).await;
+        let fresh = snapshot(&mut guest, 4).await;
+        assert!(
+            fresh["turn"]["players"]
+                .as_array()
+                .unwrap()
+                .contains(&json!(1))
+        );
+        send(
+            &mut guest,
+            json!({"type":"move", "revision":3, "action":guest_action}),
+        )
+        .await;
+        assert_eq!(receive(&mut guest).await["type"], "error");
+        assert_eq!(snapshot(&mut guest, 4).await, fresh);
+        send(
+            &mut guest,
+            json!({"type":"move", "revision":4, "action":guest_action}),
+        )
+        .await;
+        let updated = snapshot(&mut host, 5).await;
+        snapshot(&mut guest, 5).await;
+        if kind == "shithead" {
+            assert_eq!(updated["turn"]["players"], json!([0]));
+            assert_eq!(updated["view"]["state"]["setup"], false);
+        } else {
+            assert_eq!(updated["turn"]["players"], json!([0, 1]));
+            assert_eq!(updated["view"]["state"]["phase"], "setup");
+        }
+    }
+}
+
+#[tokio::test]
 async fn games_over_real_websockets_export_and_archive_replays() {
     let server = Server::open("sqlite::memory:").await;
     let mut rng = rand::rngs::StdRng::seed_from_u64(7);

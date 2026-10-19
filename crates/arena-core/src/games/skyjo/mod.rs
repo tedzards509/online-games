@@ -33,7 +33,7 @@ mod tests {
         for players in 2..=8 {
             let game = Skyjo::new(players, [0; 32]).unwrap();
             assert_eq!(game.phase, Phase::Setup);
-            assert_eq!(game.turn(), Turn::first());
+            assert_eq!(game.turn().players, (0..players).collect::<Vec<_>>());
             assert_eq!(game.deck.len(), 150 - 12 * players - 1);
             assert_eq!(game.discard.len(), 1);
             assert_eq!(game.pending, None);
@@ -53,7 +53,7 @@ mod tests {
                     .map(|index| Action::Reveal { index })
                     .collect::<Vec<_>>()
             );
-            assert!(game.legal_actions(1).is_empty());
+            assert_eq!(game.legal_actions(1), game.legal_actions(0));
         }
     }
 
@@ -62,6 +62,11 @@ mod tests {
         let mut session = Session::<Skyjo>::new(2, [0; 32]).unwrap();
         for phase in [Phase::Setup, Phase::Draw, Phase::Place, Phase::Reveal] {
             session.state.phase = phase;
+            session.state.turn.players = if phase == Phase::Setup {
+                vec![0, 1]
+            } else {
+                vec![0]
+            };
             session.state.source = Source::Discard;
             session.state.pending = (phase == Phase::Place).then_some(5);
             session.state.grids[0].cells[0] = cell(4, true);
@@ -100,6 +105,9 @@ mod tests {
                 assert_eq!(serde_json::to_value(&session).unwrap(), before);
             }
             for player in [1, 2, usize::MAX] {
+                if phase == Phase::Setup && player == 1 {
+                    continue;
+                }
                 assert_eq!(
                     session
                         .act(player, Action::Reveal { index: 2 })
@@ -112,11 +120,38 @@ mod tests {
     }
 
     #[test]
+    fn setup_reveals_can_interleave_and_completed_players_must_wait() {
+        let mut session = Session::<Skyjo>::new(3, [0; 32]).unwrap();
+        for (player, index) in [(2, 0), (0, 0), (2, 1), (1, 0), (0, 1)] {
+            session.act(player, Action::Reveal { index }).unwrap();
+            assert_eq!(session.state.phase, Phase::Setup);
+        }
+        assert_eq!(session.state.turn.players, vec![1]);
+        let saved = serde_json::to_value(&session).unwrap();
+        let mut restored: Session<Skyjo> = serde_json::from_value(saved.clone()).unwrap();
+        for player in [0, 2] {
+            assert!(restored.state.legal_actions(player).is_empty());
+            assert_eq!(
+                restored
+                    .act(player, Action::Reveal { index: 2 })
+                    .unwrap_err(),
+                Error::NotYourTurn
+            );
+            assert_eq!(serde_json::to_value(&restored).unwrap(), saved);
+        }
+        restored.act(1, Action::Reveal { index: 1 }).unwrap();
+        assert_eq!(restored.state.phase, Phase::Draw);
+        assert_eq!(restored.state.turn.players.len(), 1);
+        assert_eq!(restored.state.turn.number, 3);
+    }
+
+    #[test]
     fn replacement_accepts_hidden_or_revealed_slots_and_discards_previous_value() {
         for revealed in [false, true] {
             for source in [Source::Stock, Source::Discard] {
                 let mut session = Session::<Skyjo>::new(2, [0; 32]).unwrap();
                 session.state.phase = Phase::Draw;
+                session.state.turn.players = vec![0];
                 session.state.deck = Deck::new(vec![6]);
                 session.state.discard = vec![6];
                 session.state.grids[0].cells[0] = cell(-2, revealed);
@@ -144,6 +179,7 @@ mod tests {
     fn discarding_stock_requires_a_hidden_card_and_reveal_completes_the_turn() {
         let mut session = Session::<Skyjo>::new(2, [0; 32]).unwrap();
         session.state.phase = Phase::Draw;
+        session.state.turn.players = vec![0];
         session.state.deck = Deck::new(vec![6]);
         session
             .act(
@@ -267,6 +303,7 @@ mod tests {
     fn removing_the_last_column_counts_as_finishing() {
         let mut session = Session::<Skyjo>::new(2, [0; 32]).unwrap();
         session.state.phase = Phase::Reveal;
+        session.state.turn.players = vec![0];
         session.state.grids[0].cells = vec![None; GRID_SIZE];
         session.state.grids[0].cells[0] = cell(7, true);
         session.state.grids[0].cells[4] = cell(7, true);
@@ -312,6 +349,7 @@ mod tests {
     fn stock_card_is_private_and_discard_must_be_replaced() {
         let mut game = Skyjo::new(2, [0; 32]).unwrap();
         game.phase = Phase::Draw;
+        game.turn.players = vec![0];
         game.advance(
             0,
             &Action::Draw {
@@ -341,6 +379,7 @@ mod tests {
     #[test]
     fn matching_columns_are_removed_and_final_turn_scores_double_on_tie() {
         let mut game = Skyjo::new(2, [0; 32]).unwrap();
+        game.turn.players = vec![0];
         game.grids = vec![
             Grid {
                 cells: vec![None; GRID_SIZE]
@@ -397,18 +436,21 @@ mod tests {
     }
 
     #[test]
-    fn setup_uses_two_reveals_then_highest_sum_with_earliest_seat_breaking_ties() {
+    fn simultaneous_setup_uses_two_reveals_and_highest_sum_with_seat_order_ties() {
         for (values, expected_starter) in [([3, 7, 5, 5, 1, 2], 0), ([1, 2, 5, 5, 3, 4], 1)] {
             let mut game = Skyjo::new(3, [0; 32]).unwrap();
             for (player, grid) in game.grids.iter_mut().enumerate() {
                 grid.cells[0] = cell(values[player * SETUP_REVEALS], false);
                 grid.cells[1] = cell(values[player * SETUP_REVEALS + 1], false);
             }
-            for player in 0..3 {
+            for player in [2, 0, 1] {
                 game.advance(player, &Action::Reveal { index: 0 });
                 assert_eq!(game.phase, Phase::Setup);
-                assert_eq!(game.turn.players, vec![player]);
+                assert!(game.turn.players.contains(&player));
                 game.advance(player, &Action::Reveal { index: 1 });
+                if player != 1 {
+                    assert!(!game.turn.players.contains(&player));
+                }
             }
             assert_eq!(game.phase, Phase::Draw);
             assert_eq!(game.turn.players, vec![expected_starter]);
@@ -439,6 +481,7 @@ mod tests {
     fn exhausted_stock_is_unavailable_but_recyclable_discards_enable_a_draw() {
         let mut game = Skyjo::new(2, [0; 32]).unwrap();
         game.phase = Phase::Draw;
+        game.turn.players = vec![0];
         game.deck = Deck::new(vec![]);
         game.discard = vec![5];
         assert_eq!(
@@ -609,6 +652,8 @@ impl Grid {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Skyjo {
+    #[serde(deserialize_with = "crate::game::deserialize_rules_version::<_, 4>")]
+    rules_version: u32,
     grids: Vec<Grid>,
     deck: Deck<i8>,
     discard: Vec<i8>,
@@ -687,17 +732,19 @@ impl Skyjo {
         if self.grids[player].revealed_count() != SETUP_REVEALS {
             return;
         }
-        self.turn.advance(self.grids.len());
-        if self.turn.players[0] == 0 {
+        self.turn.players.retain(|&seat| seat != player);
+        self.turn.number += 1;
+        if self.turn.players.is_empty() {
             self.phase = Phase::Draw;
             // Highest revealed sum starts; the earlier seat wins a tie.
-            self.turn.players[0] = self
+            let starter = self
                 .grids
                 .iter()
                 .enumerate()
                 .max_by_key(|(player, grid)| (grid.revealed_score(), std::cmp::Reverse(*player)))
                 .map(|(player, _)| player)
                 .expect("the game has players");
+            self.turn.players = vec![starter];
         }
     }
 }
@@ -730,11 +777,15 @@ impl Game for Skyjo {
         let grids = (0..players).map(|_| Grid::deal(&mut deck)).collect();
         let discard = vec![deck.draw().unwrap()];
         Ok(Self {
+            rules_version: 4,
             grids,
             deck,
             discard,
             rng,
-            turn: Turn::first(),
+            turn: Turn {
+                players: (0..players).collect(),
+                number: 0,
+            },
             phase: Phase::Setup,
             pending: None,
             source: Source::Stock,

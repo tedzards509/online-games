@@ -45,7 +45,9 @@
     >{/if}
   <span class="muted">{view.stock} in stock</span>
 </div>
-{#if actions.length}<p class="muted">{hint}</p>{/if}
+{#if actions.length || view.phase === 'setup'}<p class="muted">
+    {actions.length ? hint : 'Waiting for other players'}
+  </p>{/if}
 <div class="actions">
   {#each actions as action}
     {#if action.game === 'skyjo' && action.action.type === 'draw'}

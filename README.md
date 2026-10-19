@@ -47,7 +47,7 @@ Each game module documents its supported variant, not every house rule:
 - [Skyjo](crates/arena-core/src/games/skyjo/rules.md)
 - [Tic-Tac-Toe](crates/arena-core/src/games/tic_tac_toe/rules.md)
 
-Crazy Eights, Mancala, and Shithead now use replay version 4. Retain revision `57305f1` for their previous rooms/replays, or `b0fb0e2` for earlier Crazy Eights rules. Back up existing databases; old games are not automatically migrated. Run revised rules with a separate database (`DATABASE_URL`). See [compatibility](docs/design.md).
+Crazy Eights, Mancala, Shithead, and Skyjo now use replay version 4. Retain revision `57305f1` for their previous rooms/replays, or `b0fb0e2` for earlier Crazy Eights rules. Back up existing databases; old games are not automatically migrated. Run revised rules with a separate database (`DATABASE_URL`). See [compatibility](docs/design.md).
 
 ## Develop
 

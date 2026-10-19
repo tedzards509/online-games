@@ -4,17 +4,17 @@
 
 - Two to eight players; one shuffled 150-card deck: five −2, fifteen 0, and ten each of −1 and 1–12.
 - Deal each player twelve face-down cards in a 3×4 grid; turn one further card face-up as the discard. Remaining cards form the stock.
-- Start in setup with seat 0. Seats follow join order, wrap in increasing order, and remain unchanged on rematches.
-- State consists of grids (values, visibility, removed slots), stock, discard pile, active seat, phase, pending drawn card/source, first finisher, and result.
+- Start in simultaneous setup with every seat eligible. Seats follow join order, wrap in increasing order during ordinary play, and remain unchanged on rematches.
+- State consists of grids (values, visibility, removed slots), stock, discard pile, eligible seats, phase, pending drawn card/source, first finisher, and result.
 - Grid indices are row-major: 0–3, 4–7, 8–11. All revealed values and removed slots are public; hidden values are unknown even to their owner. Discard top, stock size, phase, and finisher are public. A pending stock draw is visible only to its active player; stock order remains private.
 
 ## Actions and eligibility
 
-Only the active player may act while the round is unfinished. A turn can require multiple actions; the active seat remains unchanged until the turn is complete. Removed slots cannot be targeted.
+During setup, every player with fewer than two revealed cards may act, in any order. After their second reveal, that player waits for the others. Ordinary play begins only when everyone has revealed two cards. Only the active player may act during ordinary play; a turn can require multiple actions without changing seats. Removed slots cannot be targeted.
 
 | Phase | Legal actions | Result |
 | --- | --- | --- |
-| Setup | **Reveal(index)** on one hidden grid card. | Reveal exactly two cards per seat, then move to the next seat. After all seats, the highest revealed sum starts ordinary play; ties go to the earlier seat. |
+| Setup | **Reveal(index)** on one hidden grid card belonging to the acting player. | Reveal exactly two cards per seat, in any interleaving. After everyone has finished, the highest revealed sum starts ordinary play; ties go to the earlier seat, never the fastest player. |
 | Draw | **Draw(discard)** or **Draw(stock)**. | Take one card and enter Place. Stock is available only if nonempty or recyclable. |
 | Place | **Replace(index)** on any occupied slot, hidden or revealed. | Put the drawn card face-up there; put the old card on the discard; complete the turn. |
 | Place, stock source only | **Discard**, only if at least one hidden grid card remains. | Put the drawn card on the discard and enter Reveal; do not end the turn yet. A card taken from discard must be placed. |

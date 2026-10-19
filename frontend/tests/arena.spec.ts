@@ -286,9 +286,12 @@ for (const game of [
     await host.getByRole('button', { name: 'Start game' }).click();
     await expect(host.getByText('Your turn', { exact: true })).toBeVisible();
     await expect(
-      guest.getByText(game === 'Shithead' ? 'Your turn' : "Alice's turn", {
-        exact: true,
-      }),
+      guest.getByText(
+        game === 'Shithead' || game === 'Skyjo' ? 'Your turn' : "Alice's turn",
+        {
+          exact: true,
+        },
+      ),
     ).toBeVisible();
     const before = (await snapshot(host)).revision;
 
@@ -342,6 +345,13 @@ for (const game of [
       ).toHaveCount(9);
     } else if (game === 'Skyjo') {
       const grid = host.getByRole('region', { name: "Alice's grid" });
+      const guestGrid = guest.getByRole('region', { name: "Bob's grid" });
+      await guestGrid
+        .getByRole('button', { name: 'Card 1: hidden', exact: true })
+        .click();
+      await expect(
+        guestGrid.getByRole('button', { name: /^Card 1: -?\d+$/ }),
+      ).toBeVisible();
       // A labelled section is a region; each setup reveal is a separate command.
       await grid
         .getByRole('button', { name: 'Card 1: hidden', exact: true })
@@ -353,6 +363,19 @@ for (const game of [
         .getByRole('button', { name: 'Card 2: hidden', exact: true })
         .click();
       await expect(guest.getByText('Your turn', { exact: true })).toBeVisible();
+      await expect(
+        host.getByText('Waiting for other players', { exact: true }),
+      ).toBeVisible();
+      await host.reload();
+      await expect(
+        host.getByText('Waiting for other players', { exact: true }),
+      ).toBeVisible();
+      await guestGrid
+        .getByRole('button', { name: 'Card 2: hidden', exact: true })
+        .click();
+      await expect
+        .poll(async () => (await snapshot(host)).view.state.phase)
+        .toBe('draw');
     } else if (game === 'Shithead') {
       for (const page of [guest, host]) {
         await expect(

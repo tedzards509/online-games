@@ -22,7 +22,7 @@ impl GameKind {
     /// Returns the currently supported replay rules revision for this game.
     pub fn replay_version(self) -> u32 {
         match self {
-            Self::CrazyEights | Self::Mancala | Self::Shithead => 4,
+            Self::CrazyEights | Self::Mancala | Self::Shithead | Self::Skyjo => 4,
             _ => 1,
         }
     }
