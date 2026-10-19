@@ -17,6 +17,7 @@ Read `README.md`, `docs/rules.md`, and `docs/design.md` first. This is a small h
 
 ## Code style
 
+- Value understandable, idiomatic code: model domain concepts explicitly and prefer clear names over magic numbers or clever shortcuts.
 - Keep code modular, minimal, and clean. Avoid boilerplate, redundant wrappers, speculative abstraction layers, and filler code or prose ("slop"). Prefer direct, readable implementations.
 - Before implementing general-purpose functionality, look for a well-maintained, popular library that meets the requirements. Use it rather than writing a custom equivalent when it covers the need.
 - Separate reusable game contracts from independent rulesets, server orchestration, and board rendering. Reuse cards, decks, and events where useful; do not constrain every game to the same representation.
