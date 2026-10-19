@@ -41,7 +41,7 @@ struct Board {
     pits: [Pit; BOARD_SIZE],
 }
 
-// Keep the original flat stone counts in saved games and player views.
+// Saved games and player views represent the board as flat stone counts.
 impl From<[u16; BOARD_SIZE]> for Board {
     fn from(stones: [u16; BOARD_SIZE]) -> Self {
         Self {

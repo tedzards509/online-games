@@ -48,7 +48,7 @@ Each game module documents its supported variant, not every house rule:
 - [Tic-Tac-Toe](crates/arena-core/src/games/tic_tac_toe/rules.md)
 - [The Crew — without missions](crates/arena-core/src/games/the_crew/rules.md) (3–5 players; the host records a shared win or loss)
 
-Crazy Eights, Mancala, Shithead, and Skyjo now use replay version 4. Retain revision `57305f1` for their previous rooms/replays, or `b0fb0e2` for earlier Crazy Eights rules. Back up existing databases; old games are not automatically migrated. Run revised rules with a separate database (`DATABASE_URL`). See [compatibility](docs/design.md).
+Crazy Eights, Mancala, Shithead, and Skyjo use replay version 4; Tic-Tac-Toe and The Crew use version 1. Back up databases and use separate databases (`DATABASE_URL`) for incompatible rules versions. See [compatibility requirements and revision references](docs/design.md#replay-and-save-compatibility).
 
 ## Develop
 

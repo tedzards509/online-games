@@ -81,7 +81,7 @@ impl Turn {
     }
 }
 
-/// Reads both current eligibility lists and legacy persisted single-seat turns.
+/// Reads persisted turns as eligibility lists or single-seat indices.
 fn deserialize_turn_players<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
 ) -> Result<Vec<Player>, D::Error> {
