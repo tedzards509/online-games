@@ -5,7 +5,7 @@
 - Two players, each with six houses containing four stones each and an empty store: 48 stones in total.
 - Seat 0 starts; seats follow join order and remain unchanged on rematches. The seed has no effect.
 - State consists of the stone counts, active seat, and result. All information is public.
-- Houses 0–5 and store 6 belong to seat 0; houses 7–12 and store 13 belong to seat 1. Opposite houses have indices summing to 12. The UI puts your side at the bottom.
+- Houses 0–5 and store 6 belong to seat 0; houses 7–12 and store 13 belong to seat 1. Opposite houses have indices summing to 12.
 
 ## Actions and eligibility
 
@@ -24,4 +24,4 @@ No configurable rules (`GameConfig` is empty). This is Kalah with six houses per
 
 Collect the most stones in your store. After each sow and capture, if either player's houses are all empty, sweep the stones remaining in each player's houses into that player's store and end immediately, even if the last stone landed in a store.
 
-Scores are final store counts in seat order. The higher score wins; equal scores are a draw represented by both seats as winners. No actions are legal after the result. Stones are never created or removed.
+Scores are final store counts in seat order. The higher score wins; equal scores are a draw represented by no winners. No actions are legal after the result. Stones are never created or removed.

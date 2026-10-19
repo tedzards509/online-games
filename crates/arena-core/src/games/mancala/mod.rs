@@ -144,6 +144,7 @@ impl Board {
         let best = scores.iter().max().expect("the board has players");
         Some(Outcome {
             winners: (0..PLAYERS)
+                .filter(|_| scores[0] != scores[1])
                 .filter(|&player| scores[player] == *best)
                 .collect(),
             scores: Some(scores),
@@ -159,6 +160,8 @@ pub struct Action {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Mancala {
+    #[serde(deserialize_with = "crate::game::deserialize_rules_version::<_, 4>")]
+    rules_version: u32,
     board: Board,
     turn: Turn,
     outcome: Option<Outcome>,
@@ -180,6 +183,7 @@ impl Game for Mancala {
             return Err(Error::PlayerCount);
         }
         Ok(Self {
+            rules_version: 4,
             board: Board::new(),
             turn: Turn::first(),
             outcome: None,
@@ -379,7 +383,7 @@ mod tests {
             }
             board.store_mut(empty_player).stones = 24;
             let outcome = board.finish().unwrap();
-            assert_eq!(outcome.winners, vec![0, 1]);
+            assert!(outcome.winners.is_empty());
             assert_eq!(outcome.scores, Some(vec![24, 24]));
             assert!(
                 board
@@ -395,6 +399,7 @@ mod tests {
     #[test]
     fn saved_state_keeps_the_original_flat_board_format() {
         let saved = serde_json::json!({
+            "rules_version": 4,
             "board": [1, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0],
             "turn": { "players": [0], "number": 0 },
             "outcome": null,
@@ -429,5 +434,23 @@ mod tests {
         assert_eq!(game.board.store_mut(0).stones, 4);
         assert_eq!(game.board.store_mut(1).stones, 2);
         assert_eq!(game.outcome().unwrap().winners, vec![0]);
+    }
+
+    #[test]
+    fn tied_game_records_a_draw_not_a_shared_win() {
+        let mut game = Session::<Mancala>::new(2, [0; 32]).unwrap();
+        game.state.board = Board::from([0, 0, 0, 0, 0, 1, 23, 1, 0, 0, 0, 0, 0, 23]);
+        let outcome = Outcome {
+            winners: vec![],
+            scores: Some(vec![24, 24]),
+        };
+        assert_eq!(
+            game.act(0, Action { pit: 5 }).unwrap().events.last(),
+            Some(&Event::Finished {
+                outcome: outcome.clone()
+            })
+        );
+        assert_eq!(game.state().outcome(), Some(outcome));
+        assert!((0..2).all(|player| game.state().legal_actions(player).is_empty()));
     }
 }
