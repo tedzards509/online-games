@@ -51,7 +51,7 @@ impl GameKind {
 )]
 pub enum Config {
     Mancala(crate::game::GameConfig),
-    CrazyEights(crate::game::GameConfig),
+    CrazyEights(crazy_eights::GameConfig),
     Shithead(crate::game::GameConfig),
     Skyjo(crate::game::GameConfig),
     TicTacToe(crate::game::GameConfig),

@@ -505,7 +505,7 @@
                 ]
               },
               "rules": {
-                "$ref": "#/components/schemas/GameConfig"
+                "$ref": "#/components/schemas/CrazyEightsGameConfig"
               }
             }
           },
@@ -613,6 +613,43 @@
           }
         ]
       },
+      "CrazyEightsGameConfig": {
+        "type": "object",
+        "description": "Optional rank effects; defaults preserve the original Crazy Eights rules.",
+        "required": [
+          "ace_are_you_strong",
+          "jack_skip",
+          "ten_reverse",
+          "eight_wild",
+          "two_draw_two"
+        ],
+        "properties": {
+          "ace_are_you_strong": {
+            "type": "boolean"
+          },
+          "eight_wild": {
+            "type": "boolean"
+          },
+          "jack_skip": {
+            "type": "boolean"
+          },
+          "ten_reverse": {
+            "type": "boolean"
+          },
+          "two_draw_two": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CrazyEightsPendingDraw": {
+        "type": "string",
+        "description": "A draw-two obligation: aces permit an ace response; twos do not stack.",
+        "enum": [
+          "ace",
+          "two"
+        ]
+      },
       "CrazyEightsView": {
         "type": "object",
         "required": [
@@ -620,7 +657,8 @@
           "counts",
           "top",
           "suit",
-          "stock"
+          "stock",
+          "reversed"
         ],
         "properties": {
           "counts": {
@@ -635,6 +673,19 @@
             "items": {
               "$ref": "#/components/schemas/Card"
             }
+          },
+          "pending_draw": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CrazyEightsPendingDraw"
+              }
+            ]
+          },
+          "reversed": {
+            "type": "boolean"
           },
           "stock": {
             "type": "integer",

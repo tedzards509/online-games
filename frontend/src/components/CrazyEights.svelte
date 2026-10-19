@@ -29,8 +29,8 @@
         a.action.type === 'play' &&
         a.action.index === index,
     );
-    if (!legal) return;
-    if (view.hand[index].rank === 8) wild = index;
+    if (!legal || legal.game !== 'crazy_eights') return;
+    if (legal.action.type === 'play' && legal.action.suit) wild = index;
     else move(legal);
   }
 </script>
@@ -39,6 +39,12 @@
   <PlayingCard card={view.top} disabled />
   <span aria-label={`Current suit: ${view.suit}`}>{suits[view.suit]}</span>
   <span class="muted">{view.stock} in stock</span>
+  {#if view.reversed}<span>Reverse direction</span>{/if}
+  {#if view.pending_draw}<span
+      >{view.pending_draw === 'ace'
+        ? 'Play an ace or draw two'
+        : 'Draw two'}</span
+    >{/if}
 </div>
 <div class="hand" aria-label="Your hand">
   {#each view.hand as card, index}
@@ -73,7 +79,11 @@
 {#each actions as action}
   {#if action.game === 'crazy_eights' && action.action.type === 'draw'}
     <button onclick={() => move(action)}
-      >{view.stock === 0 ? 'Draw / pass' : 'Draw'}</button
+      >{view.pending_draw
+        ? 'Draw two'
+        : view.stock === 0
+          ? 'Draw / pass'
+          : 'Draw'}</button
     >
   {/if}
 {/each}

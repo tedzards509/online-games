@@ -8,6 +8,74 @@ use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha12Rng;
 
 #[test]
+fn crazy_eights_configurations_finish_persist_and_replay() {
+    use arena_core::{Config, Replay, games::crazy_eights::GameConfig};
+    for bits in 0..32 {
+        let config = Config::CrazyEights(GameConfig {
+            ace_are_you_strong: bits & 1 != 0,
+            jack_skip: bits & 2 != 0,
+            ten_reverse: bits & 4 != 0,
+            eight_wild: bits & 8 != 0,
+            two_draw_two: bits & 16 != 0,
+        });
+        for players in 2..=6 {
+            let mut game = Match::with_config(config.clone(), players, [bits; 32]).unwrap();
+            let mut rng = ChaCha12Rng::from_seed([bits + 32; 32]);
+            for _ in 0..20000 {
+                if game.outcome().is_some() {
+                    break;
+                }
+                let player = game.turn().players[0];
+                let actions = game.legal_actions(player);
+                game.act(player, actions[rng.gen_range(0..actions.len())].clone())
+                    .unwrap();
+            }
+            assert!(
+                game.outcome().is_some(),
+                "config {bits}, {players} players stalled"
+            );
+            let restored: Match =
+                serde_json::from_value(serde_json::to_value(&game).unwrap()).unwrap();
+            assert_eq!(restored.config(), config);
+            let replay: Replay =
+                serde_json::from_value(serde_json::to_value(game.replay()).unwrap()).unwrap();
+            assert_eq!(replay.version, if bits == 8 { 1 } else { 2 });
+            assert_eq!(replay.simulate().unwrap().replay(), replay);
+            let mut altered = replay.clone();
+            altered.version = 1;
+            if replay.version == 2 {
+                assert!(altered.simulate().is_err());
+            }
+            altered.config = Some(GameKind::Mancala.default_config());
+            altered.version = 2;
+            assert!(altered.simulate().is_err());
+        }
+    }
+}
+
+#[test]
+fn legacy_crazy_eights_state_and_replay_use_original_defaults() {
+    let game = Match::new(GameKind::CrazyEights, 2, [9; 32]).unwrap();
+    let replay = game.replay();
+    let json = serde_json::to_value(&replay).unwrap();
+    assert!(json.get("config").is_none());
+    assert_eq!(replay.version, 1);
+    let mut legacy = serde_json::to_value(&game).unwrap();
+    let session = legacy["CrazyEights"].as_object_mut().unwrap();
+    session.remove("config");
+    let state = session["state"].as_object_mut().unwrap();
+    for key in ["config", "pending_draw", "reversed"] {
+        state.remove(key);
+    }
+    let restored: Match = serde_json::from_value(legacy).unwrap();
+    assert_eq!(restored.replay(), replay);
+    assert_eq!(
+        serde_json::to_value(restored).unwrap(),
+        serde_json::to_value(replay.simulate().unwrap()).unwrap()
+    );
+}
+
+#[test]
 fn deck_shuffle_draw_and_recycle() {
     let mut a = standard_deck();
     let mut b = a.clone();

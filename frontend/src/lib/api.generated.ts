@@ -179,7 +179,7 @@ export interface components {
       | {
           /** @enum {string} */
           game: 'crazy_eights';
-          rules: components['schemas']['GameConfig'];
+          rules: components['schemas']['CrazyEightsGameConfig'];
         }
       | {
           /** @enum {string} */
@@ -207,9 +207,24 @@ export interface components {
           /** @enum {string} */
           type: 'draw';
         };
+    /** @description Optional rank effects; defaults preserve the original Crazy Eights rules. */
+    CrazyEightsGameConfig: {
+      ace_are_you_strong: boolean;
+      eight_wild: boolean;
+      jack_skip: boolean;
+      ten_reverse: boolean;
+      two_draw_two: boolean;
+    };
+    /**
+     * @description A draw-two obligation: aces permit an ace response; twos do not stack.
+     * @enum {string}
+     */
+    CrazyEightsPendingDraw: 'ace' | 'two';
     CrazyEightsView: {
       counts: number[];
       hand: components['schemas']['Card'][];
+      pending_draw?: null | components['schemas']['CrazyEightsPendingDraw'];
+      reversed: boolean;
       stock: number;
       suit: components['schemas']['Suit'];
       top: components['schemas']['Card'];
