@@ -10,7 +10,7 @@
 
 Only the active player may act while the game is unfinished.
 
-- **Place(index):** put your mark in one empty cell. Occupied cells and indices outside 0–8 are illegal.
+- **Place (index):** put your mark in one empty cell. Occupied cells and indices outside 0–8 are illegal.
 - After placement, check for a win, then a full-board draw. Otherwise, the opponent takes the next turn.
 - There is no pass, moving an existing mark, or removing a mark.
 
@@ -20,4 +20,6 @@ No configurable rules (`GameConfig` is empty): fixed 3×3 board, three in a line
 
 ## Goal and termination
 
-Form a complete row, column, or diagonal of three of your own marks. The first completed line wins immediately, including on the last empty cell. A full board without a winning line is a draw, represented by no winners. There are no scores. No actions are legal after either result.
+Form a complete row, column, or diagonal of three of your own marks. The first completed line wins immediately,
+including on the last empty cell. A full board without a winning line is a draw, represented by no winners. There are no
+scores. No actions are legal after either result.
