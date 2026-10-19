@@ -5,8 +5,8 @@
 - Two to five players; one shuffled 52-card deck. Each player receives three face-down cards and seven hand cards, with
   no face-up cards yet. The remaining cards form the stock; the play pile and burned-card count start empty.
 - Setup is simultaneous: all players who have not chosen their face-up cards may act. After everyone has chosen, seat 0
-  starts ordinary play; play proceeds in increasing seat order, wrapping and skipping finished players. Rematches keep
-  the same seats.
+  starts ordinary play; play proceeds in increasing seat order, wrapping and skipping finished players. Seats follow
+  the host-selected player order and remain fixed for the game.
 - State consists of configuration, setup status, each player's three card zones, stock, play pile, burned-card count,
   finishing order, eligible seats, and result.
 - Each player sees their own hand, all face-up cards, hand/face-down counts, pile top/size, effective top beneath
@@ -52,7 +52,7 @@ rank restriction. Threes still count as physical cards for pickup and consecutiv
 Burning removes all pile cards permanently and gives the same player another turn unless they have finished. Otherwise
 play passes to the next unfinished seat. No other ranks have special effects.
 
-The host fixes `four_card_bombs` before opening the room (default false). When true, four matching cards played together
+The host fixes `four_card_bombs` before starting the game (default false). When true, four matching cards played together
 bypass all rank restrictions, including a 7, and burn the pile. When false, four matching cards must be legal normally
 to burn. This does not permit mixed ranks or an otherwise illegal group of fewer than four cards. All other special
 rules are non-configurable.

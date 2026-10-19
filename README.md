@@ -1,6 +1,6 @@
 # Friends' Arena
 
-A small live-game arena for friends: **Shithead, Crazy Eights, Skyjo, Mancala, Tic-Tac-Toe, The Crew, and Tempel des Schreckens**. Anonymous rooms, nicknames, reconnectable seats, and downloadable replays. No accounts.
+A small live-game arena for friends: **Shithead, Crazy Eights, Skyjo, Mancala, Tic-Tac-Toe, The Crew, and Tempel des Schreckens**. Anonymous rooms, nicknames, reconnectable membership, and downloadable replays. No accounts.
 
 ## Run locally
 
@@ -20,9 +20,9 @@ npm ci
 npm run dev
 ```
 
-Open **http://localhost:5173**. Choose a game and its rule options before creating a room, share its six-character code, and start once everyone has joined. Everyone sees the fixed room rules; rematches keep them. Test with separate browser profiles/private windows to occupy different seats. A refresh or temporary disconnection preserves your seat; clearing browser storage loses it.
+Open **http://localhost:5173**. Create a room and share its six-character code. Members join the bench; the host chooses a game, adjusts its live settings, and seats players in order before starting. Settings and seating lock during play. The host can abort or start another game in the same room. Test with separate browser profiles/private windows for different members. Refreshes and temporary disconnections preserve membership; clearing browser storage loses it.
 
-SQLite creates `arena.db` automatically. Games, room tokens (hashed), and completed replays survive server restarts. The host can start a rematch; previous replays remain available.
+SQLite creates `arena.db` automatically from `crates/arena-server/schema.sql`. Membership, setup, games, and completed replays survive server restarts. Every room member can download completed replays, including benched members. Use a fresh database if stored data does not match the current implementation.
 
 ## Hosting for friends
 
@@ -35,7 +35,7 @@ Run from the repository root. The server serves `frontend/dist` with SPA routing
 
 Configuration: `DATABASE_URL` (default `sqlite://arena.db`), `BIND_ADDR` (default `127.0.0.1:3000`), `PUBLIC_ORIGIN` (default `http://localhost:5173`), `RUST_LOG`.
 
-This is a **single-server, trusted-friends foundation**, not a public service: no room expiry, seat removal/host transfer, spectators, or abuse rate limiting. Do not run multiple server processes against the same database. Room codes are invitations, not secrets; seat tokens are secrets. Back up the database; it contains hidden game state. Skyjo currently plays one round, not a cumulative match to 100.
+This is a **single-server, trusted-friends foundation**, not a public service: no room expiry, member removal/host transfer, game spectating, or abuse rate limiting. Benched members see room information, not a game view. Do not run multiple server processes against the same database. Room codes are invitations, not secrets; member tokens are secrets. Back up the database; it contains hidden game state. Skyjo plays one round, not a cumulative match to 100.
 
 ## Game rules
 

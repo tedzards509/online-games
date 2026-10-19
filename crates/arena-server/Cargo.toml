@@ -12,7 +12,7 @@ thiserror.workspace = true
 utoipa.workspace = true
 axum = { version = "0.8", features = ["ws"] }
 tokio = { version = "1", features = ["full"] }
-sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite", "migrate", "macros"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite"] }
 uuid = { version = "1", features = ["v4"] }
 sha2 = "0.10"
 futures-util = "0.3"

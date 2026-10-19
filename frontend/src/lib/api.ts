@@ -1,4 +1,4 @@
-import type { GameKind, Membership, Schemas } from './types';
+import type { Membership } from './types';
 
 export async function request<T>(
   path: string,
@@ -20,12 +20,8 @@ export async function request<T>(
   return response.json();
 }
 
-export function createRoom(
-  nickname: string,
-  game: GameKind,
-  config: Schemas['Config'],
-): Promise<Membership> {
-  return request('/rooms', { nickname, game, config });
+export function createRoom(nickname: string): Promise<Membership> {
+  return request('/rooms', { nickname });
 }
 
 export function joinRoom(code: string, nickname: string): Promise<Membership> {
@@ -41,7 +37,7 @@ export function loadMembership(code: string): Membership | null {
     const member = JSON.parse(localStorage.getItem(`arena:${code}`) ?? 'null');
     return member?.code === code &&
       typeof member.token === 'string' &&
-      Number.isInteger(member.player)
+      Number.isInteger(member.member)
       ? member
       : null;
   } catch {

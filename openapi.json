@@ -243,7 +243,7 @@
         ],
         "responses": {
           "101": {
-            "description": "Per-room WebSocket. Authenticate first, then Start or Move. Receives personalized Snapshots and Errors."
+            "description": "Per-room WebSocket. Authenticate first, then send room commands or nested game messages. Receives personalized snapshots and errors."
           },
           "400": {
             "description": "",
@@ -467,6 +467,64 @@
               "type"
             ],
             "properties": {
+              "config": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Config"
+                  }
+                ]
+              },
+              "revision": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "configure"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "revision",
+              "members",
+              "type"
+            ],
+            "properties": {
+              "members": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "revision": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "seat"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "revision",
+              "type"
+            ],
+            "properties": {
               "revision": {
                 "type": "integer",
                 "format": "int64",
@@ -484,10 +542,13 @@
             "type": "object",
             "required": [
               "revision",
-              "won",
+              "game_id",
               "type"
             ],
             "properties": {
+              "game_id": {
+                "type": "string"
+              },
               "revision": {
                 "type": "integer",
                 "format": "int64",
@@ -496,11 +557,8 @@
               "type": {
                 "type": "string",
                 "enum": [
-                  "finish"
+                  "abort"
                 ]
-              },
-              "won": {
-                "type": "boolean"
               }
             }
           },
@@ -508,12 +566,16 @@
             "type": "object",
             "required": [
               "revision",
-              "action",
+              "game_id",
+              "message",
               "type"
             ],
             "properties": {
-              "action": {
-                "$ref": "#/components/schemas/Action"
+              "game_id": {
+                "type": "string"
+              },
+              "message": {
+                "$ref": "#/components/schemas/GameMessage"
               },
               "revision": {
                 "type": "integer",
@@ -523,13 +585,13 @@
               "type": {
                 "type": "string",
                 "enum": [
-                  "move"
+                  "game"
                 ]
               }
             }
           }
         ],
-        "description": "Send Authenticate as the first text frame within five seconds. Subsequent\ncommands carry the latest observed Snapshot revision. Moves may be queued\nbehind other moves in the same game and are revalidated against current state."
+        "description": "Authenticate in the first frame. Setup commands require the exact revision;\ngame messages allow older same-game revisions and are revalidated FIFO."
       },
       "Config": {
         "oneOf": [
@@ -794,23 +856,9 @@
       "CreateRoom": {
         "type": "object",
         "required": [
-          "nickname",
-          "game"
+          "nickname"
         ],
         "properties": {
-          "config": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/Config"
-              }
-            ]
-          },
-          "game": {
-            "$ref": "#/components/schemas/GameKind"
-          },
           "nickname": {
             "type": "string"
           }
@@ -863,7 +911,7 @@
           },
           {
             "type": "object",
-            "description": "Internal replay command, submitted through the room's host-only finish command.",
+            "description": "External result recorded by seat zero; the server authorizes the room host.",
             "required": [
               "won",
               "type"
@@ -1065,6 +1113,139 @@
           "tic_tac_toe"
         ]
       },
+      "GameMessage": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "action",
+              "type"
+            ],
+            "properties": {
+              "action": {
+                "$ref": "#/components/schemas/Action"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "move"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Records The Crew's shared result; only the room host may submit it.",
+            "required": [
+              "won",
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "finish"
+                ]
+              },
+              "won": {
+                "type": "boolean"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Selects Tempel's initial key holder; only the room host may submit it.",
+            "required": [
+              "player",
+              "type"
+            ],
+            "properties": {
+              "player": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "choose_key"
+                ]
+              }
+            }
+          }
+        ],
+        "description": "Messages routed to the identified game. Host controls are not player moves."
+      },
+      "GameSnapshot": {
+        "type": "object",
+        "required": [
+          "id",
+          "config",
+          "players",
+          "can_finish",
+          "can_choose_key",
+          "turn",
+          "legal_actions"
+        ],
+        "properties": {
+          "can_choose_key": {
+            "type": "boolean"
+          },
+          "can_finish": {
+            "type": "boolean"
+          },
+          "config": {
+            "$ref": "#/components/schemas/Config"
+          },
+          "id": {
+            "type": "string"
+          },
+          "legal_actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Action"
+            }
+          },
+          "outcome": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Outcome"
+              }
+            ]
+          },
+          "players": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemberView"
+            },
+            "description": "Members in immutable game-player order."
+          },
+          "turn": {
+            "$ref": "#/components/schemas/Turn"
+          },
+          "view": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/View",
+                "description": "Benched members receive no game observation."
+              }
+            ]
+          },
+          "you": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "The requesting member's game-player index; null on the bench.",
+            "minimum": 0
+          }
+        }
+      },
       "JoinRoom": {
         "type": "object",
         "required": [
@@ -1105,19 +1286,35 @@
           }
         }
       },
+      "MemberView": {
+        "type": "object",
+        "required": [
+          "id",
+          "nickname"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "nickname": {
+            "type": "string"
+          }
+        }
+      },
       "Membership": {
         "type": "object",
-        "description": "Keep the token private. It grants control of this seat, including after reconnecting.",
+        "description": "A stable room identity, independent of seating. Keep its bearer token private.",
         "required": [
           "code",
-          "player",
+          "member",
           "token"
         ],
         "properties": {
           "code": {
             "type": "string"
           },
-          "player": {
+          "member": {
             "type": "integer",
             "minimum": 0
           },
@@ -1161,17 +1358,6 @@
           "place",
           "reveal"
         ]
-      },
-      "PlayerView": {
-        "type": "object",
-        "required": [
-          "nickname"
-        ],
-        "properties": {
-          "nickname": {
-            "type": "string"
-          }
-        }
       },
       "Record_Action_Event": {
         "type": "object",
@@ -1483,6 +1669,28 @@
             "format": "int32",
             "description": "Rules revision; must match the selected game's supported version.",
             "minimum": 0
+          }
+        }
+      },
+      "ReplaySummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "config",
+          "players"
+        ],
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/Config"
+          },
+          "id": {
+            "type": "string"
+          },
+          "players": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemberView"
+            }
           }
         }
       },
@@ -1844,55 +2052,52 @@
         "type": "object",
         "required": [
           "code",
-          "game",
-          "config",
-          "players",
+          "members",
+          "host",
           "you",
           "revision",
-          "can_finish",
-          "legal_actions",
+          "seating",
           "replays"
         ],
         "properties": {
-          "can_finish": {
-            "type": "boolean",
-            "description": "Whether this seat may record a shared result for the current game."
-          },
           "code": {
             "type": "string"
           },
           "config": {
-            "$ref": "#/components/schemas/Config"
-          },
-          "game": {
-            "$ref": "#/components/schemas/GameKind"
-          },
-          "legal_actions": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Action"
-            }
-          },
-          "outcome": {
             "oneOf": [
               {
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/Outcome"
+                "$ref": "#/components/schemas/Config",
+                "description": "Selected setup options; null until the host chooses a game."
               }
             ]
           },
-          "players": {
+          "game": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/GameSnapshot"
+              }
+            ]
+          },
+          "host": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "members": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/PlayerView"
+              "$ref": "#/components/schemas/MemberView"
             }
           },
           "replays": {
             "type": "array",
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/ReplaySummary"
             }
           },
           "revision": {
@@ -1900,25 +2105,13 @@
             "format": "int64",
             "minimum": 0
           },
-          "turn": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/Turn"
-              }
-            ]
-          },
-          "view": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/View"
-              }
-            ]
+          "seating": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Members selected for the next game, in player order. Others are benched."
           },
           "you": {
             "type": "integer",

@@ -8,9 +8,10 @@ Read `README.md`, `docs/design.md`, and the relevant game's `crates/arena-core/s
 - `crates/arena-core/src/cards.rs`: generic `Deck<C>` and standard playing cards. Numeric games need not use `Card`; non-card games need not use either.
 - `crates/arena-core/src/games/<id>/`: independent rulesets and per-player projections in `mod.rs`, with game rules in `rules.md`.
 - `crates/arena-core/src/arena.rs`: runtime game dispatch, transport-friendly action/view enums, versioned replay validation.
-- `crates/arena-server/src/room.rs`: anonymous seats, host/start rules, personalized snapshots.
+- `crates/arena-server/src/room.rs`: stable Members, bench/seating, live setup, game lifecycle, room snapshots.
+- `crates/arena-server/src/game.rs`: frozen game roster, member-to-player routing, host-only game controls, player snapshots.
 - `crates/arena-server/src/api.rs`: HTTP routes, OpenAPI, authenticated WebSocket lifecycle, serialized room commands.
-- `crates/arena-server/src/store.rs`, `migrations/`: SQLite persistence.
+- `crates/arena-server/src/store.rs`, `schema.sql`: SQLite persistence and direct schema initialization.
 - `frontend/src/lib/connection.svelte.ts`: socket authentication, reconnects, revisions, pending state.
 - `frontend/src/components/`: game-specific boards. `App.svelte` handles entry, room navigation, and room chrome.
 - `frontend/src/lib/api.generated.ts`: generated from `openapi.json`; do not edit by hand.
@@ -39,9 +40,10 @@ Read `README.md`, `docs/design.md`, and the relevant game's `crates/arena-core/s
 - Only public setup configuration, `Game::view` projections, and the requesting player's legal actions leave the server as game data. Never serialize a `Match`/`Session` as a live response or expose seeds/stock order/other hands. Skyjo's stock draw is visible only to its active player. Tempel des Schreckens exposes the viewer's role and remaining card counts, but no hidden card positions, including their own, or other roles.
 - Replays intentionally contain all hidden information. Only archive a completed game, and only let room members download it. Replay format 1 fixes rules, RNG algorithm, deck order, and action semantics; incompatible changes require a new version and compatibility strategy.
 - A room mutex serializes joins and commands. Make a candidate copy, persist it (and any completed replay) in a transaction, then replace memory and notify subscribers. Failed writes must not publish a state change.
-- Bearer tokens identify seats, not nicknames or room codes. WebSockets authenticate via the first frame, never a URL query parameter. Never log tokens.
-- Clients submit their latest observed room revision. Queued moves may use an older revision within the current game and must be revalidated; future revisions and moves from before the current start/rematch are rejected. Starts require the exact current revision. Only a command response, not another player's broadcast, clears client pending state. Reconnects send a fresh snapshot; never automatically resend an unacknowledged move.
-- SQL migrations are append-only once released. The current storage model assumes one server process.
+- Bearer tokens identify Members, not game Players, nicknames, or room codes. WebSockets authenticate via the first frame, never a URL query parameter. Never log tokens. Members have stable IDs; each game's frozen ordered member roster defines its Player indices. Host authority is independent of seating, including on the bench. Benched members receive no game view or legal actions.
+- Clients submit their latest observed room revision. Nested game messages identify the game and may use an older revision between its explicit start revision and the current room revision; revalidate every move. Joins advance room revisions independently of games. Setup/start/abort commands require the exact revision. Only a command response, not another member's broadcast, clears client pending state. Reconnects send a fresh snapshot; never automatically resend an unacknowledged move.
+- Rooms need no selected game. New Members join the bench at any time. Only the host configures games and seating, which lock during unfinished games. Starts freeze the roster/configuration; aborts clear the game without archiving unfinished state. Completed archives retain their roster and are accessible to every room Member.
+- Edit database initialization in `schema.sql` directly; compatibility migrations are not required. The storage model assumes one server process.
 
 ## Changing a game
 

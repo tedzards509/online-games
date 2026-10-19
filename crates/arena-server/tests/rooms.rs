@@ -18,10 +18,7 @@ use tower::ServiceExt;
 type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
 fn crazy_eights_config() -> Value {
-    json!({"game":"crazy_eights", "rules": {
-        "ace_are_you_strong": true, "jack_skip": true, "ten_reverse": true,
-        "two_draw_two": true
-    }})
+    json!({"game":"crazy_eights", "rules": {"ace_are_you_strong":true, "jack_skip":true, "ten_reverse":true, "two_draw_two":true}})
 }
 
 struct Server {
@@ -34,7 +31,6 @@ impl Drop for Server {
         self.task.abort();
     }
 }
-
 impl Server {
     async fn open(url: &str) -> Self {
         let app = App::open(url, "http://localhost:5173").await.unwrap();
@@ -80,16 +76,30 @@ impl Server {
             serde_json::from_slice(&bytes).unwrap_or(Value::Null),
         )
     }
-    async fn member(&self, kind: &str) -> Membership {
+    async fn members(&self, count: usize) -> Vec<Membership> {
+        let (status, value) = self
+            .request("POST", "/api/rooms", json!({"nickname":"Alice"}), None)
+            .await;
+        assert_eq!(status, StatusCode::CREATED);
+        let mut members = vec![serde_json::from_value::<Membership>(value).unwrap()];
+        for player in 1..count {
+            members.push(
+                self.join(&members[0].code, &format!("Member {player}"))
+                    .await,
+            );
+        }
+        members
+    }
+    async fn join(&self, code: &str, name: &str) -> Membership {
         let (status, value) = self
             .request(
                 "POST",
-                "/api/rooms",
-                json!({"game": kind, "nickname": "Alice"}),
+                &format!("/api/rooms/{code}/join"),
+                json!({"nickname":name}),
                 None,
             )
             .await;
-        assert_eq!(status, StatusCode::CREATED);
+        assert_eq!(status, StatusCode::OK);
         serde_json::from_value(value).unwrap()
     }
     async fn socket(&self, member: &Membership) -> Socket {
@@ -102,10 +112,22 @@ impl Server {
         .unwrap();
         send(
             &mut socket,
-            json!({"type": "authenticate", "token": member.token}),
+            json!({"type":"authenticate", "token":member.token}),
         )
         .await;
         socket
+    }
+    async fn snapshot(&self, member: &Membership) -> Value {
+        let (status, value) = self
+            .request(
+                "GET",
+                &format!("/api/rooms/{}", member.code),
+                Value::Null,
+                Some(&member.token),
+            )
+            .await;
+        assert_eq!(status, StatusCode::OK);
+        value
     }
 }
 
@@ -137,58 +159,176 @@ async fn snapshot(socket: &mut Socket, revision: u64) -> Value {
         }
     }
 }
+fn at(room: &Value, mut message: Value) -> Value {
+    message["revision"] = room["revision"].clone();
+    if message["type"] == "game" || message["type"] == "abort" {
+        message["game_id"] = room["game"]["id"].clone();
+    }
+    message
+}
+async fn commit(socket: &mut Socket, room: &Value, message: Value) -> Value {
+    send(socket, at(room, message)).await;
+    loop {
+        let response = receive(socket).await;
+        assert_eq!(response["type"], "snapshot", "{response}");
+        if response["acknowledged"] == true {
+            return response["room"].clone();
+        }
+    }
+}
+async fn reject(socket: &mut Socket, room: &Value, message: Value) {
+    send(socket, at(room, message)).await;
+    loop {
+        let response = receive(socket).await;
+        if response["type"] == "error" {
+            break;
+        }
+        assert_eq!(response["type"], "snapshot");
+        assert_eq!(response["acknowledged"], false);
+    }
+    assert_eq!(
+        snapshot(socket, room["revision"].as_u64().unwrap()).await,
+        *room
+    );
+}
+async fn start(
+    server: &Server,
+    members: &[Membership],
+    config: Value,
+    seats: Vec<usize>,
+) -> (Vec<Socket>, Vec<Value>) {
+    let mut host = server.socket(&members[0]).await;
+    let mut room = snapshot(&mut host, members.len() as u64).await;
+    room = commit(
+        &mut host,
+        &room,
+        json!({"type":"configure", "config":config}),
+    )
+    .await;
+    room = commit(&mut host, &room, json!({"type":"seat", "members":seats})).await;
+    room = commit(&mut host, &room, json!({"type":"start"})).await;
+    let revision = room["revision"].as_u64().unwrap();
+    let mut sockets = vec![host];
+    let mut views = vec![room];
+    for member in &members[1..] {
+        let mut socket = server.socket(member).await;
+        views.push(snapshot(&mut socket, revision).await);
+        sockets.push(socket);
+    }
+    (sockets, views)
+}
 
 #[tokio::test]
-async fn identity_capacity_and_origin_checks() {
+async fn game_independent_membership_live_settings_seating_and_permissions() {
     let server = Server::open("sqlite::memory:").await;
-    let alice = server.member("mancala").await;
-    let path = format!("/api/rooms/{}", alice.code);
-    assert_eq!(
-        server.request("GET", &path, Value::Null, None).await.0,
-        StatusCode::UNAUTHORIZED
-    );
-    assert_eq!(
-        server
-            .request("GET", &path, Value::Null, Some("wrong"))
-            .await
-            .0,
-        StatusCode::UNAUTHORIZED
-    );
-    assert_eq!(
+    let members = server.members(4).await;
+    let mut host = server.socket(&members[0]).await;
+    let mut guest = server.socket(&members[1]).await;
+    let mut room = snapshot(&mut host, 4).await;
+    let mut other = snapshot(&mut guest, 4).await;
+    assert!(room["config"].is_null());
+    assert!(room["game"].is_null());
+    assert_eq!(room["seating"], json!([]));
+    assert_eq!(room["members"].as_array().unwrap().len(), 4);
+    assert_eq!(room["host"], 0);
+    for command in [
+        json!({"type":"configure", "config":{"game":"mancala", "rules":{}}}),
+        json!({"type":"seat", "members":[1,0]}),
+        json!({"type":"start"}),
+    ] {
+        reject(&mut guest, &other, command).await;
+    }
+    reject(&mut host, &room, json!({"type":"start"})).await;
+    room = commit(
+        &mut host,
+        &room,
+        json!({"type":"configure", "config":crazy_eights_config()}),
+    )
+    .await;
+    other = snapshot(&mut guest, 5).await;
+    assert_eq!(other["config"], crazy_eights_config());
+    for seats in [json!([0, 0]), json!([4]), json!([usize::MAX])] {
+        reject(&mut host, &room, json!({"type":"seat", "members":seats})).await;
+    }
+    room = commit(&mut host, &room, json!({"type":"seat", "members":[2,1]})).await;
+    assert_eq!(room["seating"], json!([2, 1]));
+    // Clearing selection does not change membership or seating.
+    room = commit(&mut host, &room, json!({"type":"configure", "config":null})).await;
+    reject(&mut host, &room, json!({"type":"start"})).await;
+    room = commit(
+        &mut host,
+        &room,
+        json!({"type":"configure", "config":{"game":"tic_tac_toe", "rules":{}}}),
+    )
+    .await;
+    for seats in [json!([]), json!([1]), json!([0, 1, 2, 3])] {
+        room = commit(&mut host, &room, json!({"type":"seat", "members":seats})).await;
+        reject(&mut host, &room, json!({"type":"start"})).await;
+    }
+    room = commit(&mut host, &room, json!({"type":"seat", "members":[2,1]})).await;
+    room = commit(&mut host, &room, json!({"type":"start"})).await;
+    let revision = room["revision"].as_u64().unwrap();
+    other = snapshot(&mut guest, revision).await;
+    assert_eq!(room["game"]["players"][0]["id"], 2);
+    assert_eq!(room["game"]["players"][1]["id"], 1);
+    assert!(room["game"]["you"].is_null());
+    assert!(room["game"]["view"].is_null());
+    assert_eq!(room["game"]["legal_actions"], json!([]));
+    assert_eq!(other["game"]["you"], 1);
+    reject(&mut host, &room, json!({"type":"game", "message":{"type":"move", "action":{"game":"tic_tac_toe", "action":{"index":0}}}})).await;
+    reject(&mut host, &room, json!({"type":"seat", "members":[0,1]})).await;
+    reject(&mut host, &room, json!({"type":"configure", "config":null})).await;
+    reject(&mut guest, &other, json!({"type":"abort"})).await;
+    // Joining a full two-player game is independent of game capacity.
+    let late = server.join(&members[0].code, "Late").await;
+    let late_view = server.snapshot(&late).await;
+    assert!(late_view["game"]["view"].is_null());
+    assert!(late_view["game"]["you"].is_null());
+    assert_eq!(late_view["seating"], json!([2, 1]));
+    room = snapshot(&mut host, revision + 1).await;
+    room = commit(&mut host, &room, json!({"type":"abort"})).await;
+    assert!(room["game"].is_null());
+    assert_eq!(room["seating"], json!([2, 1]));
+    assert_eq!(room["replays"], json!([]));
+    assert_eq!(server.snapshot(&members[0]).await, room);
+}
+
+#[tokio::test]
+async fn identity_origin_and_malformed_settings_checks() {
+    let server = Server::open("sqlite::memory:").await;
+    let members = server.members(1).await;
+    let path = format!("/api/rooms/{}", members[0].code);
+    for token in [None, Some("wrong")] {
+        assert_eq!(
+            server.request("GET", &path, Value::Null, token).await.0,
+            StatusCode::UNAUTHORIZED
+        );
+    }
+    for name in ["alice", "", "\n", "1234567890123456789012345"] {
+        assert_eq!(
+            server
+                .request(
+                    "POST",
+                    &format!("{path}/join"),
+                    json!({"nickname":name}),
+                    None
+                )
+                .await
+                .0,
+            StatusCode::BAD_REQUEST
+        );
+    }
+    assert!(
         server
             .request(
                 "POST",
-                &format!("{path}/join"),
-                json!({"nickname":"alice"}),
+                "/api/rooms",
+                json!({"nickname":"X", "game":"mancala"}),
                 None
             )
             .await
-            .0,
-        StatusCode::BAD_REQUEST
-    );
-    assert_eq!(
-        server
-            .request(
-                "POST",
-                &format!("{path}/join"),
-                json!({"nickname":"Bob"}),
-                None
-            )
-            .await
-            .0,
-        StatusCode::OK
-    );
-    assert_eq!(
-        server
-            .request(
-                "POST",
-                &format!("{path}/join"),
-                json!({"nickname":"Eve"}),
-                None
-            )
-            .await
-            .0,
-        StatusCode::BAD_REQUEST
+            .0
+            .is_client_error()
     );
     let mut request = format!("ws://{}{path}/ws", server.address)
         .into_client_request()
@@ -202,350 +342,303 @@ async fn identity_capacity_and_origin_checks() {
         .unwrap();
     send(&mut socket, json!({"type":"authenticate", "token":"wrong"})).await;
     assert_eq!(receive(&mut socket).await["type"], "error");
+    let mut socket = server.socket(&members[0]).await;
+    let room = snapshot(&mut socket, 1).await;
+    let mut unknown = crazy_eights_config();
+    unknown["rules"]["unknown"] = json!(true);
+    let mut wrong = crazy_eights_config();
+    wrong["rules"]["two_draw_two"] = json!("true");
+    let mut missing = crazy_eights_config();
+    missing["rules"]
+        .as_object_mut()
+        .unwrap()
+        .remove("two_draw_two");
+    for config in [
+        unknown,
+        wrong,
+        missing,
+        json!({"game":"unknown", "rules":{}}),
+    ] {
+        reject(
+            &mut socket,
+            &room,
+            json!({"type":"configure", "config":config}),
+        )
+        .await;
+    }
 }
 
 #[tokio::test]
-async fn queued_setup_actions_from_the_same_revision_both_commit() {
+async fn queued_same_revision_moves_survive_room_joins_and_reject_old_game_ids() {
     for kind in ["shithead", "skyjo"] {
         let server = Server::open("sqlite::memory:").await;
-        let alice = server.member(kind).await;
-        let mut host = server.socket(&alice).await;
-        snapshot(&mut host, 1).await;
-        let (_, value) = server
-            .request(
-                "POST",
-                &format!("/api/rooms/{}/join", alice.code),
-                json!({"nickname":"Bob"}),
-                None,
-            )
-            .await;
-        let bob: Membership = serde_json::from_value(value).unwrap();
-        let mut guest = server.socket(&bob).await;
-        snapshot(&mut host, 2).await;
-        snapshot(&mut guest, 2).await;
-        send(&mut host, json!({"type":"start", "revision":2})).await;
-        let initial = snapshot(&mut host, 3).await;
-        let other = snapshot(&mut guest, 3).await;
-        assert_eq!(initial["turn"]["players"], json!([0, 1]));
-        let host_action = initial["legal_actions"][0].clone();
-        let guest_action = other["legal_actions"][0].clone();
-        send(
-            &mut host,
-            json!({"type":"move", "revision":3, "action":host_action}),
-        )
-        .await;
-        send(
-            &mut guest,
-            json!({"type":"move", "revision":3, "action":guest_action}),
-        )
-        .await;
-        let updated = snapshot(&mut host, 5).await;
-        let other = snapshot(&mut guest, 5).await;
-        send(
-            &mut guest,
-            json!({"type":"move", "revision":3, "action":guest_action}),
-        )
-        .await;
-        let error = receive(&mut guest).await;
-        assert_eq!(error["type"], "error");
-        assert_ne!(error["error"], "Room changed; try again");
-        assert_eq!(snapshot(&mut guest, 5).await, other);
-        if kind == "shithead" {
-            assert_eq!(updated["turn"]["players"], json!([0]));
-            assert_eq!(updated["view"]["state"]["setup"], false);
+        let members = server.members(3).await;
+        let config = if kind == "shithead" {
+            json!({"game":kind,"rules":{"four_card_bombs":false}})
         } else {
-            assert_eq!(updated["turn"]["players"], json!([0, 1]));
-            assert_eq!(updated["view"]["state"]["phase"], "setup");
+            json!({"game":kind,"rules":{}})
+        };
+        let (mut sockets, mut views) = start(&server, &members, config, vec![2, 1]).await;
+        let revision = views[0]["revision"].as_u64().unwrap();
+        let id = views[0]["game"]["id"].clone();
+        server.join(&members[0].code, "Late").await;
+        // Neither the unrelated join nor the earlier game action invalidates these moves.
+        for member in [2, 1] {
+            send(&mut sockets[member],at(&views[member],json!({"type":"game", "message":{"type":"move", "action":views[member]["game"]["legal_actions"][0]}}))).await;
+        }
+        for (p, socket) in sockets.iter_mut().enumerate() {
+            views[p] = snapshot(socket, revision + 3).await;
+        }
+        assert_eq!(views[0]["game"]["id"], id);
+        assert_eq!(views[0]["revision"], revision + 3);
+        assert_ne!(views[2]["game"]["legal_actions"], json!([]));
+        let old = at(
+            &views[2],
+            json!({"type":"game", "message":{"type":"move", "action":views[2]["game"]["legal_actions"][0]}}),
+        );
+        views[0] = commit(&mut sockets[0], &views[0], json!({"type":"abort"})).await;
+        views[0] = commit(&mut sockets[0], &views[0], json!({"type":"start"})).await;
+        let fresh = snapshot(&mut sockets[2], revision + 5).await;
+        let mut stale = old.clone();
+        stale["revision"] = fresh["revision"].clone();
+        send(&mut sockets[2], stale).await;
+        assert_eq!(receive(&mut sockets[2]).await["type"], "error");
+        assert_eq!(snapshot(&mut sockets[2], revision + 5).await, fresh);
+        for bad_revision in [revision, revision + 6] {
+            let mut message = at(
+                &fresh,
+                json!({"type":"game", "message":{"type":"move", "action":fresh["game"]["legal_actions"][0]}}),
+            );
+            message["revision"] = json!(bad_revision);
+            send(&mut sockets[2], message).await;
+            assert_eq!(receive(&mut sockets[2]).await["type"], "error");
+            assert_eq!(snapshot(&mut sockets[2], revision + 5).await, fresh);
         }
     }
 }
 
 #[tokio::test]
-async fn crew_room_finish_is_host_only_atomic_replayable_and_survives_restart() {
+async fn benched_host_records_crew_results_atomically_and_replays_remain_accessible() {
     use sqlx::Connection;
     let directory = tempfile::tempdir().unwrap();
     let database = format!("sqlite://{}", directory.path().join("crew.db").display());
     let server = Server::open(&database).await;
-    let alice = server.member("the_crew").await;
-    let path = format!("/api/rooms/{}", alice.code);
-    let mut members = vec![alice];
-    for name in ["Bob", "Carol"] {
-        let (status, value) = server
-            .request(
-                "POST",
-                &format!("{path}/join"),
-                json!({"nickname":name}),
-                None,
-            )
-            .await;
-        assert_eq!(status, StatusCode::OK);
-        members.push(serde_json::from_value::<Membership>(value).unwrap());
-    }
-    let mut sockets = vec![];
-    for member in &members {
-        let mut socket = server.socket(member).await;
-        snapshot(&mut socket, 3).await;
-        sockets.push(socket);
-    }
-    send(
-        &mut sockets[0],
-        json!({"type":"finish","revision":3,"won":true}),
+    let members = server.members(4).await;
+    let (mut sockets, mut views) = start(
+        &server,
+        &members,
+        json!({"game":"the_crew","rules":{}}),
+        vec![3, 1, 2],
     )
     .await;
-    assert_eq!(receive(&mut sockets[0]).await["type"], "error");
-    snapshot(&mut sockets[0], 3).await;
-    send(&mut sockets[0], json!({"type":"start","revision":3})).await;
-    let mut views = vec![];
-    for socket in &mut sockets {
-        views.push(snapshot(socket, 4).await);
-    }
-    assert_eq!(views[0]["can_finish"], true);
-    assert_eq!(views[1]["can_finish"], false);
+    assert_eq!(views[0]["game"]["can_finish"], true);
+    assert!(views[0]["game"]["view"].is_null());
+    assert_eq!(views[3]["game"]["you"], 0);
+    assert_eq!(views[3]["game"]["can_finish"], false);
     for view in &views {
         assert!(
-            view["legal_actions"]
+            view["game"]["legal_actions"]
                 .as_array()
                 .unwrap()
                 .iter()
                 .all(|a| a["action"]["type"] != "finish")
         );
     }
-    send(
-        &mut sockets[1],
-        json!({"type":"finish","revision":4,"won":true}),
+    reject(
+        &mut sockets[3],
+        &views[3],
+        json!({"type":"game","message":{"type":"finish","won":true}}),
     )
     .await;
-    assert_eq!(
-        receive(&mut sockets[1]).await["error"],
-        "Only the host can finish"
-    );
-    assert_eq!(snapshot(&mut sockets[1], 4).await, views[1]);
-    send(&mut sockets[0],json!({"type":"move","revision":4,"action":{"game":"the_crew","action":{"type":"finish","won":true}}})).await;
-    assert_eq!(
-        receive(&mut sockets[0]).await["error"],
-        "Use the room finish command"
-    );
-    assert_eq!(snapshot(&mut sockets[0], 4).await, views[0]);
-    let player = views[0]["view"]["state"]["next_player"].as_u64().unwrap() as usize;
-    let action = views[player]["legal_actions"]
+    reject(&mut sockets[3],&views[3],json!({"type":"game","message":{"type":"move","action":{"game":"the_crew","action":{"type":"finish","won":true}}}})).await;
+    let player = views[3]["game"]["view"]["state"]["next_player"]
+        .as_u64()
+        .unwrap() as usize;
+    let member = [3, 1, 2][player];
+    let action = views[member]["game"]["legal_actions"]
         .as_array()
         .unwrap()
         .iter()
         .find(|a| a["action"]["type"] == "play")
         .unwrap()
         .clone();
-    send(
-        &mut sockets[player],
-        json!({"type":"move","revision":4,"action":action}),
+    let updated = commit(
+        &mut sockets[member],
+        &views[member],
+        json!({"type":"game","message":{"type":"move","action":action}}),
     )
     .await;
-    for (index, socket) in sockets.iter_mut().enumerate() {
-        views[index] = snapshot(socket, 5).await;
+    let revision = updated["revision"].as_u64().unwrap();
+    for (p, socket) in sockets.iter_mut().enumerate() {
+        if p == member {
+            views[p] = updated.clone();
+        } else {
+            views[p] = snapshot(socket, revision).await;
+        }
     }
-    // A failed finish must publish neither the result nor its replay.
-    let mut database_connection = sqlx::SqliteConnection::connect(&database).await.unwrap();
-    sqlx::query("CREATE TRIGGER fail_crew_finish BEFORE UPDATE ON rooms BEGIN SELECT RAISE(FAIL, 'forced'); END").execute(&mut database_connection).await.unwrap();
-    send(
+    let mut connection = sqlx::SqliteConnection::connect(&database).await.unwrap();
+    sqlx::query(
+        "CREATE TRIGGER fail_update BEFORE UPDATE ON rooms BEGIN SELECT RAISE(FAIL, 'forced'); END",
+    )
+    .execute(&mut connection)
+    .await
+    .unwrap();
+    reject(
         &mut sockets[0],
-        json!({"type":"finish","revision":4,"won":true}),
+        &views[0],
+        json!({"type":"game","message":{"type":"finish","won":true}}),
     )
     .await;
-    assert_eq!(receive(&mut sockets[0]).await["error"], "Storage error");
-    assert_eq!(snapshot(&mut sockets[0], 5).await, views[0]);
-    sqlx::query("DROP TRIGGER fail_crew_finish")
-        .execute(&mut database_connection)
+    sqlx::query("DROP TRIGGER fail_update")
+        .execute(&mut connection)
         .await
         .unwrap();
-    send(
+    sqlx::query("CREATE TRIGGER fail_archive BEFORE INSERT ON replays BEGIN SELECT RAISE(FAIL, 'forced'); END")
+        .execute(&mut connection).await.unwrap();
+    reject(
         &mut sockets[0],
-        json!({"type":"finish","revision":4,"won":true}),
+        &views[0],
+        json!({"type":"game","message":{"type":"finish","won":true}}),
     )
     .await;
-    for socket in &mut sockets {
-        let finished = snapshot(socket, 6).await;
-        assert_eq!(finished["outcome"]["winners"], json!([0, 1, 2]));
-        assert_eq!(finished["can_finish"], false);
-        assert!(finished["legal_actions"].as_array().unwrap().is_empty());
-        assert_eq!(finished["replays"].as_array().unwrap().len(), 1);
-    }
+    assert_eq!(server.snapshot(&members[0]).await, views[0]);
+    let pending_path = format!(
+        "/api/rooms/{}/replays/{}",
+        members[0].code,
+        views[0]["game"]["id"].as_str().unwrap()
+    );
+    assert_eq!(
+        server
+            .request("GET", &pending_path, Value::Null, Some(&members[0].token))
+            .await
+            .0,
+        StatusCode::NOT_FOUND
+    );
+    sqlx::query("DROP TRIGGER fail_archive")
+        .execute(&mut connection)
+        .await
+        .unwrap();
+    views[0] = commit(
+        &mut sockets[0],
+        &views[0],
+        json!({"type":"game","message":{"type":"finish","won":true}}),
+    )
+    .await;
+    assert_eq!(views[0]["game"]["outcome"]["winners"], json!([0, 1, 2]));
+    assert_eq!(views[0]["replays"].as_array().unwrap().len(), 1);
+    assert_eq!(views[0]["replays"][0]["players"][0]["id"], 3);
+    assert_eq!(views[0]["game"]["can_finish"], false);
+    reject(
+        &mut sockets[0],
+        &views[0],
+        json!({"type":"game","message":{"type":"finish","won":false}}),
+    )
+    .await;
+    let completed = views[0].clone();
     drop(sockets);
     drop(server);
     let server = Server::open(&database).await;
-    let mut host = server.socket(&members[0]).await;
-    let finished = snapshot(&mut host, 6).await;
-    let id = finished["replays"][0].as_str().unwrap();
-    let (status, value) = server
-        .request(
-            "GET",
-            &format!("{path}/replays/{id}"),
-            Value::Null,
-            Some(&members[0].token),
-        )
-        .await;
-    assert_eq!(status, StatusCode::OK);
-    let replay: arena_core::Replay = serde_json::from_value(value).unwrap();
-    assert_eq!(replay.records.len(), 2);
-    assert_eq!(
-        replay.simulate().unwrap().outcome().unwrap().winners,
-        vec![0, 1, 2]
+    assert_eq!(server.snapshot(&members[0]).await, completed);
+    let late = server.join(&members[0].code, "Later arrival").await;
+    let path = format!(
+        "/api/rooms/{}/replays/{}",
+        members[0].code,
+        completed["replays"][0]["id"].as_str().unwrap()
     );
-    send(&mut host, json!({"type":"start","revision":6})).await;
-    let fresh = snapshot(&mut host, 7).await;
-    assert!(fresh["outcome"].is_null());
-    assert_eq!(fresh["can_finish"], true);
-    send(&mut host, json!({"type":"finish","revision":4,"won":false})).await;
-    assert_eq!(receive(&mut host).await["type"], "error");
-    snapshot(&mut host, 7).await;
-    send(&mut host, json!({"type":"finish","revision":7,"won":false})).await;
-    let lost = snapshot(&mut host, 8).await;
-    assert_eq!(lost["outcome"]["winners"], json!([]));
-    assert_eq!(lost["replays"].as_array().unwrap().len(), 2);
-    send(&mut host, json!({"type":"finish","revision":8,"won":false})).await;
-    assert_eq!(receive(&mut host).await["type"], "error");
-    assert_eq!(snapshot(&mut host, 8).await, lost);
+    for member in members.iter().chain(std::iter::once(&late)) {
+        let (status, value) = server
+            .request("GET", &path, Value::Null, Some(&member.token))
+            .await;
+        assert_eq!(status, StatusCode::OK);
+        let replay: arena_core::Replay = serde_json::from_value(value).unwrap();
+        assert_eq!(replay.records.len(), 2);
+        assert_eq!(
+            replay.simulate().unwrap().outcome().unwrap().winners,
+            vec![0, 1, 2]
+        );
+    }
+    assert_eq!(
+        server.request("GET", &path, Value::Null, None).await.0,
+        StatusCode::UNAUTHORIZED
+    );
+    let mut host = server.socket(&members[0]).await;
+    let mut room = snapshot(&mut host, revision + 2).await;
+    // A finished game's roster is immutable even while the next game is configured.
+    room = commit(&mut host, &room, json!({"type":"seat","members":[0,2]})).await;
+    room = commit(
+        &mut host,
+        &room,
+        json!({"type":"configure","config":{"game":"mancala","rules":{}}}),
+    )
+    .await;
+    assert_eq!(room["game"]["players"], completed["game"]["players"]);
+    assert_eq!(room["game"]["config"]["game"], "the_crew");
+    room = commit(&mut host, &room, json!({"type":"start"})).await;
+    assert_eq!(room["game"]["config"]["game"], "mancala");
+    assert_eq!(room["game"]["players"][1]["id"], 2);
+    assert_ne!(room["game"]["id"], completed["game"]["id"]);
+    assert_eq!(room["replays"].as_array().unwrap().len(), 1);
+    reject(
+        &mut host,
+        &room,
+        json!({"type":"game","message":{"type":"finish","won":false}}),
+    )
+    .await;
 }
 
 #[tokio::test]
-async fn tempel_hidden_state_queued_readiness_restarts_and_archived_replays() {
+async fn tempel_key_is_a_host_control_independent_of_seating_and_restart_preserves_state() {
+    let directory = tempfile::tempdir().unwrap();
+    let database = format!("sqlite://{}", directory.path().join("tempel.db").display());
     for count in [3, 10] {
-        let directory = tempfile::tempdir().unwrap();
-        let database = format!("sqlite://{}", directory.path().join("tempel.db").display());
         let server = Server::open(&database).await;
-        let alice = server.member("tempel_des_schreckens").await;
-        let path = format!("/api/rooms/{}", alice.code);
-        let mut members = vec![alice];
-        for player in 1..count {
-            let (status, value) = server
-                .request(
-                    "POST",
-                    &format!("{path}/join"),
-                    json!({"nickname":format!("Player {player}")}),
-                    None,
-                )
-                .await;
-            assert_eq!(status, StatusCode::OK);
-            members.push(serde_json::from_value::<Membership>(value).unwrap());
-        }
-        if count == 10 {
-            assert_eq!(
-                server
-                    .request(
-                        "POST",
-                        &format!("{path}/join"),
-                        json!({"nickname":"Too many"}),
-                        None
-                    )
-                    .await
-                    .0,
-                StatusCode::BAD_REQUEST
-            );
-        }
-        let mut sockets = vec![];
-        for member in &members {
-            let mut socket = server.socket(member).await;
-            snapshot(&mut socket, count as u64).await;
-            sockets.push(socket);
-        }
-        send(&mut sockets[0], json!({"type":"start","revision":count})).await;
-        let mut revision = count as u64 + 1;
-        let mut views = vec![];
-        for socket in &mut sockets {
-            views.push(snapshot(socket, revision).await);
-        }
-        send(&mut sockets[1],json!({"type":"move","revision":revision,"action":{"game":"tempel_des_schreckens","action":{"type":"choose_key","player":count-1}}})).await;
-        assert_eq!(receive(&mut sockets[1]).await["type"], "error");
-        assert_eq!(snapshot(&mut sockets[1], revision).await, views[1]);
-        send(&mut sockets[0],json!({"type":"move","revision":revision,"action":{"game":"tempel_des_schreckens","action":{"type":"choose_key","player":count-1}}})).await;
-        revision += 1;
-        for (p, socket) in sockets.iter_mut().enumerate() {
-            views[p] = snapshot(socket, revision).await;
-        }
-        send(
-            &mut sockets[0],
-            json!({"type":"move","revision":revision,"action":views[0]["legal_actions"][0]}),
+        let members = server.members(count + 1).await;
+        let seats = (1..=count).rev().collect();
+        let (mut sockets, mut views) = start(
+            &server,
+            &members,
+            json!({"game":"tempel_des_schreckens","rules":{}}),
+            seats,
         )
         .await;
-        revision += 1;
+        assert_eq!(views[0]["game"]["can_choose_key"], true);
+        reject(
+            &mut sockets[count],
+            &views[count],
+            json!({"type":"game","message":{"type":"choose_key","player":1}}),
+        )
+        .await;
+        reject(&mut sockets[count],&views[count],json!({"type":"game","message":{"type":"move","action":{"game":"tempel_des_schreckens","action":{"type":"choose_key","player":1}}}})).await;
+        views[0] = commit(
+            &mut sockets[0],
+            &views[0],
+            json!({"type":"game","message":{"type":"choose_key","player":1}}),
+        )
+        .await;
+        let revision = views[0]["revision"].as_u64().unwrap();
+        for p in 1..=count {
+            views[p] = snapshot(&mut sockets[p], revision).await;
+        }
+        for p in 1..=count {
+            send(&mut sockets[p],at(&views[p],json!({"type":"game","message":{"type":"move","action":views[p]["game"]["legal_actions"][0]}}))).await;
+        }
+        let revision = revision + count as u64;
         for (p, socket) in sockets.iter_mut().enumerate() {
             views[p] = snapshot(socket, revision).await;
         }
+        assert_eq!(views[1]["game"]["view"]["state"]["key"], 1);
         let saved = views.clone();
         drop(sockets);
         drop(server);
         let server = Server::open(&database).await;
-        let mut sockets = vec![];
         for (p, member) in members.iter().enumerate() {
-            let mut socket = server.socket(member).await;
-            assert_eq!(snapshot(&mut socket, revision).await, saved[p]);
-            sockets.push(socket);
+            assert_eq!(server.snapshot(member).await, saved[p]);
         }
-        let mut rng = rand::rngs::StdRng::seed_from_u64(count as u64);
-        for _ in 0..80 {
-            if !views[0]["outcome"].is_null() {
-                break;
-            }
-            for view in &views {
-                let state = &view["view"]["state"];
-                for private in ["roles", "hands", "rng", "seed", "unused_role"] {
-                    assert!(state.get(private).is_none());
-                }
-                assert!(!view["can_finish"].as_bool().unwrap());
-                assert_eq!(state["cards"], views[0]["view"]["state"]["cards"]);
-            }
-            let inspect = views[0]["view"]["state"]["phase"] == "inspect";
-            let eligible = views[0]["turn"]["players"].as_array().unwrap().clone();
-            let mut target = None;
-            for seat in &eligible {
-                let p = seat.as_u64().unwrap() as usize;
-                let actions = views[p]["legal_actions"].as_array().unwrap();
-                let action = actions[rng.gen_range(0..actions.len())].clone();
-                if !inspect {
-                    target = Some(action["action"]["player"].clone());
-                }
-                send(
-                    &mut sockets[p],
-                    json!({"type":"move","revision":revision,"action":action}),
-                )
-                .await;
-            }
-            revision += eligible.len() as u64;
-            for (p, socket) in sockets.iter_mut().enumerate() {
-                views[p] = snapshot(socket, revision).await;
-            }
-            if let Some(target) = target {
-                assert_eq!(views[0]["view"]["state"]["key"], target);
-            }
-        }
-        assert!(!views[0]["outcome"].is_null());
-        let id = views[0]["replays"][0].as_str().unwrap();
-        let (status, value) = server
-            .request(
-                "GET",
-                &format!("{path}/replays/{id}"),
-                Value::Null,
-                Some(&members[0].token),
-            )
-            .await;
-        assert_eq!(status, StatusCode::OK);
-        let replay: arena_core::Replay = serde_json::from_value(value).unwrap();
-        assert_eq!(replay.version, 1);
-        let recreated = replay.simulate().unwrap();
-        assert_eq!(
-            serde_json::to_value(recreated.outcome()).unwrap(),
-            views[0]["outcome"]
-        );
-        for (p, view) in views.iter().enumerate() {
-            assert_eq!(
-                serde_json::to_value(recreated.view(p)).unwrap(),
-                view["view"]
-            );
-            assert!(view["legal_actions"].as_array().unwrap().is_empty());
-        }
-        send(&mut sockets[0], json!({"type":"start","revision":revision})).await;
-        let rematch = snapshot(&mut sockets[0], revision + 1).await;
-        assert_eq!(rematch["view"]["state"]["phase"], "choose_key");
-        assert!(rematch["view"]["state"]["key"].is_null());
-        assert_eq!(rematch["replays"].as_array().unwrap().len(), 1);
+        let mut socket = server.socket(&members[0]).await;
+        let room = snapshot(&mut socket, revision).await;
+        let room = commit(&mut socket, &room, json!({"type":"abort"})).await;
+        assert!(room["game"].is_null());
+        assert!(room["replays"].as_array().unwrap().is_empty());
     }
 }
 
@@ -553,302 +646,219 @@ async fn tempel_hidden_state_queued_readiness_restarts_and_archived_replays() {
 async fn games_over_real_websockets_export_and_archive_replays() {
     let server = Server::open("sqlite::memory:").await;
     let mut rng = rand::rngs::StdRng::seed_from_u64(7);
-    for kind in [
-        "mancala",
-        "crazy_eights",
-        "shithead",
-        "skyjo",
-        "tic_tac_toe",
+    for (kind, count) in [
+        ("mancala", 2),
+        ("crazy_eights", 2),
+        ("shithead", 2),
+        ("skyjo", 2),
+        ("tic_tac_toe", 2),
+        ("tempel_des_schreckens", 3),
+        ("tempel_des_schreckens", 10),
+        ("the_crew", 3),
     ] {
-        let alice = if kind == "crazy_eights" {
-            let (status, value) = server
-                .request(
-                    "POST",
-                    "/api/rooms",
-                    json!({
-                        "nickname":"Alice", "game":kind, "config":crazy_eights_config()
-                    }),
-                    None,
-                )
-                .await;
-            assert_eq!(status, StatusCode::CREATED);
-            serde_json::from_value(value).unwrap()
-        } else {
-            server.member(kind).await
+        let members = server.members(count).await;
+        let config = match kind {
+            "crazy_eights" => crazy_eights_config(),
+            "shithead" => json!({"game":kind,"rules":{"four_card_bombs":false}}),
+            _ => json!({"game":kind,"rules":{}}),
         };
-        let mut host = server.socket(&alice).await;
-        let lobby = snapshot(&mut host, 1).await;
-        if kind == "crazy_eights" {
-            assert_eq!(lobby["config"], crazy_eights_config());
-        }
-        let path = format!("/api/rooms/{}", alice.code);
-        let (_, value) = server
-            .request(
-                "POST",
-                &format!("{path}/join"),
-                json!({"nickname":"Bob"}),
-                None,
-            )
-            .await;
-        let bob: Membership = serde_json::from_value(value).unwrap();
-        let mut guest = server.socket(&bob).await;
-        snapshot(&mut host, 2).await;
-        snapshot(&mut guest, 2).await;
-        send(&mut guest, json!({"type":"start", "revision":2})).await;
-        assert_eq!(receive(&mut guest).await["type"], "error");
-        snapshot(&mut guest, 2).await;
-        send(&mut host, json!({"type":"start", "revision":1})).await;
-        assert_eq!(receive(&mut host).await["type"], "error");
-        snapshot(&mut host, 2).await;
-        send(&mut host, json!({"type":"start", "revision":2})).await;
-        let mut views = [snapshot(&mut host, 3).await, snapshot(&mut guest, 3).await];
-        if kind == "crazy_eights" {
-            assert_eq!(views[0]["config"], crazy_eights_config());
-            assert_eq!(views[1]["config"], crazy_eights_config());
-        }
-        assert_eq!(
-            server
-                .request(
-                    "POST",
-                    &format!("{path}/join"),
-                    json!({"nickname":"Late"}),
-                    None
-                )
-                .await
-                .0,
-            StatusCode::BAD_REQUEST
-        );
+        let (mut sockets, mut views) =
+            start(&server, &members, config, (0..count).rev().collect()).await;
         for _ in 0..20000 {
-            if !views[0]["outcome"].is_null() {
+            if !views[0]["game"]["outcome"].is_null() {
                 break;
             }
-            let player = views[0]["turn"]["players"][0].as_u64().unwrap() as usize;
-            let revision = views[0]["revision"].as_u64().unwrap();
-            let actions = views[player]["legal_actions"].as_array().unwrap();
-            // Make progress rather than voluntarily cycling pickups or replacing revealed cards.
-            let candidates: Vec<_> = actions
-                .iter()
-                .filter(|a| {
-                    if kind == "shithead" && actions.len() > 1 {
-                        return a["action"]["type"] != "pickup";
-                    }
-                    if kind == "skyjo" && a["action"]["type"] == "replace" {
-                        let index = a["action"]["index"].as_u64().unwrap() as usize;
-                        return views[player]["view"]["state"]["grids"][player][index]["value"]
-                            .is_null();
-                    }
-                    true
-                })
-                .collect();
-            let action = if kind == "shithead" {
-                let state = &views[player]["view"]["state"];
-                let hand = state["hand"].as_array().unwrap();
-                let source = if hand.is_empty() {
-                    state["players"][player]["up"].as_array().unwrap()
-                } else {
-                    hand
-                };
-                candidates
-                    .iter()
-                    .copied()
-                    .filter(|a| a["action"]["type"] == "play")
-                    .min_by_key(|a| {
-                        let indices = a["action"]["indices"].as_array().unwrap();
-                        let rank = source[indices[0].as_u64().unwrap() as usize]["rank"]
-                            .as_u64()
-                            .unwrap();
-                        (
-                            match rank {
-                                2 => 15,
-                                10 => 16,
-                                rank => rank,
-                            },
-                            std::cmp::Reverse(indices.len()),
-                        )
-                    })
-                    .unwrap_or(candidates[rng.gen_range(0..candidates.len())])
+            let game = &views[0]["game"];
+            let (player, message) = if game["can_choose_key"] == true {
+                (0, json!({"type":"choose_key","player":count-1}))
+            } else if game["turn"]["players"].as_array().unwrap().is_empty() {
+                (0, json!({"type":"finish","won":true}))
             } else {
-                candidates[rng.gen_range(0..candidates.len())]
+                let player = game["turn"]["players"][0].as_u64().unwrap() as usize;
+                let member = game["players"][player]["id"].as_u64().unwrap() as usize;
+                let actions = views[member]["game"]["legal_actions"].as_array().unwrap();
+                let candidates: Vec<_> = actions
+                    .iter()
+                    .filter(|a| {
+                        if kind == "shithead" && actions.len() > 1 {
+                            return a["action"]["type"] != "pickup";
+                        }
+                        if kind == "skyjo" && a["action"]["type"] == "replace" {
+                            let index = a["action"]["index"].as_u64().unwrap() as usize;
+                            return views[member]["game"]["view"]["state"]["grids"][player][index]
+                                ["value"]
+                                .is_null();
+                        }
+                        true
+                    })
+                    .collect();
+                let action = if kind == "shithead" {
+                    let state = &views[member]["game"]["view"]["state"];
+                    let hand = state["hand"].as_array().unwrap();
+                    let source = if hand.is_empty() {
+                        state["players"][player]["up"].as_array().unwrap()
+                    } else {
+                        hand
+                    };
+                    candidates
+                        .iter()
+                        .copied()
+                        .filter(|a| a["action"]["type"] == "play")
+                        .min_by_key(|a| {
+                            let indices = a["action"]["indices"].as_array().unwrap();
+                            let rank = source[indices[0].as_u64().unwrap() as usize]["rank"]
+                                .as_u64()
+                                .unwrap();
+                            (
+                                match rank {
+                                    2 => 15,
+                                    10 => 16,
+                                    rank => rank,
+                                },
+                                std::cmp::Reverse(indices.len()),
+                            )
+                        })
+                        .unwrap_or(candidates[rng.gen_range(0..candidates.len())])
+                } else {
+                    candidates[rng.gen_range(0..candidates.len())]
+                };
+                (member, json!({"type":"move","action":action}))
             };
-            let socket = if player == 0 { &mut host } else { &mut guest };
-            send(
-                socket,
-                json!({"type":"move", "revision":revision, "action":action}),
+            let revision = views[player]["revision"].as_u64().unwrap();
+            let updated = commit(
+                &mut sockets[player],
+                &views[player],
+                json!({"type":"game","message":message}),
             )
             .await;
-            views = [
-                snapshot(&mut host, revision + 1).await,
-                snapshot(&mut guest, revision + 1).await,
-            ];
-            assert_eq!(views[0]["revision"], views[1]["revision"]);
-            assert!(views[0].get("seed").is_none());
+            for (p, socket) in sockets.iter_mut().enumerate() {
+                views[p] = if p == player {
+                    updated.clone()
+                } else {
+                    snapshot(socket, revision + 1).await
+                };
+            }
         }
-        assert!(!views[0]["outcome"].is_null(), "{kind} did not finish");
-        let id = views[0]["replays"][0].as_str().unwrap();
+        assert!(
+            !views[0]["game"]["outcome"].is_null(),
+            "{kind} did not finish"
+        );
+        let id = views[0]["replays"][0]["id"].as_str().unwrap();
         let (status, value) = server
             .request(
                 "GET",
-                &format!("{path}/replays/{id}"),
+                &format!("/api/rooms/{}/replays/{id}", members[0].code),
                 Value::Null,
-                Some(&alice.token),
+                Some(&members[0].token),
             )
             .await;
         assert_eq!(status, StatusCode::OK);
         let replay: arena_core::Replay = serde_json::from_value(value).unwrap();
-        if kind == "crazy_eights" {
-            assert_eq!(replay.version, 4);
+        let replayed = replay.simulate().unwrap();
+        for view in &views {
+            let p = view["game"]["you"].as_u64().unwrap() as usize;
             assert_eq!(
-                serde_json::to_value(&replay.config).unwrap(),
-                crazy_eights_config()
+                serde_json::to_value(replayed.view(p)).unwrap(),
+                view["game"]["view"]
             );
+            assert_eq!(
+                serde_json::to_value(replayed.outcome()).unwrap(),
+                view["game"]["outcome"]
+            );
+            assert_eq!(view["game"]["legal_actions"], json!([]));
         }
-        assert_eq!(
-            serde_json::to_value(replay.simulate().unwrap().outcome()).unwrap(),
-            views[0]["outcome"]
-        );
-        // A rematch retains the archived replay.
-        let revision = views[0]["revision"].as_u64().unwrap();
-        send(&mut host, json!({"type":"start", "revision":revision})).await;
-        let fresh = snapshot(&mut host, revision + 1).await;
-        assert!(fresh["outcome"].is_null());
-        assert_eq!(fresh["config"], lobby["config"]);
+        let fresh = commit(&mut sockets[0], &views[0], json!({"type":"start"})).await;
+        assert!(fresh["game"]["outcome"].is_null());
+        assert_eq!(fresh["game"]["players"], views[0]["game"]["players"]);
         assert_eq!(fresh["replays"].as_array().unwrap().len(), 1);
     }
 }
 
 #[tokio::test]
-async fn invalid_configuration_is_rejected_before_room_creation() {
-    let server = Server::open("sqlite::memory:").await;
-    let mut unknown = crazy_eights_config();
-    unknown["rules"]["unknown_rule"] = json!(true);
-    let mut wrong_type = crazy_eights_config();
-    wrong_type["rules"]["two_draw_two"] = json!("true");
-    let mut missing = crazy_eights_config();
-    missing["rules"]
-        .as_object_mut()
-        .unwrap()
-        .remove("two_draw_two");
-    let mut removed_toggle = crazy_eights_config();
-    removed_toggle["rules"]["eight_wild"] = json!(false);
-    for config in [
-        json!({"game":"mancala", "rules":{}}),
-        unknown,
-        wrong_type,
-        missing,
-        removed_toggle,
-    ] {
-        let (status, _) = server
-            .request(
-                "POST",
-                "/api/rooms",
-                json!({
-                    "nickname":"Alice", "game":"crazy_eights", "config":config
-                }),
-                None,
-            )
-            .await;
-        assert!(status.is_client_error());
-    }
-    let alice = server.member("crazy_eights").await;
-    let mut socket = server.socket(&alice).await;
-    let room = snapshot(&mut socket, 1).await;
-    assert!(room["config"]["rules"].get("eight_wild").is_none());
-    assert_eq!(room["config"]["rules"]["ace_are_you_strong"], false);
-}
-
-#[tokio::test]
-async fn configured_lobby_and_game_survive_restart_and_reconnect() {
+async fn lobby_configuration_and_tokens_survive_restart_and_failed_setup_writes_are_atomic() {
+    use sqlx::Connection;
     let directory = tempfile::tempdir().unwrap();
-    let database = format!("sqlite://{}", directory.path().join("config.db").display());
+    let database = format!("sqlite://{}", directory.path().join("setup.db").display());
     let server = Server::open(&database).await;
-    let (_, value) = server
-        .request(
-            "POST",
-            "/api/rooms",
-            json!({
-                "nickname":"Alice", "game":"crazy_eights", "config":crazy_eights_config()
-            }),
-            None,
-        )
-        .await;
-    let alice: Membership = serde_json::from_value(value).unwrap();
-    let path = format!("/api/rooms/{}", alice.code);
-    let (_, value) = server
-        .request(
-            "POST",
-            &format!("{path}/join"),
-            json!({"nickname":"Bob"}),
-            None,
-        )
-        .await;
-    let bob: Membership = serde_json::from_value(value).unwrap();
-    drop(server);
-    let server = Server::open(&database).await;
-    let mut host = server.socket(&alice).await;
-    let mut guest = server.socket(&bob).await;
-    for room in [snapshot(&mut host, 2).await, snapshot(&mut guest, 2).await] {
-        assert_eq!(room["config"], crazy_eights_config());
-        assert!(room["view"].is_null());
-    }
-    // Start cannot alter the agreed options, even for the host.
-    send(
+    let members = server.members(2).await;
+    let mut host = server.socket(&members[0]).await;
+    let room = snapshot(&mut host, 2).await;
+    let mut connection = sqlx::SqliteConnection::connect(&database).await.unwrap();
+    sqlx::query(
+        "CREATE TRIGGER fail_update BEFORE UPDATE ON rooms BEGIN SELECT RAISE(FAIL, 'forced'); END",
+    )
+    .execute(&mut connection)
+    .await
+    .unwrap();
+    reject(
         &mut host,
-        json!({"type":"start", "revision":2, "config":crazy_eights_config()}),
+        &room,
+        json!({"type":"configure","config":crazy_eights_config()}),
     )
     .await;
+    reject(&mut host, &room, json!({"type":"seat","members":[1,0]})).await;
+    assert_eq!(server.snapshot(&members[0]).await, room);
+    sqlx::query("DROP TRIGGER fail_update")
+        .execute(&mut connection)
+        .await
+        .unwrap();
+    let room = commit(
+        &mut host,
+        &room,
+        json!({"type":"configure","config":crazy_eights_config()}),
+    )
+    .await;
+    let room = commit(&mut host, &room, json!({"type":"seat","members":[1,0]})).await;
+    sqlx::query(
+        "CREATE TRIGGER fail_update BEFORE UPDATE ON rooms BEGIN SELECT RAISE(FAIL, 'forced'); END",
+    )
+    .execute(&mut connection)
+    .await
+    .unwrap();
+    reject(&mut host, &room, json!({"type":"start"})).await;
+    sqlx::query("DROP TRIGGER fail_update")
+        .execute(&mut connection)
+        .await
+        .unwrap();
+    drop(host);
+    drop(server);
+    let server = Server::open(&database).await;
+    assert_eq!(server.snapshot(&members[0]).await, room);
+    let mut host = server.socket(&members[0]).await;
+    assert_eq!(snapshot(&mut host, 4).await, room);
+    let mut stale = at(&room, json!({"type":"start"}));
+    stale["revision"] = json!(3);
+    send(&mut host, stale).await;
     assert_eq!(receive(&mut host).await["type"], "error");
-    assert_eq!(snapshot(&mut host, 2).await["revision"], 2);
-    send(&mut host, json!({"type":"start", "revision":2})).await;
-    let expected = snapshot(&mut host, 3).await;
-    assert_eq!(expected["config"], crazy_eights_config());
-    assert_eq!(
-        snapshot(&mut guest, 3).await["config"],
-        crazy_eights_config()
-    );
-    host.close(None).await.unwrap();
-    guest.close(None).await.unwrap();
+    assert_eq!(snapshot(&mut host, 4).await, room);
+    let room = commit(&mut host, &room, json!({"type":"start"})).await;
+    drop(host);
     drop(server);
     let server = Server::open(&database).await;
-    let mut host = server.socket(&alice).await;
-    assert_eq!(snapshot(&mut host, 3).await, expected);
-    let (_, room) = server
-        .request("GET", &path, Value::Null, Some(&alice.token))
-        .await;
-    assert_eq!(room, expected);
-}
-
-#[tokio::test]
-async fn game_and_room_tokens_survive_restart() {
-    let directory = tempfile::tempdir().unwrap();
-    let database = format!("sqlite://{}", directory.path().join("restart.db").display());
-    let server = Server::open(&database).await;
-    let member = server.member("skyjo").await;
-    let path = format!("/api/rooms/{}", member.code);
-    server
-        .request(
-            "POST",
-            &format!("{path}/join"),
-            json!({"nickname":"Bob"}),
-            None,
-        )
-        .await;
-    let mut socket = server.socket(&member).await;
-    snapshot(&mut socket, 2).await;
-    send(&mut socket, json!({"type":"start", "revision":2})).await;
-    snapshot(&mut socket, 3).await;
-    send(&mut socket, json!({"type":"move", "revision":3, "action":{"game":"skyjo", "action":{"type":"reveal", "index":0}}})).await;
-    let expected = snapshot(&mut socket, 4).await;
-    socket.close(None).await.unwrap();
-    drop(socket);
-    drop(server);
-    let restarted = Server::open(&database).await;
-    let (status, room) = restarted
-        .request("GET", &path, Value::Null, Some(&member.token))
-        .await;
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(room, expected);
-    let mut socket = restarted.socket(&member).await;
-    assert_eq!(snapshot(&mut socket, 4).await, expected);
+    assert_eq!(server.snapshot(&members[0]).await, room);
+    assert_eq!(room["game"]["you"], 1);
+    let mut host = server.socket(&members[0]).await;
+    let mut guest = server.socket(&members[1]).await;
+    snapshot(&mut host, 5).await;
+    let other = snapshot(&mut guest, 5).await;
+    sqlx::query(
+        "CREATE TRIGGER fail_update BEFORE UPDATE ON rooms BEGIN SELECT RAISE(FAIL, 'forced'); END",
+    )
+    .execute(&mut connection)
+    .await
+    .unwrap();
+    reject(&mut host, &room, json!({"type":"abort"})).await;
+    reject(
+        &mut guest,
+        &other,
+        json!({"type":"game","message":{"type":"move","action":other["game"]["legal_actions"][0]}}),
+    )
+    .await;
+    assert_eq!(server.snapshot(&members[0]).await, room);
+    sqlx::query("DROP TRIGGER fail_update")
+        .execute(&mut connection)
+        .await
+        .unwrap();
 }
 
 #[test]
@@ -897,70 +907,14 @@ fn openapi_has_distinct_game_schemas() {
         "Config",
         "GameConfig",
         "CrazyEightsGameConfig",
+        "GameMessage",
+        "GameSnapshot",
+        "MemberView",
+        "ReplaySummary",
     ] {
         assert!(
             spec["components"]["schemas"].get(name).is_some(),
             "missing {name}"
         );
     }
-}
-
-#[tokio::test]
-async fn failed_persistence_and_now_illegal_commands_do_not_advance_the_room() {
-    use sqlx::Connection;
-    let directory = tempfile::tempdir().unwrap();
-    let database = format!("sqlite://{}", directory.path().join("atomic.db").display());
-    let server = Server::open(&database).await;
-    let alice = server.member("mancala").await;
-    let path = format!("/api/rooms/{}", alice.code);
-    let (_, bob) = server
-        .request(
-            "POST",
-            &format!("{path}/join"),
-            json!({"nickname":"Bob"}),
-            None,
-        )
-        .await;
-    let bob: Membership = serde_json::from_value(bob).unwrap();
-    let mut host = server.socket(&alice).await;
-    let mut guest = server.socket(&bob).await;
-    snapshot(&mut host, 2).await;
-    snapshot(&mut guest, 2).await;
-    send(&mut host, json!({"type":"start", "revision":2})).await;
-    let initial = snapshot(&mut host, 3).await;
-    snapshot(&mut guest, 3).await;
-    let command = json!({"type":"move", "revision":3, "action": initial["legal_actions"][0]});
-
-    send(&mut guest, command.clone()).await;
-    assert_eq!(receive(&mut guest).await["error"], "Not your turn");
-    snapshot(&mut guest, 3).await;
-
-    let mut database = sqlx::SqliteConnection::connect(&database).await.unwrap();
-    sqlx::query("CREATE TRIGGER fail_update BEFORE UPDATE ON rooms BEGIN SELECT RAISE(ABORT, 'test write failure'); END;").execute(&mut database).await.unwrap();
-    send(&mut host, command.clone()).await;
-    assert_eq!(receive(&mut host).await["error"], "Storage error");
-    assert_eq!(snapshot(&mut host, 3).await, initial);
-    let (_, persisted) = server
-        .request("GET", &path, Value::Null, Some(&alice.token))
-        .await;
-    assert_eq!(persisted, initial);
-    let (data,): (String,) = sqlx::query_as("SELECT data FROM rooms WHERE code = ?")
-        .bind(&alice.code)
-        .fetch_one(&mut database)
-        .await
-        .unwrap();
-    assert_eq!(serde_json::from_str::<Value>(&data).unwrap()["revision"], 3);
-    sqlx::query("DROP TRIGGER fail_update")
-        .execute(&mut database)
-        .await
-        .unwrap();
-
-    send(&mut host, command.clone()).await;
-    snapshot(&mut host, 4).await;
-    snapshot(&mut guest, 4).await;
-    send(&mut host, command).await;
-    assert_eq!(receive(&mut host).await["error"], "Not your turn");
-    let unchanged = snapshot(&mut host, 4).await;
-    assert_eq!(unchanged["revision"], 4);
-    assert_eq!(unchanged["view"]["state"]["board"][0], 0);
 }

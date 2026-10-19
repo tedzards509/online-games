@@ -2,6 +2,7 @@ import type { components } from './api.generated';
 
 export type Schemas = components['schemas'];
 export type Snapshot = Schemas['Snapshot'];
+export type GameSnapshot = Schemas['GameSnapshot'];
 export type Membership = Schemas['Membership'];
 export type Action = Schemas['Action'];
 export type GameKind = Schemas['GameKind'];

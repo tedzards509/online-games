@@ -157,9 +157,8 @@ export interface components {
       value?: number | null;
     };
     /**
-     * @description Send Authenticate as the first text frame within five seconds. Subsequent
-     *     commands carry the latest observed Snapshot revision. Moves may be queued
-     *     behind other moves in the same game and are revalidated against current state.
+     * @description Authenticate in the first frame. Setup commands require the exact revision;
+     *     game messages allow older same-game revisions and are revalidated FIFO.
      */
     ClientMessage:
       | {
@@ -168,24 +167,39 @@ export interface components {
           type: 'authenticate';
         }
       | {
+          config?: null | components['schemas']['Config'];
+          /** Format: int64 */
+          revision: number;
+          /** @enum {string} */
+          type: 'configure';
+        }
+      | {
+          members: number[];
+          /** Format: int64 */
+          revision: number;
+          /** @enum {string} */
+          type: 'seat';
+        }
+      | {
           /** Format: int64 */
           revision: number;
           /** @enum {string} */
           type: 'start';
         }
       | {
+          game_id: string;
           /** Format: int64 */
           revision: number;
           /** @enum {string} */
-          type: 'finish';
-          won: boolean;
+          type: 'abort';
         }
       | {
-          action: components['schemas']['Action'];
+          game_id: string;
+          message: components['schemas']['GameMessage'];
           /** Format: int64 */
           revision: number;
           /** @enum {string} */
-          type: 'move';
+          type: 'game';
         };
     /** @description Setup options tagged with the ruleset that defines their `GameConfig` struct. */
     Config:
@@ -257,8 +271,6 @@ export interface components {
       top: components['schemas']['Card'];
     };
     CreateRoom: {
-      config?: null | components['schemas']['Config'];
-      game: components['schemas']['GameKind'];
       nickname: string;
     };
     CrewAction:
@@ -332,6 +344,37 @@ export interface components {
       | 'shithead'
       | 'skyjo'
       | 'tic_tac_toe';
+    /** @description Messages routed to the identified game. Host controls are not player moves. */
+    GameMessage:
+      | {
+          action: components['schemas']['Action'];
+          /** @enum {string} */
+          type: 'move';
+        }
+      | {
+          /** @enum {string} */
+          type: 'finish';
+          won: boolean;
+        }
+      | {
+          player: number;
+          /** @enum {string} */
+          type: 'choose_key';
+        };
+    GameSnapshot: {
+      can_choose_key: boolean;
+      can_finish: boolean;
+      config: components['schemas']['Config'];
+      id: string;
+      legal_actions: components['schemas']['Action'][];
+      outcome?: null | components['schemas']['Outcome'];
+      /** @description Members in immutable game-player order. */
+      players: components['schemas']['MemberView'][];
+      turn: components['schemas']['Turn'];
+      view?: null | components['schemas']['View'];
+      /** @description The requesting member's game-player index; null on the bench. */
+      you?: number | null;
+    };
     JoinRoom: {
       nickname: string;
     };
@@ -341,10 +384,14 @@ export interface components {
     MancalaView: {
       board: number[];
     };
-    /** @description Keep the token private. It grants control of this seat, including after reconnecting. */
+    MemberView: {
+      id: number;
+      nickname: string;
+    };
+    /** @description A stable room identity, independent of seating. Keep its bearer token private. */
     Membership: {
       code: string;
-      player: number;
+      member: number;
       token: string;
     };
     /** @description A finished result with optional scores in seat order. */
@@ -356,9 +403,6 @@ export interface components {
     };
     /** @enum {string} */
     Phase: 'setup' | 'draw' | 'place' | 'reveal';
-    PlayerView: {
-      nickname: string;
-    };
     /** @description One accepted action and the ordered effects it produced. */
     Record_Action_Event: {
       /** @description A command tagged with the ruleset that understands it. */
@@ -447,6 +491,11 @@ export interface components {
        */
       version: number;
     };
+    ReplaySummary: {
+      config: components['schemas']['Config'];
+      id: string;
+      players: components['schemas']['MemberView'][];
+    };
     ServerMessage:
       | {
           /** @description True only for the submitting socket's successful command response. */
@@ -531,19 +580,16 @@ export interface components {
       top?: number | null;
     };
     Snapshot: {
-      /** @description Whether this seat may record a shared result for the current game. */
-      can_finish: boolean;
       code: string;
-      config: components['schemas']['Config'];
-      game: components['schemas']['GameKind'];
-      legal_actions: components['schemas']['Action'][];
-      outcome?: null | components['schemas']['Outcome'];
-      players: components['schemas']['PlayerView'][];
-      replays: string[];
+      config?: null | components['schemas']['Config'];
+      game?: null | components['schemas']['GameSnapshot'];
+      host: number;
+      members: components['schemas']['MemberView'][];
+      replays: components['schemas']['ReplaySummary'][];
       /** Format: int64 */
       revision: number;
-      turn?: null | components['schemas']['Turn'];
-      view?: null | components['schemas']['View'];
+      /** @description Members selected for the next game, in player order. Others are benched. */
+      seating: number[];
       you: number;
     };
     /** @enum {string} */
@@ -838,7 +884,7 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Per-room WebSocket. Authenticate first, then Start or Move. Receives personalized Snapshots and Errors. */
+      /** @description Per-room WebSocket. Authenticate first, then send room commands or nested game messages. Receives personalized snapshots and errors. */
       101: {
         headers: {
           [name: string]: unknown;

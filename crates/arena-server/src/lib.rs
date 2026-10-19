@@ -1,5 +1,6 @@
 pub mod api;
 pub mod error;
+mod game;
 pub mod protocol;
 mod room;
 mod store;

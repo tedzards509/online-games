@@ -1,34 +1,22 @@
 # Protocol
 
-[`../openapi.json`](../openapi.json) is generated from Rust types and route annotations. `/api/openapi.json` serves the same specification. WebSocket message schemas are included as `ClientMessage` and `ServerMessage`; OpenAPI describes the upgrade, not the ongoing stream.
+[`../openapi.json`](../openapi.json) is generated from Rust types and route annotations. WebSocket schemas are included as `ClientMessage`, `GameMessage`, and `ServerMessage`; OpenAPI describes the upgrade, not the ongoing stream.
 
-## Enter a room
+## Membership
 
-`POST /api/rooms` with `{"nickname":"Alice","game":"mancala"}` creates a room. `POST /api/rooms/ABC234/join` with `{"nickname":"Bob"}` joins it. Both return `{"code":"ABC234","player":0,"token":"…"}` (the joining seat differs). Codes are case-insensitive. Nicknames are unique within a room, trimmed, 1–24 characters, with no control characters.
+`POST /api/rooms` with `{"nickname":"Alice"}` creates an unconfigured room. `POST /api/rooms/ABC234/join` with `{"nickname":"Bob"}` joins it, including during play. Both return `{"code":"ABC234","member":0,"token":"…"}` with the member's stable room index. Codes are case-insensitive. Nicknames are unique within a room, trimmed, 1–24 characters, with no control characters.
 
-Keep the returned token private. For HTTP reads use `Authorization: Bearer <token>`:
+Members are room identities; players are zero-based seats within one game. Tokens authenticate members, not players. The creator is the host, independently of seating, and may remain on the bench. New members join the bench. Only the host may arrange seating; removal and host transfer are not supported. Room capacity is independent of game player limits.
 
-- `GET /api/rooms/{code}`: your personalized snapshot.
-- `GET /api/rooms/{code}/replays/{id}`: a completed replay; IDs appear in snapshots.
-- `GET /api/health`: 204 when startup, database migration, and room loading have succeeded.
+Use `Authorization: Bearer <token>` for HTTP reads:
 
-### Host-recorded results
+- `GET /api/rooms/{code}`: personalized room snapshot.
+- `GET /api/rooms/{code}/replays/{id}`: completed replay, available to every room member, including benched members and later arrivals.
+- `GET /api/health`: 204 after schema initialization and room loading succeed.
 
-The Crew supports 3–5 players with empty `rules: {}` and no missions. Its snapshots expose personalized `can_finish`: true only for the host while the game is running. The host sends `{"type":"finish","revision":4,"won":true}` (or `false`) as a room command, separate from `move`. It accepts older observed revisions within the current game like queued moves, but rejects future or previous-game revisions. The result lists all seats for a win or no seats for a loss, without scores. Other games reject manual finish and retain automatic results.
+Tokens are never placed in URLs. No cookies or accounts are used.
 
-Finish commits and archives the replay transactionally, even during a partial trick. Internally the replay contains a game-tagged finish action; sending that internal action via `move` is rejected. It is excluded from snapshot `legal_actions` and turn eligibility. The board's `next_player` identifies the next card-playing seat; other eligible seats may communicate between tricks. Once no complete trick remains, the room waits for a host result. Room membership is fixed during play, and the game kind is fixed for the room's lifetime.
-
-### Tempel des Schreckens
-
-`tempel_des_schreckens` supports 3–10 players with empty `rules: {}`. The host submits `choose_key` with a seat index once per game. Each round's inspection uses simultaneous `ready` actions; after everyone is ready, only the key holder may submit `reveal` with another player's seat and a hidden card index. The key passes to that player, including at round boundaries. Legal actions and queued validation use the same room protocol as other games.
-
-The projected `TempelView` includes only the viewer's role and unrevealed card counts. `cards` contains public face-up values and nulls for hidden positions, including the viewer's row. `distribution` contains the public setup pools, not the assigned roles or omitted role. Public `revealed` counts persist across redeals; `round_reveals` resets per round. Wins are automatic and list seats on the winning team. Live views preserve hidden roles and positions after completion; archived replays disclose the full game.
-
-No tokens in URLs, no cookies, and no account identity. Joining is closed once a game has started; existing seats can reconnect at any time. The host is seat 0.
-
-The host selects immutable options before room creation. Supply `config` as `{"game":"crazy_eights","rules":{"ace_are_you_strong":true,"jack_skip":true,"ten_reverse":true,"two_draw_two":true}}` alongside the matching `game` and nickname. Eights are always wild and have no configuration toggle. Shithead uses `{"game":"shithead","rules":{"four_card_bombs":false}}`; other games use empty `rules: {}`. Omitted configuration selects current defaults. Mismatched game tags, unknown rule fields, and nonboolean rule values are rejected. Every HTTP/WebSocket snapshot includes public `config`, even before starting and after reconnecting. Rematches retain it; there is no configuration update command.
-
-## Live channel
+## Room channel
 
 Connect to `/api/rooms/{code}/ws`, then send within five seconds:
 
@@ -36,26 +24,77 @@ Connect to `/api/rooms/{code}/ws`, then send within five seconds:
 {"type":"authenticate","token":"…"}
 ```
 
-The server replies with `{"type":"snapshot","room":{…},"acknowledged":false}`. A snapshot includes the room revision, players, your seat, current turn, outcome, a game-specific `view`, your `legal_actions`, and archived replay IDs. Before starting, `view` and `turn` are null. A turn contains `players` (eligible seat indices) and `number` (the ruleset's counter). Only eligible seats receive legal actions, personalized per seat. Every accepted change notifies all room sockets; each receives a fresh, independently projected snapshot, not the private engine state or raw event log. Successful command responses to the submitting socket set `acknowledged: true`; broadcasts and initial/error-refresh snapshots set it to false. Broadcasts may coalesce intermediate revisions and must not clear an outstanding command's pending state.
+The server sends `{"type":"snapshot","room":{…},"acknowledged":false}`. Room snapshots contain:
 
-Start or rematch (host only; at least two players, no running game):
+- `members`: stable IDs and nicknames; `host` and `you` identify members.
+- `config`: selected game and public settings, or null before selection.
+- `seating`: member IDs in the next game's player order; omitted members are benched.
+- `game`: current game's snapshot, or null. Its `id`, `config`, and ordered `players` belong to that game. Its `you` is the viewer's player index, or null for a benched member. `turn.players` and outcome indices refer to this roster, not room membership or next-game seating.
+- `replays`: completed-game summaries with ID, configuration, and ordered member roster.
+- `revision`: increases for every accepted room change or game message, including joins.
+
+Host-only setup commands require the exact current revision:
 
 ```json
-{"type":"start","revision":2}
+{"type":"configure","revision":2,"config":{"game":"crazy_eights","rules":{"ace_are_you_strong":true,"jack_skip":false,"ten_reverse":false,"two_draw_two":true}}}
+{"type":"seat","revision":3,"members":[1,0]}
+{"type":"start","revision":4}
 ```
 
-Use an action from your latest snapshot's `legal_actions`:
+`configure` selects a game and its complete settings atomically; null clears the selection. Shithead uses `{"game":"shithead","rules":{"four_card_bombs":false}}`; other games use empty `rules: {}`. Unknown fields and invalid rule types are rejected. Every accepted setting change is broadcast live. Configuration and seating are locked while the current game is unfinished. Selecting a game does not implicitly seat or bench anyone; `start` validates its player count.
+
+`seat` supplies the complete ordered list of players for the next game. Each ID must identify a distinct member. Everyone absent is on the bench. Starting freezes this roster and configuration into a fresh game with its own ID and explicit start revision. Reordering never changes member identity, authentication, or host authority.
+
+Completed games remain visible. The host may edit next-game settings/seating and start another game; the completed snapshot and replay retain their original roster. Starting again with unchanged setup is a rematch using the same path.
+
+The host may clear the current game:
 
 ```json
-{"type":"move","revision":3,"action":{"game":"mancala","action":{"pit":0}}}
+{"type":"abort","revision":5,"game_id":"…"}
 ```
 
-Every accepted join/start/move increments the revision. Starts require the exact current revision. Moves accept the latest observed revision or an older one from the same game, but reject future revisions or revisions before the current start/rematch. Wrong-turn, illegal, and post-game moves are rejected without mutation. An authenticated command error returns `{"type":"error","error":"…"}` followed by a fresh snapshot. Validation or storage failures leave state unchanged. A rejected initial authentication closes the connection. Browser origins must match `PUBLIC_ORIGIN`; native clients can omit Origin.
+Abort requires the exact revision and matching game ID. It removes the current game without assigning a result or archiving an unfinished replay. Membership, settings, seating, and completed replays remain. For a completed game it returns to setup without removing its archive.
 
-Incoming moves are queued FIFO by the room mutex. Each is validated against the state resulting from earlier successful commits; every still-legal move executes, even if several commands reference the same revision. Only moves made invalid by that updated state fail game validation. Invalid commands and failed writes do not consume a revision or stop later queued moves. Queue order is server lock-acquisition order, not client timestamp or seat priority. This is not deduplication: sending a move twice can execute it twice if both are legal, so clients must not resend automatically.
+## Game messages
 
-The server pings every 20 seconds and disconnects clients that miss the next heartbeat. Reconnect, authenticate again, and replace local state with the new snapshot. Do not resend old moves automatically: a committed move may have succeeded before the connection dropped.
+Use a legal action from your personalized game snapshot:
 
-## Replays and simulations
+```json
+{"type":"game","revision":5,"game_id":"…","message":{"type":"move","action":{"game":"mancala","action":{"pit":0}}}}
+```
 
-The server archives completed games transactionally. A replay contains a format version, game kind, player count, 32-byte seed, and accepted actions with resulting events. `GameKind::replay_version` selects the supported rules revision; version 4 includes explicit `config`, and version 1 omits it. Replays require an implementation supporting their game and version (see [compatibility](design.md#replay-and-save-compatibility)). They intentionally reveal hidden cards, so running games have no downloadable replay. `Replay::simulate` recreates the game, validates every action, and checks the event history. The core also exposes `Game::advance` for fast, log-free simulation of actions drawn from `legal_actions`.
+The server maps the authenticated member to their immutable player index and routes the action to that game. The game tag must match. Benched members cannot move and receive no `view` or legal actions; spectator projections are not implemented. Player observations never expose private engine state or seeds.
+
+Game messages require the matching game ID and an observed revision between that game's start revision and the current room revision. Older same-game revisions remain valid even across unrelated joins. Future, pre-start, aborted-game, and previous-game messages are rejected. The room mutex queues commands FIFO; each action is revalidated against the latest successfully persisted state. Every still-legal move executes. A rejected action or failed write does not consume a revision or block later commands. This is not deduplication: do not automatically resend an unacknowledged move.
+
+### Host game controls
+
+The Crew (3–5 players, without missions) waits for the group's shared win/loss decision. The host sends:
+
+```json
+{"type":"game","revision":5,"game_id":"…","message":{"type":"finish","won":true}}
+```
+
+`game.can_finish` is true only for the host while The Crew is unfinished, even if the host is benched. Finish can occur during a trick; a win lists all players, a loss lists none, and neither assigns scores. It is a game lifecycle decision, not a setting or playable action. Other games reject it. Internally, the core records it deterministically through player 0; that player's membership does not confer host authority. Submitting the internal finish through `move` is rejected.
+
+Tempel des Schreckens (3–10 players) exposes `game.can_choose_key` to the host during initial key selection:
+
+```json
+{"type":"game","revision":5,"game_id":"…","message":{"type":"choose_key","player":1}}
+```
+
+The target is a game-player index. The host need not be seated. The core records the choice through player 0; clients cannot submit it as a normal move. Each round then uses simultaneous `ready` moves and key-holder `reveal` moves. Players see only their own role and remaining counts, with nulls for every hidden position, including their own row. Key ownership and revealed-pile counts persist across redeals.
+
+## Responses, persistence, and reconnects
+
+Every accepted change persists before memory replacement and notification. Completion and replay archival share that transaction. Snapshots may coalesce intermediate revisions; accepted game history retains action order.
+
+Successful command responses set `acknowledged: true` only for the submitting socket. Broadcasts, initial snapshots, and error refreshes set it to false. Broadcasts must not clear pending client commands. An authenticated command error sends `{"type":"error","error":"…"}` followed by a current snapshot; failed validation/storage leaves state unchanged. Initial authentication failure closes the connection.
+
+Origins must match `PUBLIC_ORIGIN`; native clients may omit Origin. The server pings every 20 seconds and disconnects members who miss the next heartbeat. Reconnect and authenticate to receive a fresh personalized snapshot; never resend old commands automatically.
+
+Schema initialization uses `crates/arena-server/schema.sql`; stored room JSON must match the current implementation. Use a fresh database for incompatible stored data.
+
+## Replays
+
+Only completed games are archived; aborts do not export hidden state. Replay summaries retain the game configuration and member roster. Downloads contain the core replay: rules version, game kind, player count, seed, and accepted actions/events. They intentionally reveal all hidden information. `Replay::simulate` reconstructs and validates the history. All authenticated room members may download completed replays.

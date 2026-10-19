@@ -9,10 +9,10 @@
     saveMembership,
   } from './lib/api';
   import { RoomConnection } from './lib/connection.svelte';
-  import { games, type GameKind, type Membership } from './lib/types';
+  import { games, type Membership } from './lib/types';
   import GameBoard from './components/GameBoard.svelte';
   import GameConfig from './components/GameConfig.svelte';
-  import { crazyEightsDefaults, crazyEightsRules } from './lib/config';
+  import RoomSettings from './components/RoomSettings.svelte';
 
   function pathCode(): string {
     return (
@@ -29,14 +29,27 @@
   let connection = $state<RoomConnection | null>(null);
   let nickname = $state(localStorage.getItem('arena-nickname') ?? '');
   let joinCode = $state(initialCode);
-  let kind = $state<GameKind>('shithead');
-  let crazyEightsConfig = $state({ ...crazyEightsDefaults });
-  let fourCardBombs = $state(false);
   let busy = $state(false);
   let error = $state('');
   let recent = $state(savedRooms());
   let copied = $state(false);
   const room = $derived(connection?.room);
+  const game = $derived(room?.game);
+  const host = $derived(room?.you === room?.host);
+  const active = $derived(game != null && game.outcome == null);
+  const disabled = $derived(
+    connection?.pending || connection?.status !== 'connected',
+  );
+
+  function reorder(index: number, direction: number) {
+    if (!room) return;
+    const seats = [...room.seating];
+    [seats[index], seats[index + direction]] = [
+      seats[index + direction],
+      seats[index],
+    ];
+    connection?.seat(seats);
+  }
 
   function navigate(next: string): void {
     history.pushState(null, '', next ? `/room/${next}` : '/');
@@ -73,17 +86,7 @@
       const existing = !create ? loadMembership(target) : null;
       const membership =
         existing ??
-        (await (create
-          ? createRoom(
-              nickname,
-              kind,
-              kind === 'crazy_eights'
-                ? { game: kind, rules: crazyEightsConfig }
-                : kind === 'shithead'
-                  ? { game: kind, rules: { four_card_bombs: fourCardBombs } }
-                  : { game: kind, rules: {} },
-            )
-          : joinRoom(target, nickname)));
+        (await (create ? createRoom(nickname) : joinRoom(target, nickname)));
       saveMembership(membership);
       localStorage.setItem('arena-nickname', nickname.trim());
       navigate(membership.code);
@@ -156,34 +159,6 @@
             enter(true);
           }}
         >
-          <label
-            >Game<select bind:value={kind}
-              >{#each Object.entries(games) as [value, name]}<option {value}
-                  >{name}</option
-                >{/each}</select
-            ></label
-          >
-          {#if kind === 'crazy_eights'}
-            <fieldset>
-              <legend>Game rules</legend>
-              {#each Object.entries(crazyEightsRules) as [key, label]}
-                <label class="rule-toggle">
-                  <input
-                    type="checkbox"
-                    bind:checked={
-                      crazyEightsConfig[key as keyof typeof crazyEightsConfig]
-                    }
-                  />
-                  {label}
-                </label>
-              {/each}
-            </fieldset>
-          {:else if kind === 'shithead'}
-            <label class="rule-toggle">
-              <input type="checkbox" bind:checked={fourCardBombs} />
-              Four-card bombs bypass rank restrictions
-            </label>
-          {/if}
           <button class="primary" disabled={busy || !nickname.trim()}
             >Create room</button
           >
@@ -232,62 +207,120 @@
   {:else}
     <section class="room" aria-label="Game room">
       <div class="room-title">
-        <h1>{games[room.game]}</h1>
+        <h1>{game ? games[game.config.game] : 'Room'}</h1>
         <span class="muted" role="status"
           >{connection?.status === 'connected' ? '' : 'Reconnecting…'}</span
         >
       </div>
-      <GameConfig config={room.config} />
-      <ul class="players" aria-label="Players">
-        {#each room.players as player, index}
-          <li
-            class:active={room.view &&
-              !room.outcome &&
-              room.turn?.players.includes(index)}
-          >
-            {player.nickname}{index === room.you ? ' · you' : ''}{index === 0
-              ? ' · host'
-              : ''}
+      <ul aria-label="Members">
+        {#each room.members as member}
+          <li>
+            {member.nickname}{member.id === room.you
+              ? ' · you'
+              : ''}{member.id === room.host ? ' · host' : ''}
           </li>
         {/each}
       </ul>
-      {#if !room.view}
-        {#if room.you === 0}<button
-            class="primary"
-            disabled={room.players.length <
-              (room.game === 'the_crew' || room.game === 'tempel_des_schreckens'
+      {#if room.config}<p>Selected game: {games[room.config.game]}</p>{/if}
+      {#if host}
+        <RoomSettings
+          config={room.config}
+          disabled={disabled || active}
+          change={(config) => connection?.configure(config)}
+        />
+      {:else if room.config}
+        <GameConfig config={room.config} />
+      {:else}<p>Waiting for host to choose a game</p>{/if}
+      <ol aria-label="Seating">
+        {#each room.seating as member, index}
+          <li>
+            {room.members[member].nickname}
+            {#if host}
+              <button
+                aria-label={`Move ${room.members[member].nickname} up`}
+                disabled={disabled || active || index === 0}
+                onclick={() => reorder(index, -1)}>↑</button
+              >
+              <button
+                aria-label={`Move ${room.members[member].nickname} down`}
+                disabled={disabled ||
+                  active ||
+                  index === room.seating.length - 1}
+                onclick={() => reorder(index, 1)}>↓</button
+              >
+              <button
+                disabled={disabled || active}
+                onclick={() =>
+                  connection?.seat(room.seating.filter((m) => m !== member))}
+                >Bench {room.members[member].nickname}</button
+              >
+            {/if}
+          </li>
+        {/each}
+      </ol>
+      <ul aria-label="Bench">
+        {#each room.members.filter((m) => !room.seating.includes(m.id)) as member}
+          <li>
+            {member.nickname}{#if host}<button
+                disabled={disabled || active}
+                onclick={() => connection?.seat([...room.seating, member.id])}
+                >Seat {member.nickname}</button
+              >{/if}
+          </li>
+        {/each}
+      </ul>
+      {#if !active && host}
+        <button
+          class="primary"
+          disabled={disabled ||
+            !room.config ||
+            room.seating.length <
+              (room.config?.game === 'the_crew' ||
+              room.config?.game === 'tempel_des_schreckens'
                 ? 3
-                : 2) ||
-              connection?.pending ||
-              connection?.status !== 'connected'}
-            onclick={() => connection?.start()}>Start game</button
-          >{:else}<p class="muted">Waiting for host</p>{/if}
-      {:else}
-        {#if room.outcome}
+                : 2)}
+          onclick={() => connection?.start()}
+          >{game ? 'Play again' : 'Start game'}</button
+        >
+      {/if}
+      {#if game}
+        {#if host}<button {disabled} onclick={() => connection?.abort()}
+            >{active ? 'Abort game' : 'Return to setup'}</button
+          >{/if}
+        <ul class="players" aria-label="Players">
+          {#each game.players as player, index}
+            <li class:active={active && game.turn.players.includes(index)}>
+              {player.nickname}{index === game.you ? ' · you' : ''}
+            </li>
+          {/each}
+        </ul>
+        {#if game.outcome}
           <h2 role="status">
-            {room.outcome.winners.length
-              ? `${room.outcome.winners.map((p) => room.players[p].nickname).join(', ')} won`
-              : room.game === 'the_crew'
+            {game.outcome.winners.length
+              ? `${game.outcome.winners.map((p) => game.players[p].nickname).join(', ')} won`
+              : game.config.game === 'the_crew'
                 ? 'Lost'
                 : 'Draw'}
           </h2>
-          {#if room.outcome.scores}<p>
-              {room.outcome.scores
-                .map((score, p) => `${room.players[p].nickname}: ${score}`)
+          {#if game.outcome.scores}<p>
+              {game.outcome.scores
+                .map((score, p) => `${game.players[p].nickname}: ${score}`)
                 .join(' · ')}
             </p>{/if}
-          {#if room.you === 0}<button
-              onclick={() => connection?.start()}
-              disabled={connection?.pending ||
-                connection?.status !== 'connected'}>Play again</button
-            >{/if}
         {:else}
-          {#if room.turn?.players.length}<p class="turn" role="status">
-              {room.turn?.players.includes(room.you)
+          {#if game.turn.players.length}<p class="turn" role="status">
+              {game.you != null && game.turn.players.includes(game.you)
                 ? 'Your turn'
-                : `${room.turn?.players.map((player) => room.players[player].nickname).join(', ') || 'Nobody'}'s turn`}
+                : `${game.turn.players.map((player) => game.players[player].nickname).join(', ') || 'Nobody'}'s turn`}
             </p>{/if}
-          {#if room.can_finish}
+          {#if game.can_choose_key}
+            {#each game.players as player, index}<button
+                {disabled}
+                onclick={() => connection?.chooseKey(index)}
+                >Give key to {player.nickname}</button
+              >{/each}
+          {/if}
+          {#if game.can_finish}
             <div class="controls" aria-label="Game result">
               <button
                 disabled={connection?.pending ||
@@ -303,33 +336,19 @@
           {/if}
         {/if}
         <GameBoard
-          {room}
+          room={game}
           disabled={connection?.pending || connection?.status !== 'connected'}
           move={(action) => connection?.move(action)}
         />
       {/if}
       {#if room.replays.length}<details class="replays">
           <summary>Replays ({room.replays.length})</summary
-          >{#each room.replays as id, index}<button
+          >{#each room.replays as archive, index}<button
               class="quiet"
-              onclick={() => replay(id)}>Game {index + 1} ↓</button
+              onclick={() => replay(archive.id)}
+              >Game {index + 1} · {games[archive.config.game]} ↓</button
             >{/each}
         </details>{/if}
     </section>
   {/if}
 </main>
-
-<style>
-  fieldset {
-    min-width: 0;
-  }
-  .rule-toggle {
-    display: flex;
-    align-items: baseline;
-    margin-block: 8px;
-  }
-  .rule-toggle input {
-    width: auto;
-    flex-shrink: 0;
-  }
-</style>

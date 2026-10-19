@@ -3,7 +3,7 @@
 ## Initial state
 
 - Two players, each with six houses containing four stones each and an empty store: 48 stones in total.
-- Seat 0 starts; seats follow join order and remain unchanged on rematches. The seed has no effect.
+- Seat 0 starts; seats follow the host-selected player order and remain fixed for the game. The seed has no effect.
 - State consists of the stone counts, active seat, and result. All information is public.
 - Houses 0–5 and store 6 belong to seat 0; houses 7–12 and store 13 belong to seat 1. Opposite houses have indices
   summing to 12.

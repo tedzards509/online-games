@@ -32,7 +32,6 @@ use utoipa::{
         security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
     },
 };
-use uuid::Uuid;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -85,14 +84,6 @@ async fn create_room(
     State(app): State<App>,
     Json(request): Json<CreateRoom>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let config = request
-        .config
-        .unwrap_or_else(|| request.game.default_config());
-    if config.kind() != request.game {
-        return Err(ApiError::BadRequest(
-            "Configuration does not match game".into(),
-        ));
-    }
     const ALPHABET: &[u8] = b"ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let mut rooms = app.rooms.lock().await;
     let code = loop {
@@ -103,7 +94,7 @@ async fn create_room(
             break candidate;
         }
     };
-    let mut room = Room::new(code.clone(), config);
+    let mut room = Room::new(code.clone());
     let membership = room.join(&request.nickname)?;
     app.store.save(&room, None).await?;
     rooms.insert(code, Arc::new(Lobby::new(room)));
@@ -142,8 +133,8 @@ async fn room_snapshot(
 ) -> Result<Json<Snapshot>, ApiError> {
     let lobby = app.lobby(&code).await?;
     let room = lobby.room.lock().await;
-    let player = room.authenticate(bearer(&headers)?)?;
-    Ok(Json(room.snapshot(player)))
+    let member = room.authenticate(bearer(&headers)?)?;
+    Ok(Json(room.snapshot(member)))
 }
 
 #[utoipa::path(get, path = "/api/rooms/{code}/replays/{id}", params(("code" = String, Path), ("id" = String, Path)), security(("room_token" = [])), responses((status = 200, body = arena_core::Replay), (status = 401, body = ErrorBody), (status = 404, body = ErrorBody)))]
@@ -161,7 +152,7 @@ async fn replay(
     Ok(Json(app.store.replay(&code, &id).await?))
 }
 
-#[utoipa::path(get, path = "/api/rooms/{code}/ws", params(("code" = String, Path)), responses((status = 101, description = "Per-room WebSocket. Authenticate first, then Start or Move. Receives personalized Snapshots and Errors."), (status = 400, body = ErrorBody), (status = 404, body = ErrorBody)))]
+#[utoipa::path(get, path = "/api/rooms/{code}/ws", params(("code" = String, Path)), responses((status = 101, description = "Per-room WebSocket. Authenticate first, then send room commands or nested game messages. Receives personalized snapshots and errors."), (status = 400, body = ErrorBody), (status = 404, body = ErrorBody)))]
 async fn websocket(
     State(app): State<App>,
     Path(code): Path<String>,
@@ -193,7 +184,7 @@ async fn send(socket: &mut WebSocket, message: &ServerMessage) -> Result<(), ()>
 }
 
 async fn connection(mut socket: WebSocket, app: App, lobby: Arc<Lobby>) {
-    let player = match timeout(Duration::from_secs(5), socket.next()).await {
+    let member = match timeout(Duration::from_secs(5), socket.next()).await {
         Ok(Some(Ok(Message::Text(text)))) => match serde_json::from_str::<ClientMessage>(&text) {
             Ok(ClientMessage::Authenticate { token }) => {
                 lobby.room.lock().await.authenticate(&token)
@@ -202,8 +193,8 @@ async fn connection(mut socket: WebSocket, app: App, lobby: Arc<Lobby>) {
         },
         _ => Err(ApiError::Unauthorized),
     };
-    let player = match player {
-        Ok(player) => player,
+    let member = match member {
+        Ok(member) => member,
         Err(error) => {
             let _ = send(
                 &mut socket,
@@ -216,7 +207,7 @@ async fn connection(mut socket: WebSocket, app: App, lobby: Arc<Lobby>) {
         }
     };
     let mut changes = lobby.changed.subscribe();
-    let snapshot = lobby.room.lock().await.snapshot(player);
+    let snapshot = lobby.room.lock().await.snapshot(member);
     let mut last_revision = snapshot.revision;
     if send(
         &mut socket,
@@ -238,13 +229,13 @@ async fn connection(mut socket: WebSocket, app: App, lobby: Arc<Lobby>) {
             incoming = socket.next() => match incoming {
                 Some(Ok(Message::Text(text))) => {
                     let result = match serde_json::from_str::<ClientMessage>(&text) {
-                        Ok(message) => command(&app, &lobby, player, message).await,
+                        Ok(message) => command(&app, &lobby, member, message).await,
                         Err(_) => Err(ApiError::BadRequest("Invalid message".into())),
                     };
                     let acknowledged = result.is_ok();
                     if let Err(error) = result
                         && send(&mut socket, &ServerMessage::Error { error: error.to_string() }).await.is_err() { break; }
-                    let room = lobby.room.lock().await.snapshot(player);
+                    let room = lobby.room.lock().await.snapshot(member);
                     last_revision = room.revision;
                     if send(&mut socket, &ServerMessage::Snapshot { room: Box::new(room), acknowledged }).await.is_err() { break; }
                 }
@@ -255,7 +246,7 @@ async fn connection(mut socket: WebSocket, app: App, lobby: Arc<Lobby>) {
             },
             change = changes.recv() => {
                 if matches!(change, Err(broadcast::error::RecvError::Closed)) { break; }
-                let room = lobby.room.lock().await.snapshot(player);
+                let room = lobby.room.lock().await.snapshot(member);
                 if room.revision > last_revision {
                     last_revision = room.revision;
                     if send(&mut socket, &ServerMessage::Snapshot { room: Box::new(room), acknowledged: false }).await.is_err() { break; }
@@ -272,28 +263,28 @@ async fn connection(mut socket: WebSocket, app: App, lobby: Arc<Lobby>) {
 async fn command(
     app: &App,
     lobby: &Lobby,
-    player: usize,
+    member: usize,
     message: ClientMessage,
 ) -> Result<(), ApiError> {
     // Tokio's mutex queues lock acquisitions FIFO. Each move is validated only
     // when it reaches the head, against the last successfully persisted state.
     let mut room = lobby.room.lock().await;
     let revision = match &message {
-        ClientMessage::Start { revision }
-        | ClientMessage::Finish { revision, .. }
-        | ClientMessage::Move { revision, .. } => *revision,
+        ClientMessage::Configure { revision, .. }
+        | ClientMessage::Seat { revision, .. }
+        | ClientMessage::Start { revision }
+        | ClientMessage::Abort { revision, .. }
+        | ClientMessage::Game { revision, .. } => *revision,
         _ => return Err(ApiError::BadRequest("Already authenticated".into())),
     };
     let invalid_revision = match &message {
-        ClientMessage::Start { .. } => revision != room.revision,
-        ClientMessage::Move { .. } | ClientMessage::Finish { .. } => {
-            // Joins are closed during a game, so only its accepted moves have
-            // advanced the room revision since the start/rematch.
-            let started_at = room
-                .game
-                .as_ref()
-                .map(|game| room.revision - game.action_count() as u64);
-            revision > room.revision || started_at.is_some_and(|start| revision < start)
+        ClientMessage::Configure { .. }
+        | ClientMessage::Seat { .. }
+        | ClientMessage::Start { .. }
+        | ClientMessage::Abort { .. } => revision != room.revision,
+        ClientMessage::Game { game_id, .. } => {
+            let game = room.check_game(game_id)?;
+            revision > room.revision || revision < game.started_at
         }
         _ => unreachable!(),
     };
@@ -303,28 +294,18 @@ async fn command(
     let mut next = room.clone();
     let mut replay = None;
     match message {
-        ClientMessage::Start { .. } => next.start(player)?,
-        ClientMessage::Finish { won, .. } => next.finish(player, won)?,
-        ClientMessage::Move { action, .. } => {
-            if matches!(
-                action,
-                arena_core::Action::TheCrew(arena_core::games::the_crew::Action::Finish { .. })
-            ) {
-                return Err(ApiError::BadRequest("Use the room finish command".into()));
+        ClientMessage::Configure { config, .. } => next.configure(member, config)?,
+        ClientMessage::Seat { members, .. } => next.seat(member, members)?,
+        ClientMessage::Start { .. } => next.start(member)?,
+        ClientMessage::Abort { game_id, .. } => next.abort(member, &game_id)?,
+        ClientMessage::Game { message, .. } => {
+            next.act(member, message)?;
+            if let Some(game) = next.game.as_ref().filter(|g| g.session.outcome().is_some()) {
+                replay = Some((game.id.clone(), game.session.replay()));
+                next.replays.push(game.replay_summary());
             }
-            let game = next
-                .game
-                .as_mut()
-                .ok_or_else(|| ApiError::BadRequest("Game has not started".into()))?;
-            game.act(player, action)?;
-            next.revision += 1;
         }
         ClientMessage::Authenticate { .. } => unreachable!(),
-    }
-    if let Some(game) = next.game.as_ref().filter(|g| g.outcome().is_some()) {
-        let id = Uuid::new_v4().to_string();
-        next.replays.push(id.clone());
-        replay = Some((id, game.replay()));
     }
     app.store
         .save(
@@ -345,18 +326,35 @@ mod tests {
         games::{skyjo, tic_tac_toe},
     };
 
+    fn configured_room(kind: GameKind, count: usize) -> Room {
+        let mut room = Room::new("ABC234".into());
+        for p in 0..count {
+            room.join(&format!("Member {p}")).unwrap();
+        }
+        room.configure(0, Some(kind.default_config())).unwrap();
+        room.seat(0, (0..count).collect()).unwrap();
+        room
+    }
+
+    fn movement(id: &str, revision: u64, action: Action) -> ClientMessage {
+        ClientMessage::Game {
+            game_id: id.into(),
+            revision,
+            message: GameMessage::Move { action },
+        }
+    }
+
     #[tokio::test]
     async fn crew_communication_and_lead_are_revalidated_in_queue_order() {
         for communication_first in [false, true] {
             let app = App::open("sqlite::memory:", "http://localhost:5173")
                 .await
                 .unwrap();
-            let mut room = Room::new("ABC234".into(), GameKind::TheCrew.default_config());
-            for name in ["Alice", "Bob", "Carol"] {
-                room.join(name).unwrap();
-            }
+            let mut room = configured_room(GameKind::TheCrew, 3);
             room.start(0).unwrap();
-            let arena_core::View::TheCrew(view) = room.game.as_ref().unwrap().view(0) else {
+            let id = room.game.as_ref().unwrap().id.clone();
+            let arena_core::View::TheCrew(view) = room.game.as_ref().unwrap().session.view(0)
+            else {
                 unreachable!()
             };
             let leader = view.next_player;
@@ -364,6 +362,8 @@ mod tests {
             let revision = room.revision;
             let play = room
                 .snapshot(leader)
+                .game
+                .unwrap()
                 .legal_actions
                 .into_iter()
                 .find(|a| {
@@ -375,6 +375,8 @@ mod tests {
                 .unwrap();
             let communication = room
                 .snapshot(speaker)
+                .game
+                .unwrap()
                 .legal_actions
                 .into_iter()
                 .find(|a| {
@@ -386,14 +388,8 @@ mod tests {
                 .unwrap();
             app.store.save(&room, None).await.unwrap();
             let lobby = Lobby::new(room);
-            let lead = ClientMessage::Move {
-                revision,
-                action: play,
-            };
-            let communicate = ClientMessage::Move {
-                revision,
-                action: communication,
-            };
+            let lead = movement(&id, revision, play);
+            let communicate = movement(&id, revision, communication);
             let (first, second) = if communication_first {
                 tokio::join!(biased; command(&app,&lobby,speaker,communicate),command(&app,&lobby,leader,lead))
             } else {
@@ -406,25 +402,27 @@ mod tests {
                 room.revision,
                 revision + if communication_first { 2 } else { 1 }
             );
-            let arena_core::View::TheCrew(view) = room.game.as_ref().unwrap().view(0) else {
+            let arena_core::View::TheCrew(view) = room.game.as_ref().unwrap().session.view(0)
+            else {
                 unreachable!()
             };
             assert_eq!(view.communications[speaker].is_some(), communication_first);
             assert_eq!(view.trick.len(), 1);
             assert_eq!(
-                room.snapshot(0).turn.unwrap().players,
+                room.snapshot(0).game.unwrap().turn.players,
                 vec![view.next_player]
             );
-            assert!(room.snapshot(0).can_finish);
+            assert!(room.snapshot(0).game.unwrap().can_finish);
             assert_eq!(
                 room.game
                     .as_ref()
                     .unwrap()
+                    .session
                     .replay()
                     .simulate()
                     .unwrap()
                     .replay(),
-                room.game.as_ref().unwrap().replay()
+                room.game.as_ref().unwrap().session.replay()
             );
         }
     }
@@ -435,14 +433,11 @@ mod tests {
             let app = App::open("sqlite::memory:", "http://localhost:5173")
                 .await
                 .unwrap();
-            let mut room = Room::new("ABC234".into(), kind.default_config());
-            room.join("Alice").unwrap();
-            room.join("Bob").unwrap();
+            let mut room = configured_room(kind, 2);
             room.start(0).unwrap();
-            let alice_action = room.snapshot(0).legal_actions[0].clone();
-            let bob_action = room.snapshot(1).legal_actions[0].clone();
-            assert!(!room.snapshot(0).legal_actions.is_empty());
-            assert!(!room.snapshot(1).legal_actions.is_empty());
+            let id = room.game.as_ref().unwrap().id.clone();
+            let alice_action = room.snapshot(0).game.unwrap().legal_actions[0].clone();
+            let bob_action = room.snapshot(1).game.unwrap().legal_actions[0].clone();
             app.store.save(&room, None).await.unwrap();
             let revision = room.revision;
             let lobby = Lobby::new(room);
@@ -453,26 +448,20 @@ mod tests {
                     &app,
                     &lobby,
                     0,
-                    ClientMessage::Move {
-                        revision,
-                        action: alice_action,
-                    }
+                    movement(&id, revision, alice_action)
                 ),
                 command(
                     &app,
                     &lobby,
                     1,
-                    ClientMessage::Move {
-                        revision,
-                        action: bob_action,
-                    }
+                    movement(&id, revision, bob_action)
                 ),
             );
             alice.unwrap();
             bob.unwrap();
             let room = lobby.room.lock().await;
             assert_eq!(room.revision, revision + 2);
-            let replay = room.game.as_ref().unwrap().replay();
+            let replay = room.game.as_ref().unwrap().session.replay();
             assert_eq!(
                 replay.records.iter().map(|r| r.player).collect::<Vec<_>>(),
                 vec![0, 1]
@@ -482,6 +471,7 @@ mod tests {
                     .game
                     .as_ref()
                     .unwrap()
+                    .session
                     .replay(),
                 replay
             );
@@ -499,16 +489,18 @@ mod tests {
         let app = App::open("sqlite::memory:", "http://localhost:5173")
             .await
             .unwrap();
-        let mut room = Room::new("ABC234".into(), GameKind::Skyjo.default_config());
-        room.join("Alice").unwrap();
-        room.join("Bob").unwrap();
+        let mut room = configured_room(GameKind::Skyjo, 2);
         room.start(0).unwrap();
+        let id = room.game.as_ref().unwrap().id.clone();
         app.store.save(&room, None).await.unwrap();
         let revision = room.revision;
         let lobby = Lobby::new(room);
-        let reveal = || ClientMessage::Move {
-            revision,
-            action: Action::Skyjo(skyjo::Action::Reveal { index: 0 }),
+        let reveal = || {
+            movement(
+                &id,
+                revision,
+                Action::Skyjo(skyjo::Action::Reveal { index: 0 }),
+            )
         };
         let (first, invalid, next) = tokio::join!(biased;
             command(&app, &lobby, 0, reveal()),
@@ -520,14 +512,15 @@ mod tests {
         next.unwrap();
         let room = lobby.room.lock().await;
         assert_eq!(room.revision, revision + 2);
-        assert_eq!(room.game.as_ref().unwrap().action_count(), 2);
+        assert_eq!(room.game.as_ref().unwrap().session.action_count(), 2);
         assert_eq!(
             app.store.load().await.unwrap()[0]
                 .game
                 .as_ref()
                 .unwrap()
+                .session
                 .replay(),
-            room.game.as_ref().unwrap().replay()
+            room.game.as_ref().unwrap().session.replay()
         );
     }
 
@@ -536,10 +529,9 @@ mod tests {
         let app = App::open("sqlite::memory:", "http://localhost:5173")
             .await
             .unwrap();
-        let mut room = Room::new("ABC234".into(), GameKind::TicTacToe.default_config());
-        room.join("Alice").unwrap();
-        room.join("Bob").unwrap();
+        let mut room = configured_room(GameKind::TicTacToe, 2);
         room.start(0).unwrap();
+        let id = room.game.as_ref().unwrap().id.clone();
         app.store.save(&room, None).await.unwrap();
         let revision = room.revision;
         let lobby = Lobby::new(room);
@@ -548,10 +540,11 @@ mod tests {
                 &app,
                 &lobby,
                 player,
-                ClientMessage::Move {
+                movement(
+                    &id,
                     revision,
-                    action: Action::TicTacToe(tic_tac_toe::Action { index }),
-                },
+                    Action::TicTacToe(tic_tac_toe::Action { index }),
+                ),
             )
             .await
             .unwrap();
@@ -571,10 +564,11 @@ mod tests {
                     &app,
                     &lobby,
                     0,
-                    ClientMessage::Move {
+                    movement(
+                        &id,
                         revision,
-                        action: Action::TicTacToe(tic_tac_toe::Action { index: 0 })
-                    }
+                        Action::TicTacToe(tic_tac_toe::Action { index: 0 })
+                    )
                 )
                 .await,
                 Err(ApiError::Conflict)

@@ -1,8 +1,9 @@
 use crate::{
     error::ApiError,
-    protocol::{Membership, PlayerView, Snapshot},
+    game::RoomGame,
+    protocol::{GameMessage, MemberView, Membership, ReplaySummary, Snapshot},
 };
-use arena_core::{Action, Config, GameKind, Match, games::the_crew};
+use arena_core::{Config, Match};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
@@ -16,13 +17,13 @@ pub struct Member {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Room {
     pub code: String,
-    pub kind: GameKind,
-    #[serde(default)]
+    pub host: usize,
     config: Option<Config>,
     members: Vec<Member>,
-    pub game: Option<Match>,
+    seating: Vec<usize>,
+    pub game: Option<RoomGame>,
     pub revision: u64,
-    pub replays: Vec<String>,
+    pub replays: Vec<ReplaySummary>,
 }
 
 fn hash(token: &str) -> String {
@@ -30,22 +31,19 @@ fn hash(token: &str) -> String {
 }
 
 impl Room {
-    pub fn new(code: String, config: Config) -> Self {
+    pub fn new(code: String) -> Self {
         Self {
             code,
-            kind: config.kind(),
-            config: Some(config),
+            host: 0,
+            config: None,
             members: vec![],
+            seating: vec![],
             game: None,
             revision: 0,
             replays: vec![],
         }
     }
-    fn config(&self) -> Config {
-        self.config
-            .clone()
-            .unwrap_or_else(|| self.kind.default_config())
-    }
+
     pub fn join(&mut self, nickname: &str) -> Result<Membership, ApiError> {
         let nickname = nickname.trim();
         if nickname.is_empty()
@@ -56,12 +54,6 @@ impl Room {
                 "Use a nickname of 1–24 characters".into(),
             ));
         }
-        if self.game.is_some() {
-            return Err(ApiError::BadRequest("Game already started".into()));
-        }
-        if self.members.len() >= self.kind.max_players() {
-            return Err(ApiError::BadRequest("Room is full".into()));
-        }
         if self
             .members
             .iter()
@@ -70,7 +62,7 @@ impl Room {
             return Err(ApiError::BadRequest("Nickname already taken".into()));
         }
         let token = Uuid::new_v4().simple().to_string();
-        let player = self.members.len();
+        let member = self.members.len();
         self.members.push(Member {
             nickname: nickname.into(),
             token_hash: hash(&token),
@@ -78,10 +70,11 @@ impl Room {
         self.revision += 1;
         Ok(Membership {
             code: self.code.clone(),
-            player,
+            member,
             token,
         })
     }
+
     pub fn authenticate(&self, token: &str) -> Result<usize, ApiError> {
         let digest = hash(token);
         self.members
@@ -89,114 +82,115 @@ impl Room {
             .position(|m| m.token_hash == digest)
             .ok_or(ApiError::Unauthorized)
     }
-    pub fn start(&mut self, player: usize) -> Result<(), ApiError> {
-        if player != 0 {
-            return Err(ApiError::BadRequest("Only the host can start".into()));
+
+    fn require_host(&self, member: usize) -> Result<(), ApiError> {
+        if member != self.host {
+            return Err(ApiError::BadRequest("Only the host may do this".into()));
         }
-        if self.game.as_ref().is_some_and(|g| g.outcome().is_none()) {
-            return Err(ApiError::BadRequest("Game already started".into()));
+        Ok(())
+    }
+
+    fn require_setup(&self, member: usize) -> Result<(), ApiError> {
+        self.require_host(member)?;
+        if self
+            .game
+            .as_ref()
+            .is_some_and(|g| g.session.outcome().is_none())
+        {
+            return Err(ApiError::BadRequest("Game is active".into()));
         }
-        self.game = Some(Match::with_config(
-            self.config(),
-            self.members.len(),
-            rand::random(),
-        )?);
+        Ok(())
+    }
+
+    pub fn configure(&mut self, member: usize, config: Option<Config>) -> Result<(), ApiError> {
+        self.require_setup(member)?;
+        self.config = config;
         self.revision += 1;
         Ok(())
     }
-    pub fn snapshot(&self, player: usize) -> Snapshot {
-        Snapshot {
-            code: self.code.clone(),
-            game: self.kind,
-            config: self.config(),
-            players: self
-                .members
-                .iter()
-                .map(|m| PlayerView {
-                    nickname: m.nickname.clone(),
-                })
-                .collect(),
-            you: player,
-            revision: self.revision,
-            can_finish: player == 0
-                && self.kind == GameKind::TheCrew
-                && self.game.as_ref().is_some_and(|g| g.outcome().is_none()),
-            turn: self.game.as_ref().map(|game| {
-                let mut turn = game.turn();
-                turn.players
-                    .retain(|&seat| !self.legal_actions(seat).is_empty());
-                turn
-            }),
-            outcome: self.game.as_ref().and_then(Match::outcome),
-            view: self.game.as_ref().map(|g| g.view(player)),
-            legal_actions: self.legal_actions(player),
-            replays: self.replays.clone(),
+
+    pub fn seat(&mut self, member: usize, members: Vec<usize>) -> Result<(), ApiError> {
+        self.require_setup(member)?;
+        let mut seen = std::collections::HashSet::new();
+        if members
+            .iter()
+            .any(|&m| m >= self.members.len() || !seen.insert(m))
+        {
+            return Err(ApiError::BadRequest(
+                "Seats must contain distinct room members".into(),
+            ));
         }
+        self.seating = members;
+        self.revision += 1;
+        Ok(())
     }
 
-    fn legal_actions(&self, player: usize) -> Vec<Action> {
+    pub fn start(&mut self, member: usize) -> Result<(), ApiError> {
+        self.require_setup(member)?;
+        let config = self
+            .config
+            .clone()
+            .ok_or_else(|| ApiError::BadRequest("Choose a game first".into()))?;
+        let session = Match::with_config(config, self.seating.len(), rand::random())?;
+        self.revision += 1;
+        self.game = Some(RoomGame {
+            id: Uuid::new_v4().to_string(),
+            started_at: self.revision,
+            players: self.seating.iter().map(|&m| self.member_view(m)).collect(),
+            session,
+        });
+        Ok(())
+    }
+
+    pub fn abort(&mut self, member: usize, game_id: &str) -> Result<(), ApiError> {
+        self.require_host(member)?;
+        self.check_game(game_id)?;
+        self.game = None;
+        self.revision += 1;
+        Ok(())
+    }
+
+    pub fn check_game(&self, id: &str) -> Result<&RoomGame, ApiError> {
         self.game
             .as_ref()
-            .map(|g| {
-                g.legal_actions(player)
-                    .into_iter()
-                    .filter(|a| !matches!(a, Action::TheCrew(the_crew::Action::Finish { .. })))
-                    .collect()
-            })
-            .unwrap_or_default()
+            .filter(|g| g.id == id)
+            .ok_or(ApiError::Conflict)
     }
 
-    pub fn finish(&mut self, player: usize, won: bool) -> Result<(), ApiError> {
-        if player != 0 {
-            return Err(ApiError::BadRequest("Only the host can finish".into()));
-        }
+    pub fn act(&mut self, member: usize, message: GameMessage) -> Result<(), ApiError> {
         let game = self
             .game
             .as_mut()
             .ok_or_else(|| ApiError::BadRequest("Game has not started".into()))?;
-        if !matches!(game, Match::TheCrew(_)) {
-            return Err(ApiError::BadRequest(
-                "This game determines its own result".into(),
-            ));
-        }
-        game.act(player, Action::TheCrew(the_crew::Action::Finish { won }))?;
+        game.act(member, member == self.host, message)?;
         self.revision += 1;
         Ok(())
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn automatic_games_do_not_offer_or_accept_manual_room_results() {
-        let mut room = Room::new("ABC234".into(), GameKind::Mancala.default_config());
-        room.join("Alice").unwrap();
-        room.join("Bob").unwrap();
-        room.start(0).unwrap();
-        assert!(!room.snapshot(0).can_finish);
-        let before = serde_json::to_value(&room).unwrap();
-        assert!(room.finish(0, true).is_err());
-        assert_eq!(serde_json::to_value(&room).unwrap(), before);
+    fn member_view(&self, id: usize) -> MemberView {
+        MemberView {
+            id,
+            nickname: self.members[id].nickname.clone(),
+        }
     }
 
-    #[test]
-    fn legacy_rooms_without_options_use_original_defaults() {
-        let mut room = Room::new("ABC234".into(), GameKind::CrazyEights.default_config());
-        room.join("Alice").unwrap();
-        room.join("Bob").unwrap();
-        let mut saved = serde_json::to_value(room).unwrap();
-        saved.as_object_mut().unwrap().remove("config");
-        let mut room: Room = serde_json::from_value(saved).unwrap();
-        assert_eq!(
-            room.snapshot(1).config,
-            GameKind::CrazyEights.default_config()
-        );
-        room.start(0).unwrap();
-        assert_eq!(
-            room.game.unwrap().config(),
-            GameKind::CrazyEights.default_config()
-        );
+    pub fn snapshot(&self, member: usize) -> Snapshot {
+        let game = self
+            .game
+            .as_ref()
+            .map(|g| g.snapshot(member, member == self.host));
+        Snapshot {
+            code: self.code.clone(),
+            members: (0..self.members.len())
+                .map(|m| self.member_view(m))
+                .collect(),
+            host: self.host,
+            you: member,
+            revision: self.revision,
+            config: self.config.clone(),
+            seating: self.seating.clone(),
+            game,
+            replays: self.replays.clone(),
+        }
     }
 }

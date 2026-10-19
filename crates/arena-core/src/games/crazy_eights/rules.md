@@ -5,8 +5,8 @@
 - One shuffled 52-card deck; seven cards per player with two players, five with three to six players.
 - One face-up discard; the remaining cards form the stock. The opening discard has no special effect; its printed suit
   is the active suit.
-- Seats follow join order; seat 0 starts, initially towards increasing seat indices. No draw obligation is pending.
-  Rematches keep the same seats and configuration.
+- Seats follow the host-selected player order; seat 0 starts, initially towards increasing seat indices. No draw
+  obligation is pending. Seating and configuration are fixed for each game.
 - State consists of hands, stock, discard pile, active suit, direction, active seat, pending draw obligation, and
   result. Each player sees only their own hand, other hand sizes, stock size, and public state.
 
@@ -28,7 +28,7 @@ be met; clear any draw obligation even then. A draw taking no cards is a pass an
 
 ## Card effects and configuration
 
-The host fixes four independent booleans before opening the room; all default to false. Disabled special ranks behave as
+The host fixes four independent booleans before starting the game; all default to false. Disabled special ranks behave as
 ordinary matching cards. Eights are always wild, not configurable.
 
 | Rank | Effect after play                                                                        | Configuration        |

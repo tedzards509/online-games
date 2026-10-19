@@ -1,4 +1,4 @@
-use arena_core::{Action, Config, GameKind, Outcome, Turn, View};
+use arena_core::{Action, Config, Outcome, Turn, View};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -6,9 +6,6 @@ use utoipa::ToSchema;
 #[serde(deny_unknown_fields)]
 pub struct CreateRoom {
     pub nickname: String,
-    pub game: GameKind,
-    #[serde(default)]
-    pub config: Option<Config>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -17,46 +14,104 @@ pub struct JoinRoom {
     pub nickname: String,
 }
 
-/// Keep the token private. It grants control of this seat, including after reconnecting.
+/// A stable room identity, independent of seating. Keep its bearer token private.
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct Membership {
     pub code: String,
-    pub player: usize,
+    pub member: usize,
     pub token: String,
 }
 
-#[derive(Debug, Clone, Serialize, ToSchema)]
-pub struct PlayerView {
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct MemberView {
+    pub id: usize,
     pub nickname: String,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct GameSnapshot {
+    pub id: String,
+    pub config: Config,
+    /// Members in immutable game-player order.
+    pub players: Vec<MemberView>,
+    /// The requesting member's game-player index; null on the bench.
+    pub you: Option<usize>,
+    pub can_finish: bool,
+    pub can_choose_key: bool,
+    pub turn: Turn,
+    pub outcome: Option<Outcome>,
+    /// Benched members receive no game observation.
+    pub view: Option<View>,
+    pub legal_actions: Vec<Action>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ReplaySummary {
+    pub id: String,
+    pub config: Config,
+    pub players: Vec<MemberView>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
 pub struct Snapshot {
     pub code: String,
-    pub game: GameKind,
-    pub config: Config,
-    pub players: Vec<PlayerView>,
+    pub members: Vec<MemberView>,
+    pub host: usize,
     pub you: usize,
     pub revision: u64,
-    /// Whether this seat may record a shared result for the current game.
-    pub can_finish: bool,
-    pub turn: Option<Turn>,
-    pub outcome: Option<Outcome>,
-    pub view: Option<View>,
-    pub legal_actions: Vec<Action>,
-    pub replays: Vec<String>,
+    /// Selected setup options; null until the host chooses a game.
+    pub config: Option<Config>,
+    /// Members selected for the next game, in player order. Others are benched.
+    pub seating: Vec<usize>,
+    pub game: Option<GameSnapshot>,
+    pub replays: Vec<ReplaySummary>,
 }
 
-/// Send Authenticate as the first text frame within five seconds. Subsequent
-/// commands carry the latest observed Snapshot revision. Moves may be queued
-/// behind other moves in the same game and are revalidated against current state.
+/// Messages routed to the identified game. Host controls are not player moves.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+pub enum GameMessage {
+    Move {
+        action: Action,
+    },
+    /// Records The Crew's shared result; only the room host may submit it.
+    Finish {
+        won: bool,
+    },
+    /// Selects Tempel's initial key holder; only the room host may submit it.
+    ChooseKey {
+        player: usize,
+    },
+}
+
+/// Authenticate in the first frame. Setup commands require the exact revision;
+/// game messages allow older same-game revisions and are revalidated FIFO.
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ClientMessage {
-    Authenticate { token: String },
-    Start { revision: u64 },
-    Finish { revision: u64, won: bool },
-    Move { revision: u64, action: Action },
+    Authenticate {
+        token: String,
+    },
+    Configure {
+        revision: u64,
+        config: Option<Config>,
+    },
+    Seat {
+        revision: u64,
+        members: Vec<usize>,
+    },
+    Start {
+        revision: u64,
+    },
+    Abort {
+        revision: u64,
+        game_id: String,
+    },
+    Game {
+        revision: u64,
+        game_id: String,
+        message: GameMessage,
+    },
 }
 
 #[derive(Debug, Serialize, ToSchema)]

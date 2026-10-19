@@ -4,6 +4,7 @@ import type {
   Membership,
   ServerMessage,
   Snapshot,
+  Schemas,
 } from './types';
 
 export class RoomConnection {
@@ -71,8 +72,7 @@ export class RoomConnection {
   }
 
   move(action: Action): void {
-    if (this.room)
-      this.send({ type: 'move', revision: this.room.revision, action });
+    this.gameMessage({ type: 'move', action });
   }
 
   start(): void {
@@ -80,8 +80,40 @@ export class RoomConnection {
   }
 
   finish(won: boolean): void {
+    this.gameMessage({ type: 'finish', won });
+  }
+
+  chooseKey(player: number): void {
+    this.gameMessage({ type: 'choose_key', player });
+  }
+
+  private gameMessage(message: Schemas['GameMessage']): void {
+    if (this.room?.game)
+      this.send({
+        type: 'game',
+        revision: this.room.revision,
+        game_id: this.room.game.id,
+        message,
+      });
+  }
+
+  configure(config: Schemas['Config'] | null): void {
     if (this.room)
-      this.send({ type: 'finish', revision: this.room.revision, won });
+      this.send({ type: 'configure', revision: this.room.revision, config });
+  }
+
+  seat(members: number[]): void {
+    if (this.room)
+      this.send({ type: 'seat', revision: this.room.revision, members });
+  }
+
+  abort(): void {
+    if (this.room?.game)
+      this.send({
+        type: 'abort',
+        revision: this.room.revision,
+        game_id: this.room.game.id,
+      });
   }
 
   close(): void {

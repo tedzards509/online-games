@@ -7,9 +7,9 @@
 - Deal all cards in seat order, one at a time starting at seat 0. Three players receive 14, 13, and 13 cards; four
   receive ten each; five receive eight each. Hands are sorted by color then number.
 - The holder of black 4 leads the first trick, but need not play black 4. Play proceeds in increasing seat order,
-  wrapping. Rematches retain seats.
+   wrapping. The room host chooses the ordered players before starting each game.
 - State consists of hands, current and completed tricks, next card-playing seat, each player's communication, action
-  counter, and result. Seat 0 is the host.
+   counter, and result. Player indices are independent of room membership and host identity.
 - Players see their own hand, all hand sizes, current and last completed trick (including its winner), trick counts,
   next player, and all communications. Other hands and the seed remain private.
 
@@ -24,9 +24,10 @@ No passing or drawing. A trick contains exactly one card per player. The highest
 highest card of the led color wins. Off-color nontrumps cannot win. The winner leads the next trick. No cards are
 recycled.
 
-Separately from playable actions, the host may use the room's **Finish (won)** command at any time while unfinished,
+Separately from playable actions, the room host may send the game's **Finish (won)** message at any time while unfinished,
 including during a trick. It records an internal finish action for replay but is not offered as a card-game move or as
-turn eligibility in room snapshots.
+turn eligibility in room snapshots. Host authority does not require a game seat. The deterministic core records this
+external decision as an action by player 0; that player has no authority to submit it as a normal move.
 
 Communication does not change the next card-playing seat. Lowest/highest declarations compare against the player's
 currently held cards of that color; only requires exactly one such card. A lone colored card may be declared lowest,

@@ -54,7 +54,7 @@ pub enum Action {
         index: usize,
         declaration: Declaration,
     },
-    /// Internal replay command, submitted through the room's host-only finish command.
+    /// External result recorded by seat zero; the server authorizes the room host.
     Finish {
         won: bool,
     },
@@ -575,7 +575,7 @@ mod tests {
     }
 
     #[test]
-    fn only_host_can_finish_at_any_time_and_result_is_shared_without_scores() {
+    fn player_zero_records_external_results_at_any_time_without_scores() {
         for won in [false, true] {
             for partial in [false, true] {
                 let mut s = Session::<TheCrew>::new(3, [2; 32]).unwrap();

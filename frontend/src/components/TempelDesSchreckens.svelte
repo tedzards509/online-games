@@ -56,11 +56,7 @@
         : 'Check your card counts, then ready'}
     </p>{/if}
   {#each available as action}
-    {#if action.action.type === 'choose_key'}
-      <button onclick={() => move(action)}
-        >Give key to {names[action.action.player]}</button
-      >
-    {:else if action.action.type === 'ready'}
+    {#if action.action.type === 'ready'}
       <button onclick={() => move(action)}>Ready</button>
     {/if}
   {/each}

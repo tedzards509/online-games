@@ -40,7 +40,7 @@ impl GameKind {
             Self::TicTacToe => Config::TicTacToe(Default::default()),
         }
     }
-    /// Returns the largest supported room size for this ruleset.
+    /// Returns the largest supported player count for this ruleset.
     pub fn max_players(self) -> usize {
         match self {
             Self::TempelDesSchreckens => 10,

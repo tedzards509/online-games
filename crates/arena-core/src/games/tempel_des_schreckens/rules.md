@@ -7,8 +7,10 @@
   own role.
 - Shuffle all cards and deal five per player. Players know their own counts of gold, traps, and empty cards, but not
   their positions: all cards are placed face-down in shuffled order. Other players' counts are private.
-- Seat 0 is the host and chooses any seat, including themselves, to hold the initial key. The key holder selects
-  reveals; seat order does not otherwise determine play. Rematches retain seats and require a fresh initial key choice.
+- The room host chooses any player to hold the initial key, independently of their own seating. The key holder selects
+  reveals; seat order does not otherwise determine play. Each game uses the room's selected player order and requires a
+  fresh initial key choice. The deterministic core records this external choice through player 0; the room authorizes
+  the host and excludes the choice from normal moves.
 - State consists of roles, card rows and visibility, readiness, phase, key holder, round, reveals this round, three
   cumulative revealed piles, deterministic RNG state, action counter, and result.
 - Public information: card row sizes and face-up cards, ready seats, key holder, round, round reveal count,

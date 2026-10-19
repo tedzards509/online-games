@@ -418,7 +418,7 @@ mod tests {
     }
 
     #[test]
-    fn host_chooses_any_initial_key_and_readiness_is_simultaneous() {
+    fn player_zero_records_external_key_choice_and_readiness_is_simultaneous() {
         for key in 0..3 {
             let mut s = session(3);
             reject(&mut s, 1, Action::ChooseKey { player: key });

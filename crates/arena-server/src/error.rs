@@ -20,8 +20,6 @@ pub enum ApiError {
     Storage(#[from] sqlx::Error),
     #[error("Stored data is invalid")]
     Json(#[from] serde_json::Error),
-    #[error("Database migration failed")]
-    Migration(#[from] sqlx::migrate::MigrateError),
 }
 
 impl From<arena_core::Error> for ApiError {

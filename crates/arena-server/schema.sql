@@ -1,9 +1,9 @@
-CREATE TABLE rooms (
+CREATE TABLE IF NOT EXISTS rooms (
     code TEXT PRIMARY KEY NOT NULL,
     data TEXT NOT NULL
 );
 
-CREATE TABLE replays (
+CREATE TABLE IF NOT EXISTS replays (
     id TEXT PRIMARY KEY NOT NULL,
     room_code TEXT NOT NULL REFERENCES rooms(code),
     data TEXT NOT NULL

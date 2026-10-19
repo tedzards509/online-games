@@ -22,7 +22,9 @@ impl Store {
             .max_connections(1)
             .connect_with(options)
             .await?;
-        sqlx::migrate!().run(&pool).await?;
+        sqlx::raw_sql(include_str!("../schema.sql"))
+            .execute(&pool)
+            .await?;
         Ok(Self { pool })
     }
     pub async fn load(&self) -> Result<Vec<Room>, ApiError> {

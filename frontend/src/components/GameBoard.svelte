@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Action, Snapshot } from '../lib/types';
+  import type { Action, GameSnapshot } from '../lib/types';
   import Mancala from './Mancala.svelte';
   import CrazyEights from './CrazyEights.svelte';
   import Shithead from './Shithead.svelte';
@@ -11,13 +11,15 @@
     room,
     disabled,
     move,
-  }: { room: Snapshot; disabled: boolean; move: (action: Action) => void } =
+  }: { room: GameSnapshot; disabled: boolean; move: (action: Action) => void } =
     $props();
   const actions = $derived(disabled ? [] : room.legal_actions);
   const names = $derived(room.players.map((p) => p.nickname));
 </script>
 
-{#if room.view?.game === 'tempel_des_schreckens'}
+{#if room.you == null}
+  <p>You are on the bench</p>
+{:else if room.view?.game === 'tempel_des_schreckens'}
   <TempelDesSchreckens
     view={room.view.state}
     {actions}
