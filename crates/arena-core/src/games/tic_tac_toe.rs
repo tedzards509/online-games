@@ -2,6 +2,10 @@ use crate::game::{Error, Event, Game, Outcome, Player, Seed, Turn};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
+const PLAYERS: usize = 2;
+const BOARD_WIDTH: usize = 3;
+const BOARD_SIZE: usize = BOARD_WIDTH * BOARD_WIDTH;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[schema(as = TicTacToeAction)]
 pub struct Action {
@@ -10,7 +14,7 @@ pub struct Action {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TicTacToe {
-    board: [Option<Player>; 9],
+    board: [Option<Player>; BOARD_SIZE],
     turn: Turn,
     outcome: Option<Outcome>,
 }
@@ -18,19 +22,30 @@ pub struct TicTacToe {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, ToSchema)]
 #[schema(as = TicTacToeView)]
 pub struct View {
-    pub board: [Option<Player>; 9],
+    pub board: [Option<Player>; BOARD_SIZE],
 }
 
-const LINES: [[usize; 3]; 8] = [
+const WINNING_LINES: [[usize; BOARD_WIDTH]; 8] = [
+    // Rows.
     [0, 1, 2],
     [3, 4, 5],
     [6, 7, 8],
+    // Columns.
     [0, 3, 6],
     [1, 4, 7],
     [2, 5, 8],
+    // Diagonals.
     [0, 4, 8],
     [2, 4, 6],
 ];
+
+impl TicTacToe {
+    fn has_winning_line(&self, player: Player) -> bool {
+        WINNING_LINES
+            .iter()
+            .any(|line| line.iter().all(|&index| self.board[index] == Some(player)))
+    }
+}
 
 impl Game for TicTacToe {
     type Action = Action;
@@ -38,11 +53,11 @@ impl Game for TicTacToe {
     type View = View;
 
     fn new(players: usize, _: Seed) -> Result<Self, Error> {
-        if players != 2 {
+        if players != PLAYERS {
             return Err(Error::PlayerCount);
         }
         Ok(Self {
-            board: [None; 9],
+            board: [None; BOARD_SIZE],
             turn: Turn::first(),
             outcome: None,
         })
@@ -70,10 +85,7 @@ impl Game for TicTacToe {
 
     fn advance(&mut self, player: Player, action: &Action) -> Vec<Event> {
         self.board[action.index] = Some(player);
-        if LINES
-            .iter()
-            .any(|line| line.iter().all(|&i| self.board[i] == Some(player)))
-        {
+        if self.has_winning_line(player) {
             self.outcome = Some(Outcome {
                 winners: vec![player],
                 scores: None,
@@ -84,7 +96,7 @@ impl Game for TicTacToe {
                 scores: None,
             });
         }
-        self.turn.advance(2);
+        self.turn.advance(PLAYERS);
         vec![Event::Played { player }]
     }
 
@@ -174,7 +186,7 @@ mod tests {
 
     #[test]
     fn all_reachable_positions_have_correct_results_and_legal_actions() {
-        fn visit(game: Session<TicTacToe>, seen: &mut HashSet<[Option<Player>; 9]>) {
+        fn visit(game: Session<TicTacToe>, seen: &mut HashSet<[Option<Player>; BOARD_SIZE]>) {
             let state = game.state();
             let board = state.view(0).board;
             if !seen.insert(board) {
@@ -185,26 +197,27 @@ mod tests {
             assert_eq!(
                 state.turn(),
                 Turn {
-                    players: vec![filled % 2],
+                    players: vec![filled % PLAYERS],
                     number: filled as u64
                 }
             );
-            let winner = (0..2).find(|&player| {
-                let bits = board
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, cell)| **cell == Some(player))
-                    .fold(0u16, |bits, (i, _)| bits | (1 << i));
-                [7, 56, 448, 73, 146, 292, 273, 84]
-                    .iter()
-                    .any(|&mask| (bits & mask).count_ones() == 3)
+            // Check by coordinates, independently of the game's winning-line table.
+            let winner = (0..PLAYERS).find(|&player| {
+                let owns = |row, column| board[row * BOARD_WIDTH + column] == Some(player);
+                let row_win =
+                    (0..BOARD_WIDTH).any(|row| (0..BOARD_WIDTH).all(|column| owns(row, column)));
+                let column_win =
+                    (0..BOARD_WIDTH).any(|column| (0..BOARD_WIDTH).all(|row| owns(row, column)));
+                let diagonal_win = (0..BOARD_WIDTH).all(|index| owns(index, index))
+                    || (0..BOARD_WIDTH).all(|index| owns(index, BOARD_WIDTH - 1 - index));
+                row_win || column_win || diagonal_win
             });
             let expected = if let Some(player) = winner {
                 Some(Outcome {
                     winners: vec![player],
                     scores: None,
                 })
-            } else if filled == 9 {
+            } else if filled == BOARD_SIZE {
                 Some(Outcome {
                     winners: vec![],
                     scores: None,
@@ -217,7 +230,9 @@ mod tests {
             let indices: Vec<_> = if expected.is_some() {
                 vec![]
             } else {
-                (0..9).filter(|&i| board[i].is_none()).collect()
+                (0..BOARD_SIZE)
+                    .filter(|&index| board[index].is_none())
+                    .collect()
             };
             assert_eq!(legal.iter().map(|a| a.index).collect::<Vec<_>>(), indices);
             for action in legal {
