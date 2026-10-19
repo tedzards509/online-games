@@ -245,6 +245,7 @@ fn rejected_moves_leave_state_and_log_untouched() {
 #[test]
 fn all_games_finish_and_replay_exactly() {
     for kind in [
+        GameKind::TempelDesSchreckens,
         GameKind::Mancala,
         GameKind::CrazyEights,
         GameKind::Shithead,
@@ -252,7 +253,12 @@ fn all_games_finish_and_replay_exactly() {
         GameKind::TicTacToe,
     ] {
         for seed in 0..8 {
-            let mut game = Match::new(kind, 2, [seed; 32]).unwrap();
+            let players = if kind == GameKind::TempelDesSchreckens {
+                3
+            } else {
+                2
+            };
+            let mut game = Match::new(kind, players, [seed; 32]).unwrap();
             let mut rng = ChaCha12Rng::from_seed([seed + 8; 32]);
             for _ in 0..20000 {
                 if game.outcome().is_some() {
@@ -298,7 +304,7 @@ fn all_games_finish_and_replay_exactly() {
             );
             let before = serde_json::to_value(&game).unwrap();
             assert!(
-                game.act(game.turn().players[0], replay.records[0].action.clone())
+                game.act(replay.records[0].player, replay.records[0].action.clone())
                     .is_err()
             );
             assert_eq!(serde_json::to_value(game).unwrap(), before);
@@ -312,6 +318,7 @@ fn all_games_finish_and_replay_exactly() {
 #[test]
 fn every_supported_player_count_completes_and_invalid_counts_are_rejected() {
     for kind in [
+        GameKind::TempelDesSchreckens,
         GameKind::Mancala,
         GameKind::CrazyEights,
         GameKind::Shithead,
@@ -321,7 +328,12 @@ fn every_supported_player_count_completes_and_invalid_counts_are_rejected() {
         for count in [0, 1, kind.max_players() + 1, usize::MAX] {
             assert!(Match::new(kind, count, [0; 32]).is_err());
         }
-        for count in 2..=kind.max_players() {
+        let min_players = if kind == GameKind::TempelDesSchreckens {
+            3
+        } else {
+            2
+        };
+        for count in min_players..=kind.max_players() {
             let mut game = Match::new(kind, count, [count as u8; 32]).unwrap();
             let mut rng = ChaCha12Rng::from_seed([count as u8; 32]);
             for step in 0..20000 {
@@ -344,6 +356,18 @@ fn every_supported_player_count_completes_and_invalid_counts_are_rejected() {
                     }
                 }
                 match game.view(player) {
+                    arena_core::View::TempelDesSchreckens(view) => {
+                        let hidden = view
+                            .cards
+                            .iter()
+                            .flatten()
+                            .filter(|card| card.is_none())
+                            .count();
+                        assert_eq!(
+                            hidden + view.revealed.gold + view.revealed.traps + view.revealed.empty,
+                            count * 5
+                        );
+                    }
                     arena_core::View::Mancala(view) => {
                         assert_eq!(view.board.iter().sum::<u16>(), 48)
                     }
@@ -367,6 +391,82 @@ fn every_supported_player_count_completes_and_invalid_counts_are_rejected() {
             let replay = game.replay();
             assert_eq!(replay.simulate().unwrap().replay(), replay);
         }
+    }
+}
+
+#[test]
+fn tempel_all_player_counts_keep_hidden_state_private_and_resume_seeded_rounds() {
+    use arena_core::games::tempel_des_schreckens::{Action as TempelAction, Phase};
+    for players in 3..=10 {
+        let mut outcomes = [false; 2];
+        for seed in 0..32 {
+            let mut game = Match::new(GameKind::TempelDesSchreckens, players, [seed; 32]).unwrap();
+            let mut rng = ChaCha12Rng::from_seed([seed + 32; 32]);
+            let mut steps = 0;
+            while game.outcome().is_none() {
+                let seats = game.turn().players;
+                let player = seats[rng.gen_range(0..seats.len())];
+                let actions = game.legal_actions(player);
+                assert!(!actions.is_empty());
+                let arena_core::View::TempelDesSchreckens(view) = game.view(player) else {
+                    unreachable!()
+                };
+                let hand_hidden = view.cards[player].iter().filter(|c| c.is_none()).count();
+                assert_eq!(
+                    hand_hidden,
+                    view.hand_counts.gold + view.hand_counts.traps + view.hand_counts.empty
+                );
+                if view.phase == Phase::Inspect {
+                    assert!(view.cards.iter().flatten().all(Option::is_none));
+                    assert_eq!(view.cards[0].len(), 6 - view.round);
+                }
+                let json = serde_json::to_value(&view).unwrap();
+                for private in ["hands", "roles", "rng", "seed", "unused_role"] {
+                    assert!(json.get(private).is_none());
+                }
+                let saved = serde_json::to_value(&game).unwrap();
+                let mut restored: Match = serde_json::from_value(saved).unwrap();
+                let action = actions[rng.gen_range(0..actions.len())].clone();
+                game.act(player, action.clone()).unwrap();
+                restored.act(player, action).unwrap();
+                assert_eq!(
+                    serde_json::to_value(&game).unwrap(),
+                    serde_json::to_value(restored).unwrap()
+                );
+                steps += 1;
+                assert!(steps <= 1 + players * 8);
+            }
+            let arena_core::View::TempelDesSchreckens(view) = game.view(0) else {
+                unreachable!()
+            };
+            let won = view.revealed.gold == view.distribution.cards.gold;
+            outcomes[usize::from(won)] = true;
+            for player in 0..players {
+                let arena_core::View::TempelDesSchreckens(personal) = game.view(player) else {
+                    unreachable!()
+                };
+                let winner = if won {
+                    arena_core::games::tempel_des_schreckens::Role::Adventurer
+                } else {
+                    arena_core::games::tempel_des_schreckens::Role::Guardian
+                };
+                assert_eq!(
+                    game.outcome().unwrap().winners.contains(&player),
+                    personal.role == winner
+                );
+                assert!(game.legal_actions(player).is_empty());
+            }
+            let replay = game.replay();
+            assert_eq!(replay.version, 1);
+            assert_eq!(replay.simulate().unwrap().replay(), replay);
+            let before = serde_json::to_value(&game).unwrap();
+            assert!(
+                game.act(0, Action::TempelDesSchreckens(TempelAction::Ready))
+                    .is_err()
+            );
+            assert_eq!(serde_json::to_value(&game).unwrap(), before);
+        }
+        assert_eq!(outcomes, [true, true], "{players} players");
     }
 }
 

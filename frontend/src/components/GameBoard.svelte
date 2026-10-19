@@ -6,6 +6,7 @@
   import Skyjo from './Skyjo.svelte';
   import TicTacToe from './TicTacToe.svelte';
   import TheCrew from './TheCrew.svelte';
+  import TempelDesSchreckens from './TempelDesSchreckens.svelte';
   let {
     room,
     disabled,
@@ -16,7 +17,16 @@
   const names = $derived(room.players.map((p) => p.nickname));
 </script>
 
-{#if room.view?.game === 'the_crew'}
+{#if room.view?.game === 'tempel_des_schreckens'}
+  <TempelDesSchreckens
+    view={room.view.state}
+    {actions}
+    {names}
+    {move}
+    you={room.you}
+    finished={room.outcome !== null}
+  />
+{:else if room.view?.game === 'the_crew'}
   <TheCrew
     view={room.view.state}
     {actions}

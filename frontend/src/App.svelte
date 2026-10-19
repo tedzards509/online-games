@@ -255,7 +255,9 @@
         {#if room.you === 0}<button
             class="primary"
             disabled={room.players.length <
-              (room.game === 'the_crew' ? 3 : 2) ||
+              (room.game === 'the_crew' || room.game === 'tempel_des_schreckens'
+                ? 3
+                : 2) ||
               connection?.pending ||
               connection?.status !== 'connected'}
             onclick={() => connection?.start()}>Start game</button

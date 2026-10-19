@@ -422,6 +422,133 @@ test('The Crew: communicate, play a trick, reconnect, and finish from the room',
   for (const context of contexts) await context.close();
 });
 
+test('Tempel des Schreckens: hidden cards, key transfer, rounds, reconnect, and replay', async ({
+  browser,
+}) => {
+  const contexts = await Promise.all([0, 1, 2].map(() => browser.newContext()));
+  const pages = await Promise.all(contexts.map((context) => context.newPage()));
+  const [host, guest, third] = pages;
+  const names = ['Alice', 'Bob', 'Carol'];
+  const errors: string[] = [];
+  for (const page of pages)
+    page.on('pageerror', (error) => errors.push(error.message));
+  await host.setViewportSize({ width: 375, height: 812 });
+  await host.goto('/');
+  await host.getByLabel('Nickname').fill(names[0]);
+  await host
+    .getByRole('combobox', { name: 'Game', exact: true })
+    .selectOption({ label: 'Tempel des Schreckens' });
+  await host.getByRole('button', { name: 'Create room' }).click();
+  await expect(
+    host.getByRole('heading', { name: 'Tempel des Schreckens', exact: true }),
+  ).toBeVisible();
+  const path = new URL(host.url()).pathname;
+  await expect(host.getByRole('button', { name: 'Start game' })).toBeDisabled();
+  for (const [page, name] of [
+    [guest, names[1]],
+    [third, names[2]],
+  ] as const) {
+    await page.goto(path);
+    await page.getByLabel('Nickname').fill(name);
+    await page.getByRole('button', { name: 'Join room' }).click();
+    await expect(host.getByLabel('Players')).toContainText(name);
+  }
+  await host.getByRole('button', { name: 'Start game' }).click();
+  await expect(
+    host.getByRole('button', { name: 'Give key to Bob', exact: true }),
+  ).toBeVisible();
+  await expect(
+    guest.getByRole('button', { name: /^Give key to / }),
+  ).toHaveCount(0);
+  await host
+    .getByRole('button', { name: 'Give key to Bob', exact: true })
+    .click();
+  await expect(guest.getByText('Key: Bob', { exact: true })).toBeVisible();
+  const role = (await snapshot(guest)).view.state.role;
+  await guest.reload();
+  await expect(guest.getByLabel('Your role')).toContainText(role);
+  for (const page of pages) {
+    await expect(
+      page.getByRole('button', { name: / card \d+: hidden$/ }),
+    ).toHaveCount(15);
+    await expect(
+      page
+        .getByRole('button', { name: / card \d+: hidden$/ })
+        .and(page.locator(':enabled')),
+    ).toHaveCount(0);
+    await page.getByRole('button', { name: 'Ready', exact: true }).click();
+  }
+  await expect(
+    guest.getByRole('button', { name: 'Alice card 1: hidden', exact: true }),
+  ).toBeEnabled();
+  await expect(
+    guest.getByRole('button', { name: 'Bob card 1: hidden', exact: true }),
+  ).toBeDisabled();
+  await guest
+    .getByRole('button', { name: 'Alice card 1: hidden', exact: true })
+    .click();
+  await expect(host.getByText('Key: Alice', { exact: true })).toBeVisible();
+  await host.reload();
+  await expect(host.getByText('Key: Alice', { exact: true })).toBeVisible();
+  const first = (await snapshot(host)).view.state.cards[0][0];
+  await expect(
+    host.getByRole('button', { name: `Alice card 1: ${first}`, exact: true }),
+  ).toBeDisabled();
+  for (let step = 0; step < 30; step++) {
+    const room = await snapshot(host);
+    if (room.outcome) break;
+    const player = room.turn.players[0];
+    const page = pages[player];
+    const personal = await snapshot(page);
+    const action = personal.legal_actions[0].action;
+    if (action.type === 'ready')
+      await page.getByRole('button', { name: 'Ready', exact: true }).click();
+    else
+      await page
+        .getByRole('button', {
+          name: `${names[action.player]} card ${action.index + 1}: hidden`,
+          exact: true,
+        })
+        .click();
+    await expect
+      .poll(async () => (await snapshot(host)).revision)
+      .toBe(room.revision + 1);
+  }
+  const finished = await snapshot(host);
+  expect(finished.outcome).not.toBeNull();
+  const result =
+    finished.outcome.winners.map((p: number) => names[p]).join(', ') + ' won';
+  for (const page of pages) {
+    await expect(page.getByText(result, { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Ready', exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Finish: won', exact: true }),
+    ).toHaveCount(0);
+  }
+  expect(
+    await host.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await host.getByText('Replays (1)', { exact: true }).click();
+  const download = host.waitForEvent('download');
+  await host.getByRole('button', { name: 'Game 1 ↓', exact: true }).click();
+  const replay = JSON.parse(
+    await readFile((await (await download).path())!, 'utf8'),
+  );
+  expect(replay.game).toBe('tempel_des_schreckens');
+  expect(replay.version).toBe(1);
+  await host.getByRole('button', { name: 'Play again', exact: true }).click();
+  await expect(
+    host.getByRole('button', { name: 'Give key to Carol', exact: true }),
+  ).toBeVisible();
+  expect((await snapshot(host)).view.state.round).toBe(1);
+  expect(errors).toEqual([]);
+  for (const context of contexts) await context.close();
+});
+
 for (const game of [
   'Mancala',
   'Crazy Eights',

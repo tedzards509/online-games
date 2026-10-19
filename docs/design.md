@@ -50,6 +50,8 @@ Actions, events, and observations are associated types of `Game`. The included g
 
 The Crew uses its own colored cards with `Deck<Card>`. Its next card-playing seat is separate from eligibility: between tricks other players may communicate. Communications retain their card/declaration after play; private hands are never projected to other seats. Without missions, exhausting playable tricks waits for the host's result decision. The Crew uses replay version 1.
 
+Tempel des Schreckens keeps roles private and projects only each viewer's unrevealed card counts, never their positions. Public rows contain face-up card values and hidden placeholders. The host chooses the initial key; simultaneous readiness precedes each reveal phase. The key passes to the revealed card's owner and persists across seeded redeals of unrevealed cards. Revealed-pile counts persist for all four rounds; outcomes list the seats with the winning role.
+
 The host's `finish` room command records a shared result only for The Crew. The room exposes a personalized `can_finish` capability, separate from playable actions and turn eligibility. It translates the command into an internal game finish action for deterministic replay; clients cannot submit that action via `move`. Finish uses the same FIFO validation, current-game revision boundary, atomic persistence, and replay archival as moves. Room lifecycle controls are separate from board rendering; each room has a fixed game kind.
 
 `arena-server` owns anonymous identities, rooms, persistence, and transport. Private engine state is persisted but never sent as a live observation. Replays include the seed and therefore reveal every card; downloads are restricted to finished games and room members.
@@ -63,6 +65,6 @@ The host chooses configuration before creating a room. The server checks its gam
 | Games | Supported replay version | Configuration | Saved-session requirement |
 | --- | --- | --- | --- |
 | Crazy Eights, Mancala, Shithead, Skyjo | 4 | Explicit, matching game tag | `rules_version: 4` |
-| Tic-Tac-Toe, The Crew | 1 | Omitted; ruleset defaults | No rules-version marker |
+| Tic-Tac-Toe, The Crew, Tempel des Schreckens | 1 | Omitted; ruleset defaults | No rules-version marker |
 
 Unsupported replay versions and mismatched saved-session markers are rejected. For incompatible files, use an implementation with matching rules: revision `57305f1` supports Crazy Eights version 3 and Mancala, Shithead, and Skyjo version 1; revision `b0fb0e2` supports Crazy Eights versions 1–2. Back up databases and use a separate database for each incompatible rules version. Stored games are not automatically rewritten or removed. Incompatible rules require an explicit version and compatibility strategy.

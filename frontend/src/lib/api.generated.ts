@@ -107,6 +107,11 @@ export interface components {
     /** @description A command tagged with the ruleset that understands it. */
     Action:
       | {
+          action: components['schemas']['TempelAction'];
+          /** @enum {string} */
+          game: 'tempel_des_schreckens';
+        }
+      | {
           action: components['schemas']['CrewAction'];
           /** @enum {string} */
           game: 'the_crew';
@@ -184,6 +189,11 @@ export interface components {
         };
     /** @description Setup options tagged with the ruleset that defines their `GameConfig` struct. */
     Config:
+      | {
+          /** @enum {string} */
+          game: 'tempel_des_schreckens';
+          rules: components['schemas']['GameConfig'];
+        }
       | {
           /** @enum {string} */
           game: 'the_crew';
@@ -315,6 +325,7 @@ export interface components {
      * @enum {string}
      */
     GameKind:
+      | 'tempel_des_schreckens'
       | 'the_crew'
       | 'mancala'
       | 'crazy_eights'
@@ -352,6 +363,11 @@ export interface components {
     Record_Action_Event: {
       /** @description A command tagged with the ruleset that understands it. */
       action:
+        | {
+            action: components['schemas']['TempelAction'];
+            /** @enum {string} */
+            game: 'tempel_des_schreckens';
+          }
         | {
             action: components['schemas']['CrewAction'];
             /** @enum {string} */
@@ -537,6 +553,52 @@ export interface components {
      * @enum {string}
      */
     Suit: 'clubs' | 'diamonds' | 'hearts' | 'spades';
+    TempelAction:
+      | {
+          player: components['schemas']['usize'];
+          /** @enum {string} */
+          type: 'choose_key';
+        }
+      | {
+          /** @enum {string} */
+          type: 'ready';
+        }
+      | {
+          index: number;
+          player: components['schemas']['usize'];
+          /** @enum {string} */
+          type: 'reveal';
+        };
+    /** @enum {string} */
+    TempelCard: 'gold' | 'trap' | 'empty';
+    TempelCounts: {
+      empty: number;
+      gold: number;
+      traps: number;
+    };
+    TempelDistribution: {
+      adventurers: number;
+      cards: components['schemas']['TempelCounts'];
+      guardians: number;
+    };
+    /** @enum {string} */
+    TempelPhase: 'choose_key' | 'inspect' | 'reveal';
+    /** @enum {string} */
+    TempelRole: 'adventurer' | 'guardian';
+    TempelView: {
+      /** @description Only face-up cards have values, including in the viewer's own row. */
+      cards: (null | components['schemas']['TempelCard'])[][];
+      distribution: components['schemas']['TempelDistribution'];
+      /** @description Counts of this viewer's unrevealed cards, without their positions. */
+      hand_counts: components['schemas']['TempelCounts'];
+      key?: null | components['schemas']['usize'];
+      phase: components['schemas']['TempelPhase'];
+      ready: boolean[];
+      revealed: components['schemas']['TempelCounts'];
+      role: components['schemas']['TempelRole'];
+      round: number;
+      round_reveals: number;
+    };
     TicTacToeAction: {
       index: number;
     };
@@ -555,6 +617,11 @@ export interface components {
     };
     /** @description A player's observation tagged with its ruleset. */
     View:
+      | {
+          /** @enum {string} */
+          game: 'tempel_des_schreckens';
+          state: components['schemas']['TempelView'];
+        }
       | {
           /** @enum {string} */
           game: 'the_crew';

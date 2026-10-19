@@ -1,6 +1,6 @@
 # Friends' Arena
 
-A small live-game arena for friends: **Shithead, Crazy Eights, Skyjo, Mancala, Tic-Tac-Toe, and The Crew**. Anonymous rooms, nicknames, reconnectable seats, and downloadable replays. No accounts.
+A small live-game arena for friends: **Shithead, Crazy Eights, Skyjo, Mancala, Tic-Tac-Toe, The Crew, and Tempel des Schreckens**. Anonymous rooms, nicknames, reconnectable seats, and downloadable replays. No accounts.
 
 ## Run locally
 
@@ -47,8 +47,9 @@ Each game module documents its supported variant, not every house rule:
 - [Skyjo](crates/arena-core/src/games/skyjo/rules.md)
 - [Tic-Tac-Toe](crates/arena-core/src/games/tic_tac_toe/rules.md)
 - [The Crew — without missions](crates/arena-core/src/games/the_crew/rules.md) (3–5 players; the host records a shared win or loss)
+- [Tempel des Schreckens](crates/arena-core/src/games/tempel_des_schreckens/rules.md) (3–10 players; hidden roles and cards)
 
-Crazy Eights, Mancala, Shithead, and Skyjo use replay version 4; Tic-Tac-Toe and The Crew use version 1. Back up databases and use separate databases (`DATABASE_URL`) for incompatible rules versions. See [compatibility requirements and revision references](docs/design.md#replay-and-save-compatibility).
+Crazy Eights, Mancala, Shithead, and Skyjo use replay version 4; Tic-Tac-Toe, The Crew, and Tempel des Schreckens use version 1. Back up databases and use separate databases (`DATABASE_URL`) for incompatible rules versions. See [compatibility requirements and revision references](docs/design.md#replay-and-save-compatibility).
 
 ## Develop
 

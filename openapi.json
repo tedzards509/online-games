@@ -281,6 +281,24 @@
             ],
             "properties": {
               "action": {
+                "$ref": "#/components/schemas/TempelAction"
+              },
+              "game": {
+                "type": "string",
+                "enum": [
+                  "tempel_des_schreckens"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "action",
+              "game"
+            ],
+            "properties": {
+              "action": {
                 "$ref": "#/components/schemas/CrewAction"
               },
               "game": {
@@ -515,6 +533,24 @@
       },
       "Config": {
         "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "rules",
+              "game"
+            ],
+            "properties": {
+              "game": {
+                "type": "string",
+                "enum": [
+                  "tempel_des_schreckens"
+                ]
+              },
+              "rules": {
+                "$ref": "#/components/schemas/GameConfig"
+              }
+            }
+          },
           {
             "type": "object",
             "required": [
@@ -1020,6 +1056,7 @@
         "type": "string",
         "description": "A registered ruleset and its serialized game identifier.",
         "enum": [
+          "tempel_des_schreckens",
           "the_crew",
           "mancala",
           "crazy_eights",
@@ -1147,6 +1184,24 @@
         "properties": {
           "action": {
             "oneOf": [
+              {
+                "type": "object",
+                "required": [
+                  "action",
+                  "game"
+                ],
+                "properties": {
+                  "action": {
+                    "$ref": "#/components/schemas/TempelAction"
+                  },
+                  "game": {
+                    "type": "string",
+                    "enum": [
+                      "tempel_des_schreckens"
+                    ]
+                  }
+                }
+              },
               {
                 "type": "object",
                 "required": [
@@ -1888,6 +1943,204 @@
           "spades"
         ]
       },
+      "TempelAction": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "player",
+              "type"
+            ],
+            "properties": {
+              "player": {
+                "$ref": "#/components/schemas/usize"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "choose_key"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "ready"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "player",
+              "index",
+              "type"
+            ],
+            "properties": {
+              "index": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "player": {
+                "$ref": "#/components/schemas/usize"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "reveal"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "TempelCard": {
+        "type": "string",
+        "enum": [
+          "gold",
+          "trap",
+          "empty"
+        ]
+      },
+      "TempelCounts": {
+        "type": "object",
+        "required": [
+          "gold",
+          "traps",
+          "empty"
+        ],
+        "properties": {
+          "empty": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "gold": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "traps": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "TempelDistribution": {
+        "type": "object",
+        "required": [
+          "adventurers",
+          "guardians",
+          "cards"
+        ],
+        "properties": {
+          "adventurers": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "cards": {
+            "$ref": "#/components/schemas/TempelCounts"
+          },
+          "guardians": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "TempelPhase": {
+        "type": "string",
+        "enum": [
+          "choose_key",
+          "inspect",
+          "reveal"
+        ]
+      },
+      "TempelRole": {
+        "type": "string",
+        "enum": [
+          "adventurer",
+          "guardian"
+        ]
+      },
+      "TempelView": {
+        "type": "object",
+        "required": [
+          "role",
+          "hand_counts",
+          "cards",
+          "ready",
+          "phase",
+          "round",
+          "round_reveals",
+          "revealed",
+          "distribution"
+        ],
+        "properties": {
+          "cards": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/TempelCard"
+                  }
+                ]
+              }
+            },
+            "description": "Only face-up cards have values, including in the viewer's own row."
+          },
+          "distribution": {
+            "$ref": "#/components/schemas/TempelDistribution"
+          },
+          "hand_counts": {
+            "$ref": "#/components/schemas/TempelCounts",
+            "description": "Counts of this viewer's unrevealed cards, without their positions."
+          },
+          "key": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/usize"
+              }
+            ]
+          },
+          "phase": {
+            "$ref": "#/components/schemas/TempelPhase"
+          },
+          "ready": {
+            "type": "array",
+            "items": {
+              "type": "boolean"
+            }
+          },
+          "revealed": {
+            "$ref": "#/components/schemas/TempelCounts"
+          },
+          "role": {
+            "$ref": "#/components/schemas/TempelRole"
+          },
+          "round": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "round_reveals": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
       "TicTacToeAction": {
         "type": "object",
         "required": [
@@ -1946,6 +2199,24 @@
       },
       "View": {
         "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "state",
+              "game"
+            ],
+            "properties": {
+              "game": {
+                "type": "string",
+                "enum": [
+                  "tempel_des_schreckens"
+                ]
+              },
+              "state": {
+                "$ref": "#/components/schemas/TempelView"
+              }
+            }
+          },
           {
             "type": "object",
             "required": [

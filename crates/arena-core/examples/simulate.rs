@@ -4,7 +4,7 @@ use arena_core::{
     Game,
     games::{
         crazy_eights::CrazyEights, mancala::Mancala, shithead::Shithead, skyjo::Skyjo,
-        the_crew::TheCrew, tic_tac_toe::TicTacToe,
+        tempel_des_schreckens::TempelDesSchreckens, the_crew::TheCrew, tic_tac_toe::TicTacToe,
     },
 };
 use rand::{Rng, SeedableRng};
@@ -46,6 +46,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "skyjo" => simulate::<Skyjo>(count, 2),
         "tic_tac_toe" => simulate::<TicTacToe>(count, 2),
         "the_crew" => simulate::<TheCrew>(count, 3),
-        _ => Err("Use mancala, crazy_eights, shithead, skyjo, tic_tac_toe, or the_crew".into()),
+        "tempel_des_schreckens" => simulate::<TempelDesSchreckens>(count, 3),
+        _ => Err("Use mancala, crazy_eights, shithead, skyjo, tic_tac_toe, the_crew, or tempel_des_schreckens".into()),
     }
 }

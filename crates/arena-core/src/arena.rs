@@ -2,7 +2,7 @@
 
 use crate::{
     game::{Error, Event, Game, Outcome, Player, Record, Seed, Session, Turn},
-    games::{crazy_eights, mancala, shithead, skyjo, the_crew, tic_tac_toe},
+    games::{crazy_eights, mancala, shithead, skyjo, tempel_des_schreckens, the_crew, tic_tac_toe},
 };
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -11,6 +11,7 @@ use utoipa::ToSchema;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum GameKind {
+    TempelDesSchreckens,
     TheCrew,
     Mancala,
     CrazyEights,
@@ -30,6 +31,7 @@ impl GameKind {
     /// Returns the ruleset's default setup options.
     pub fn default_config(self) -> Config {
         match self {
+            Self::TempelDesSchreckens => Config::TempelDesSchreckens(Default::default()),
             Self::TheCrew => Config::TheCrew(Default::default()),
             Self::Mancala => Config::Mancala(Default::default()),
             Self::CrazyEights => Config::CrazyEights(Default::default()),
@@ -41,6 +43,7 @@ impl GameKind {
     /// Returns the largest supported room size for this ruleset.
     pub fn max_players(self) -> usize {
         match self {
+            Self::TempelDesSchreckens => 10,
             Self::TheCrew => 5,
             Self::Mancala => 2,
             Self::CrazyEights => 6,
@@ -60,6 +63,7 @@ impl GameKind {
     deny_unknown_fields
 )]
 pub enum Config {
+    TempelDesSchreckens(crate::game::GameConfig),
     TheCrew(crate::game::GameConfig),
     Mancala(crate::game::GameConfig),
     CrazyEights(crazy_eights::GameConfig),
@@ -72,6 +76,7 @@ impl Config {
     /// Returns the ruleset these options belong to.
     pub fn kind(&self) -> GameKind {
         match self {
+            Self::TempelDesSchreckens(_) => GameKind::TempelDesSchreckens,
             Self::TheCrew(_) => GameKind::TheCrew,
             Self::Mancala(_) => GameKind::Mancala,
             Self::CrazyEights(_) => GameKind::CrazyEights,
@@ -86,6 +91,7 @@ impl Config {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "game", content = "action", rename_all = "snake_case")]
 pub enum Action {
+    TempelDesSchreckens(tempel_des_schreckens::Action),
     TheCrew(the_crew::Action),
     Mancala(mancala::Action),
     CrazyEights(crazy_eights::Action),
@@ -98,6 +104,7 @@ pub enum Action {
 #[derive(Debug, Clone, Serialize, ToSchema)]
 #[serde(tag = "game", content = "state", rename_all = "snake_case")]
 pub enum View {
+    TempelDesSchreckens(tempel_des_schreckens::View),
     TheCrew(the_crew::View),
     Mancala(mancala::View),
     CrazyEights(crazy_eights::View),
@@ -109,6 +116,7 @@ pub enum View {
 /// A private session selected at runtime; never send it as a live response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Match {
+    TempelDesSchreckens(Session<tempel_des_schreckens::TempelDesSchreckens>),
     TheCrew(Session<the_crew::TheCrew>),
     Mancala(Session<mancala::Mancala>),
     CrazyEights(Session<crazy_eights::CrazyEights>),
@@ -121,6 +129,7 @@ pub enum Match {
 macro_rules! dispatch {
     ($this:expr, $session:ident => $body:expr) => {
         match $this {
+            Match::TempelDesSchreckens($session) => $body,
             Match::TheCrew($session) => $body,
             Match::Mancala($session) => $body,
             Match::CrazyEights($session) => $body,
@@ -144,6 +153,9 @@ impl Match {
     /// Creates a match with explicit game-owned setup options.
     pub fn with_config(config: Config, players: usize, seed: Seed) -> Result<Self, Error> {
         Ok(match config {
+            Config::TempelDesSchreckens(c) => {
+                Self::TempelDesSchreckens(Session::with_config(players, seed, c)?)
+            }
             Config::TheCrew(c) => Self::TheCrew(Session::with_config(players, seed, c)?),
             Config::Mancala(c) => Self::Mancala(Session::with_config(players, seed, c)?),
             Config::CrazyEights(c) => Self::CrazyEights(Session::with_config(players, seed, c)?),
@@ -155,6 +167,7 @@ impl Match {
     /// Returns public setup options without exposing private state.
     pub fn config(&self) -> Config {
         match self {
+            Self::TempelDesSchreckens(s) => Config::TempelDesSchreckens(s.config().clone()),
             Self::TheCrew(s) => Config::TheCrew(s.config().clone()),
             Self::Mancala(s) => Config::Mancala(s.config().clone()),
             Self::CrazyEights(s) => Config::CrazyEights(s.config().clone()),
@@ -174,6 +187,7 @@ impl Match {
     /// Builds a personalized observation rather than exposing private state.
     pub fn view(&self, player: Player) -> View {
         match self {
+            Self::TempelDesSchreckens(s) => View::TempelDesSchreckens(s.state().view(player)),
             Self::TheCrew(s) => View::TheCrew(s.state().view(player)),
             Self::Mancala(s) => View::Mancala(s.state().view(player)),
             Self::CrazyEights(s) => View::CrazyEights(s.state().view(player)),
@@ -188,6 +202,12 @@ impl Match {
             return vec![];
         }
         match self {
+            Self::TempelDesSchreckens(s) => s
+                .state()
+                .legal_actions(player)
+                .into_iter()
+                .map(Action::TempelDesSchreckens)
+                .collect(),
             Self::TheCrew(s) => s
                 .state()
                 .legal_actions(player)
@@ -229,6 +249,9 @@ impl Match {
     /// Validates and records a command, rejecting mismatched game tags.
     pub fn act(&mut self, player: Player, action: Action) -> Result<(), Error> {
         match (self, action) {
+            (Self::TempelDesSchreckens(s), Action::TempelDesSchreckens(a)) => {
+                s.act(player, a)?;
+            }
             (Self::TheCrew(s), Action::TheCrew(a)) => {
                 s.act(player, a)?;
             }
@@ -254,6 +277,11 @@ impl Match {
     /// Exports the seed and full history, including secrets; share only after completion.
     pub fn replay(&self) -> Replay {
         let records = match self {
+            Self::TempelDesSchreckens(s) => s
+                .records
+                .iter()
+                .map(|r| r.map_action(Action::TempelDesSchreckens))
+                .collect(),
             Self::TheCrew(s) => s
                 .records
                 .iter()
@@ -286,6 +314,7 @@ impl Match {
                 .collect(),
         };
         let game = match self {
+            Self::TempelDesSchreckens(_) => GameKind::TempelDesSchreckens,
             Self::TheCrew(_) => GameKind::TheCrew,
             Self::Mancala(_) => GameKind::Mancala,
             Self::CrazyEights(_) => GameKind::CrazyEights,

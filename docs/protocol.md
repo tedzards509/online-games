@@ -18,6 +18,12 @@ The Crew supports 3–5 players with empty `rules: {}` and no missions. Its snap
 
 Finish commits and archives the replay transactionally, even during a partial trick. Internally the replay contains a game-tagged finish action; sending that internal action via `move` is rejected. It is excluded from snapshot `legal_actions` and turn eligibility. The board's `next_player` identifies the next card-playing seat; other eligible seats may communicate between tricks. Once no complete trick remains, the room waits for a host result. Room membership is fixed during play, and the game kind is fixed for the room's lifetime.
 
+### Tempel des Schreckens
+
+`tempel_des_schreckens` supports 3–10 players with empty `rules: {}`. The host submits `choose_key` with a seat index once per game. Each round's inspection uses simultaneous `ready` actions; after everyone is ready, only the key holder may submit `reveal` with another player's seat and a hidden card index. The key passes to that player, including at round boundaries. Legal actions and queued validation use the same room protocol as other games.
+
+The projected `TempelView` includes only the viewer's role and unrevealed card counts. `cards` contains public face-up values and nulls for hidden positions, including the viewer's row. `distribution` contains the public setup pools, not the assigned roles or omitted role. Public `revealed` counts persist across redeals; `round_reveals` resets per round. Wins are automatic and list seats on the winning team. Live views preserve hidden roles and positions after completion; archived replays disclose the full game.
+
 No tokens in URLs, no cookies, and no account identity. Joining is closed once a game has started; existing seats can reconnect at any time. The host is seat 0.
 
 The host selects immutable options before room creation. Supply `config` as `{"game":"crazy_eights","rules":{"ace_are_you_strong":true,"jack_skip":true,"ten_reverse":true,"two_draw_two":true}}` alongside the matching `game` and nickname. Eights are always wild and have no configuration toggle. Shithead uses `{"game":"shithead","rules":{"four_card_bombs":false}}`; other games use empty `rules: {}`. Omitted configuration selects current defaults. Mismatched game tags, unknown rule fields, and nonboolean rule values are rejected. Every HTTP/WebSocket snapshot includes public `config`, even before starting and after reconnecting. Rematches retain it; there is no configuration update command.

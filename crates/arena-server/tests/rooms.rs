@@ -406,6 +406,150 @@ async fn crew_room_finish_is_host_only_atomic_replayable_and_survives_restart() 
 }
 
 #[tokio::test]
+async fn tempel_hidden_state_queued_readiness_restarts_and_archived_replays() {
+    for count in [3, 10] {
+        let directory = tempfile::tempdir().unwrap();
+        let database = format!("sqlite://{}", directory.path().join("tempel.db").display());
+        let server = Server::open(&database).await;
+        let alice = server.member("tempel_des_schreckens").await;
+        let path = format!("/api/rooms/{}", alice.code);
+        let mut members = vec![alice];
+        for player in 1..count {
+            let (status, value) = server
+                .request(
+                    "POST",
+                    &format!("{path}/join"),
+                    json!({"nickname":format!("Player {player}")}),
+                    None,
+                )
+                .await;
+            assert_eq!(status, StatusCode::OK);
+            members.push(serde_json::from_value::<Membership>(value).unwrap());
+        }
+        if count == 10 {
+            assert_eq!(
+                server
+                    .request(
+                        "POST",
+                        &format!("{path}/join"),
+                        json!({"nickname":"Too many"}),
+                        None
+                    )
+                    .await
+                    .0,
+                StatusCode::BAD_REQUEST
+            );
+        }
+        let mut sockets = vec![];
+        for member in &members {
+            let mut socket = server.socket(member).await;
+            snapshot(&mut socket, count as u64).await;
+            sockets.push(socket);
+        }
+        send(&mut sockets[0], json!({"type":"start","revision":count})).await;
+        let mut revision = count as u64 + 1;
+        let mut views = vec![];
+        for socket in &mut sockets {
+            views.push(snapshot(socket, revision).await);
+        }
+        send(&mut sockets[1],json!({"type":"move","revision":revision,"action":{"game":"tempel_des_schreckens","action":{"type":"choose_key","player":count-1}}})).await;
+        assert_eq!(receive(&mut sockets[1]).await["type"], "error");
+        assert_eq!(snapshot(&mut sockets[1], revision).await, views[1]);
+        send(&mut sockets[0],json!({"type":"move","revision":revision,"action":{"game":"tempel_des_schreckens","action":{"type":"choose_key","player":count-1}}})).await;
+        revision += 1;
+        for (p, socket) in sockets.iter_mut().enumerate() {
+            views[p] = snapshot(socket, revision).await;
+        }
+        send(
+            &mut sockets[0],
+            json!({"type":"move","revision":revision,"action":views[0]["legal_actions"][0]}),
+        )
+        .await;
+        revision += 1;
+        for (p, socket) in sockets.iter_mut().enumerate() {
+            views[p] = snapshot(socket, revision).await;
+        }
+        let saved = views.clone();
+        drop(sockets);
+        drop(server);
+        let server = Server::open(&database).await;
+        let mut sockets = vec![];
+        for (p, member) in members.iter().enumerate() {
+            let mut socket = server.socket(member).await;
+            assert_eq!(snapshot(&mut socket, revision).await, saved[p]);
+            sockets.push(socket);
+        }
+        let mut rng = rand::rngs::StdRng::seed_from_u64(count as u64);
+        for _ in 0..80 {
+            if !views[0]["outcome"].is_null() {
+                break;
+            }
+            for view in &views {
+                let state = &view["view"]["state"];
+                for private in ["roles", "hands", "rng", "seed", "unused_role"] {
+                    assert!(state.get(private).is_none());
+                }
+                assert!(!view["can_finish"].as_bool().unwrap());
+                assert_eq!(state["cards"], views[0]["view"]["state"]["cards"]);
+            }
+            let inspect = views[0]["view"]["state"]["phase"] == "inspect";
+            let eligible = views[0]["turn"]["players"].as_array().unwrap().clone();
+            let mut target = None;
+            for seat in &eligible {
+                let p = seat.as_u64().unwrap() as usize;
+                let actions = views[p]["legal_actions"].as_array().unwrap();
+                let action = actions[rng.gen_range(0..actions.len())].clone();
+                if !inspect {
+                    target = Some(action["action"]["player"].clone());
+                }
+                send(
+                    &mut sockets[p],
+                    json!({"type":"move","revision":revision,"action":action}),
+                )
+                .await;
+            }
+            revision += eligible.len() as u64;
+            for (p, socket) in sockets.iter_mut().enumerate() {
+                views[p] = snapshot(socket, revision).await;
+            }
+            if let Some(target) = target {
+                assert_eq!(views[0]["view"]["state"]["key"], target);
+            }
+        }
+        assert!(!views[0]["outcome"].is_null());
+        let id = views[0]["replays"][0].as_str().unwrap();
+        let (status, value) = server
+            .request(
+                "GET",
+                &format!("{path}/replays/{id}"),
+                Value::Null,
+                Some(&members[0].token),
+            )
+            .await;
+        assert_eq!(status, StatusCode::OK);
+        let replay: arena_core::Replay = serde_json::from_value(value).unwrap();
+        assert_eq!(replay.version, 1);
+        let recreated = replay.simulate().unwrap();
+        assert_eq!(
+            serde_json::to_value(recreated.outcome()).unwrap(),
+            views[0]["outcome"]
+        );
+        for (p, view) in views.iter().enumerate() {
+            assert_eq!(
+                serde_json::to_value(recreated.view(p)).unwrap(),
+                view["view"]
+            );
+            assert!(view["legal_actions"].as_array().unwrap().is_empty());
+        }
+        send(&mut sockets[0], json!({"type":"start","revision":revision})).await;
+        let rematch = snapshot(&mut sockets[0], revision + 1).await;
+        assert_eq!(rematch["view"]["state"]["phase"], "choose_key");
+        assert!(rematch["view"]["state"]["key"].is_null());
+        assert_eq!(rematch["replays"].as_array().unwrap().len(), 1);
+    }
+}
+
+#[tokio::test]
 async fn games_over_real_websockets_export_and_archive_replays() {
     let server = Server::open("sqlite::memory:").await;
     let mut rng = rand::rngs::StdRng::seed_from_u64(7);
@@ -746,6 +890,10 @@ fn openapi_has_distinct_game_schemas() {
         "CrewView",
         "CrewAction",
         "CrewCard",
+        "TempelView",
+        "TempelAction",
+        "TempelCard",
+        "TempelRole",
         "Config",
         "GameConfig",
         "CrazyEightsGameConfig",
