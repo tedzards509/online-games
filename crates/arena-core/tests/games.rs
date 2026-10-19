@@ -38,7 +38,7 @@ fn crazy_eights_configurations_finish_persist_and_replay() {
             assert_eq!(restored.config(), config);
             let replay: Replay =
                 serde_json::from_value(serde_json::to_value(game.replay()).unwrap()).unwrap();
-            assert_eq!(replay.version, 3);
+            assert_eq!(replay.version, 4);
             assert_eq!(replay.simulate().unwrap().replay(), replay);
             let mut altered = replay.clone();
             altered.version = 1;
@@ -56,8 +56,8 @@ fn legacy_crazy_eights_rules_are_rejected_rather_than_reinterpreted() {
     let replay = game.replay();
     let json = serde_json::to_value(&replay).unwrap();
     assert!(json.get("config").is_some());
-    assert_eq!(replay.version, 3);
-    for version in [1, 2] {
+    assert_eq!(replay.version, 4);
+    for version in [1, 2, 3] {
         let mut legacy = replay.clone();
         legacy.version = version;
         if version == 1 {

@@ -186,16 +186,16 @@ mod tests {
     }
 
     #[test]
-    fn exhausted_penalties_count_as_one_blocked_turn() {
+    fn exhausted_penalties_clear_without_ending_the_game() {
         let mut game = configured(2);
         game.pending_draw = Some(PendingDraw::Two);
         game.deck = Deck::new(vec![]);
         game.hands = vec![vec![card(5, Suit::Clubs)], vec![card(6, Suit::Clubs)]];
         game.advance(0, &Action::Draw);
-        assert_eq!(game.consecutive_passes, 1);
+        assert_eq!(game.pending_draw, None);
         assert!(game.outcome.is_none());
         game.advance(1, &Action::Draw);
-        assert!(game.outcome.unwrap().winners.is_empty());
+        assert!(game.outcome.is_none());
     }
 
     #[test]
@@ -319,17 +319,18 @@ mod tests {
     }
 
     #[test]
-    fn exhausted_stock_passes_until_everyone_is_blocked() {
+    fn repeated_empty_draws_never_end_the_game() {
         let mut game = CrazyEights::new(2, [0; 32]).unwrap();
         game.deck = Deck::new(vec![]);
         game.discard = vec![card(3, Suit::Hearts)];
         game.active_suit = Suit::Hearts;
         game.hands = vec![vec![card(4, Suit::Clubs)], vec![card(5, Suit::Spades)]];
         assert_eq!(game.legal_actions(game.turn.players[0]), vec![Action::Draw]);
-        game.advance(game.turn.players[0], &Action::Draw);
-        assert!(game.outcome.is_none());
-        game.advance(game.turn.players[0], &Action::Draw);
-        assert!(game.outcome.unwrap().winners.is_empty());
+        for _ in 0..10 {
+            game.advance(game.turn.players[0], &Action::Draw);
+            assert!(game.outcome.is_none());
+            assert_eq!(game.legal_actions(game.turn.players[0]), vec![Action::Draw]);
+        }
     }
 
     #[test]
@@ -341,23 +342,20 @@ mod tests {
         game.discard = vec![recycled, top];
         game.active_suit = Suit::Hearts;
         game.hands[0] = vec![card(5, Suit::Clubs)];
-        game.consecutive_passes = 1;
 
         assert_eq!(game.legal_actions(0), vec![Action::Draw]);
         game.advance(0, &Action::Draw);
 
         assert_eq!(game.discard, vec![top]);
         assert_eq!(game.hands[0], vec![card(5, Suit::Clubs), recycled]);
-        assert_eq!(game.consecutive_passes, 0);
         assert_eq!(game.turn.players, vec![1]);
         assert!(game.outcome.is_none());
     }
 
     #[test]
-    fn playing_the_last_card_wins_and_resets_passes() {
+    fn playing_the_last_card_wins() {
         let mut game = CrazyEights::new(2, [0; 32]).unwrap();
         game.hands[0] = vec![card(WILD_RANK, Suit::Clubs)];
-        game.consecutive_passes = 1;
         game.advance(
             0,
             &Action::Play {
@@ -366,7 +364,6 @@ mod tests {
             },
         );
         assert_eq!(game.active_suit, Suit::Spades);
-        assert_eq!(game.consecutive_passes, 0);
         assert_eq!(game.outcome.as_ref().unwrap().winners, vec![0]);
         assert!(game.legal_actions(1).is_empty());
     }
@@ -374,7 +371,7 @@ mod tests {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CrazyEights {
-    // Required on deserialization: pre-v3 sessions must not adopt new rules silently.
+    #[serde(deserialize_with = "crate::game::deserialize_rules_version::<_, 4>")]
     rules_version: u32,
     #[serde(default)]
     config: GameConfig,
@@ -389,8 +386,6 @@ pub struct CrazyEights {
     active_suit: Suit,
     rng: ChaCha12Rng,
     turn: Turn,
-    #[serde(rename = "blocked")]
-    consecutive_passes: usize,
     outcome: Option<Outcome>,
 }
 
@@ -418,7 +413,6 @@ impl CrazyEights {
         let card = self.hands[player].remove(index);
         self.active_suit = chosen_suit.unwrap_or(card.suit);
         self.discard.push(card);
-        self.consecutive_passes = 0;
         self.pending_draw = match card.rank {
             14 if self.config.ace_are_you_strong && self.pending_draw != Some(PendingDraw::Ace) => {
                 Some(PendingDraw::Ace)
@@ -440,24 +434,11 @@ impl CrazyEights {
         } else {
             1
         };
-        let mut drawn = 0;
         for _ in 0..count {
             self.deck.recycle(&mut self.discard, &mut self.rng);
             if let Some(card) = self.deck.draw() {
                 self.hands[player].push(card);
-                drawn += 1;
             }
-        }
-        if drawn > 0 {
-            self.consecutive_passes = 0;
-        } else {
-            self.consecutive_passes += 1;
-        }
-        if self.consecutive_passes == self.hands.len() {
-            self.outcome = Some(Outcome {
-                winners: vec![],
-                scores: None,
-            });
         }
     }
 }
@@ -484,7 +465,7 @@ impl Game for CrazyEights {
             .collect();
         let top = deck.draw().expect("the deal leaves an opening discard");
         Ok(Self {
-            rules_version: 3,
+            rules_version: 4,
             config,
             reversed: false,
             pending_draw: None,
@@ -494,7 +475,6 @@ impl Game for CrazyEights {
             active_suit: top.suit,
             rng,
             turn: Turn::first(),
-            consecutive_passes: 0,
             outcome: None,
         })
     }

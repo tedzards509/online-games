@@ -8,6 +8,22 @@ pub type Player = usize;
 /// The 32 bytes that determine a game's random setup and subsequent draws.
 pub type Seed = [u8; 32];
 
+/// Rejects persisted state from a different rules revision rather than reinterpreting it.
+pub(crate) fn deserialize_rules_version<'de, D, const VERSION: u32>(
+    deserializer: D,
+) -> Result<u32, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let version = u32::deserialize(deserializer)?;
+    if version != VERSION {
+        return Err(serde::de::Error::custom(format!(
+            "unsupported rules version {version}; expected {VERSION}"
+        )));
+    }
+    Ok(version)
+}
+
 /// Empty serializable configuration for games without optional rules.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]

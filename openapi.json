@@ -1094,7 +1094,7 @@
               },
               {
                 "$ref": "#/components/schemas/Config",
-                "description": "Explicit rules for versions 2–3; absent from legacy version-1 files."
+                "description": "Explicit setup options; absent from version-1 files."
               }
             ]
           },
@@ -1128,7 +1128,7 @@
           "version": {
             "type": "integer",
             "format": "int32",
-            "description": "Versions 1–2 use original rules; version 3 refines Crazy Eights.",
+            "description": "Rules revision; must match the selected game's supported version.",
             "minimum": 0
           }
         }

@@ -351,7 +351,7 @@ async fn games_over_real_websockets_export_and_archive_replays() {
         assert_eq!(status, StatusCode::OK);
         let replay: arena_core::Replay = serde_json::from_value(value).unwrap();
         if kind == "crazy_eights" {
-            assert_eq!(replay.version, 3);
+            assert_eq!(replay.version, 4);
             assert_eq!(
                 serde_json::to_value(&replay.config).unwrap(),
                 crazy_eights_config()

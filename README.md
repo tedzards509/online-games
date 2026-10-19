@@ -47,7 +47,7 @@ Each game module documents its supported variant, not every house rule:
 - [Skyjo](crates/arena-core/src/games/skyjo/rules.md)
 - [Tic-Tac-Toe](crates/arena-core/src/games/tic_tac_toe/rules.md)
 
-Crazy Eights now uses revised rules and replay version 3. Back up databases from revision `b0fb0e2` or earlier and retain that revision for old Crazy Eights rooms/replays; they are not automatically migrated. Run the revised rules with a separate database (`DATABASE_URL`). See [compatibility](docs/design.md).
+Crazy Eights now uses replay version 4 (passes never end the game). Retain revision `57305f1` for version-3 rooms/replays, or `b0fb0e2` for earlier Crazy Eights rules. Back up existing databases; old games are not automatically migrated. Run revised rules with a separate database (`DATABASE_URL`). See [compatibility](docs/design.md).
 
 ## Develop
 

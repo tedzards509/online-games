@@ -344,7 +344,7 @@ export interface components {
       seed: number[];
       /**
        * Format: int32
-       * @description Versions 1–2 use original rules; version 3 refines Crazy Eights.
+       * @description Rules revision; must match the selected game's supported version.
        */
       version: number;
     };

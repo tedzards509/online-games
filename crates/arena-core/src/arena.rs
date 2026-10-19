@@ -19,6 +19,13 @@ pub enum GameKind {
 }
 
 impl GameKind {
+    /// Returns the currently supported replay rules revision for this game.
+    pub fn replay_version(self) -> u32 {
+        match self {
+            Self::CrazyEights => 4,
+            _ => 1,
+        }
+    }
     /// Returns the ruleset's default setup options.
     pub fn default_config(self) -> Config {
         match self {
@@ -255,16 +262,10 @@ impl Match {
             Self::TicTacToe(_) => GameKind::TicTacToe,
         };
         let config = self.config();
-        let configured = config != game.default_config();
+        let version = game.replay_version();
         Replay {
-            version: if game == GameKind::CrazyEights {
-                3
-            } else if configured {
-                2
-            } else {
-                1
-            },
-            config: (configured || game == GameKind::CrazyEights).then_some(config),
+            version,
+            config: (version > 1).then_some(config),
             game,
             players: dispatch!(self, s => s.players),
             seed: dispatch!(self, s => s.seed),
@@ -287,11 +288,11 @@ impl<A: Clone, E: Clone> Record<A, E> {
 /// Includes hidden information; only share after the game has ended.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct Replay {
-    /// Versions 1–2 use original rules; version 3 refines Crazy Eights.
+    /// Rules revision; must match the selected game's supported version.
     pub version: u32,
     /// The ruleset needed to interpret the history.
     pub game: GameKind,
-    /// Explicit rules for versions 2–3; absent from legacy version-1 files.
+    /// Explicit setup options; absent from version-1 files.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub config: Option<Config>,
     /// The number of seats present at setup.
@@ -306,13 +307,12 @@ pub struct Replay {
 impl Replay {
     /// Rebuilds the match, rejecting unsupported versions, invalid actions, or altered effects.
     pub fn simulate(&self) -> Result<Match, Error> {
-        if (self.game == GameKind::CrazyEights) != (self.version == 3) {
+        if self.version != self.game.replay_version() {
             return Err(Error::Replay);
         }
         let config = match (self.version, &self.config) {
             (1, None) => self.game.default_config(),
-            (2, Some(config)) if config.kind() == self.game => config.clone(),
-            (3, Some(config)) if config.kind() == self.game => config.clone(),
+            (4, Some(config)) if config.kind() == self.game => config.clone(),
             _ => return Err(Error::Replay),
         };
         let mut game = Match::with_config(config, self.players, self.seed)?;

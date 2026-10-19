@@ -5,7 +5,7 @@
 - One shuffled 52-card deck; seven cards per player with two players, five with three to six players.
 - One face-up discard; the remaining cards form the stock. The opening discard has no special effect; its printed suit is the active suit.
 - Seats follow join order; seat 0 starts, initially towards increasing seat indices. No draw obligation is pending. Rematches keep the same seats and configuration.
-- State consists of hands, stock, discard pile, active suit, direction, active seat, pending draw obligation, consecutive empty draws, and result. Each player sees only their own hand, other hand sizes, stock size, and public state.
+- State consists of hands, stock, discard pile, active suit, direction, active seat, pending draw obligation, and result. Each player sees only their own hand, other hand sizes, stock size, and public state.
 
 ## Actions and eligibility
 
@@ -16,7 +16,7 @@ Only the active player may act, and only while the game is unfinished. Each acti
 - **Pending ace:** either play any ace, regardless of suit, or draw two. A responding ace clears the obligation; it does not start another one. No other card, including an eight, may be played.
 - **Pending two:** draw two; no card may be played and penalties do not stack.
 
-Recycle all discards beneath the top when stock runs out. Draw as many cards as available if the requested count cannot be met; clear any draw obligation even then. A draw taking no cards is a pass. Playing or drawing at least one card resets the consecutive-pass count.
+Recycle all discards beneath the top when stock runs out. Draw as many cards as available if the requested count cannot be met; clear any draw obligation even then. A draw taking no cards is a pass and ends only that turn.
 
 ## Card effects and configuration
 
@@ -34,4 +34,4 @@ Otherwise, play proceeds to the next seat in the current direction.
 
 ## Goal and termination
 
-The first player to empty their hand wins immediately, including when playing a special card; no opponent must resolve a final penalty. A full cycle of consecutive passes ends the game in a draw with no winner. No actions are legal after either result.
+The first player to empty their hand wins immediately, including when playing a special card; no opponent must resolve a final penalty. Passing never ends the game in a draw, even if all players repeatedly pass. No actions are legal after a win.
