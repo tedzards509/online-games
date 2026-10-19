@@ -1,5 +1,23 @@
 # Tic-Tac-Toe (2 players)
 
-Seats follow join order; rematches keep the same seats.
+## Initial state
 
-Seat 0 is X and starts; seat 1 is O. Alternate placing one mark in an empty cell of a 3×3 board. Three of your marks in a row, column, or diagonal wins immediately. A full board without a winning line is a draw. No moves are accepted after either result. Indices are row-major, 0–8; all board information is public. The seed has no effect.
+- Two players; an empty 3×3 board. Seat 0 is X and starts; seat 1 is O.
+- Seats follow join order; rematches keep the same seats and starting player. The seed has no effect.
+- State consists of the board, active seat, and result. All information is public. Cell indices are row-major, 0–8.
+
+## Actions and eligibility
+
+Only the active player may act while the game is unfinished.
+
+- **Place(index):** put your mark in one empty cell. Occupied cells and indices outside 0–8 are illegal.
+- After placement, check for a win, then a full-board draw. Otherwise, the opponent takes the next turn.
+- There is no pass, moving an existing mark, or removing a mark.
+
+## Configuration
+
+No configurable rules (`GameConfig` is empty): fixed 3×3 board, three in a line, X starts.
+
+## Goal and termination
+
+Form a complete row, column, or diagonal of three of your own marks. The first completed line wins immediately, including on the last empty cell. A full board without a winning line is a draw, represented by no winners. There are no scores. No actions are legal after either result.
