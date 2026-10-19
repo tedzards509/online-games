@@ -615,19 +615,15 @@
       },
       "CrazyEightsGameConfig": {
         "type": "object",
-        "description": "Optional rank effects; defaults preserve the original Crazy Eights rules.",
+        "description": "Optional rank effects; eights are always wild. All options default to false.",
         "required": [
           "ace_are_you_strong",
           "jack_skip",
           "ten_reverse",
-          "eight_wild",
           "two_draw_two"
         ],
         "properties": {
           "ace_are_you_strong": {
-            "type": "boolean"
-          },
-          "eight_wild": {
             "type": "boolean"
           },
           "jack_skip": {
@@ -1098,7 +1094,7 @@
               },
               {
                 "$ref": "#/components/schemas/Config",
-                "description": "Explicit rules for version 2; absent from legacy version-1 files."
+                "description": "Explicit rules for versions 2–3; absent from legacy version-1 files."
               }
             ]
           },
@@ -1132,7 +1128,7 @@
           "version": {
             "type": "integer",
             "format": "int32",
-            "description": "Version 1 uses original defaults; version 2 includes explicit configuration.",
+            "description": "Versions 1–2 use original rules; version 3 refines Crazy Eights.",
             "minimum": 0
           }
         }

@@ -207,10 +207,9 @@ export interface components {
           /** @enum {string} */
           type: 'draw';
         };
-    /** @description Optional rank effects; defaults preserve the original Crazy Eights rules. */
+    /** @description Optional rank effects; eights are always wild. All options default to false. */
     CrazyEightsGameConfig: {
       ace_are_you_strong: boolean;
-      eight_wild: boolean;
       jack_skip: boolean;
       ten_reverse: boolean;
       two_draw_two: boolean;
@@ -345,7 +344,7 @@ export interface components {
       seed: number[];
       /**
        * Format: int32
-       * @description Version 1 uses original defaults; version 2 includes explicit configuration.
+       * @description Versions 1–2 use original rules; version 3 refines Crazy Eights.
        */
       version: number;
     };

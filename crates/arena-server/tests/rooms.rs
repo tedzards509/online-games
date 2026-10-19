@@ -20,7 +20,7 @@ type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 fn crazy_eights_config() -> Value {
     json!({"game":"crazy_eights", "rules": {
         "ace_are_you_strong": true, "jack_skip": true, "ten_reverse": true,
-        "eight_wild": false, "two_draw_two": true
+        "two_draw_two": true
     }})
 }
 
@@ -351,7 +351,7 @@ async fn games_over_real_websockets_export_and_archive_replays() {
         assert_eq!(status, StatusCode::OK);
         let replay: arena_core::Replay = serde_json::from_value(value).unwrap();
         if kind == "crazy_eights" {
-            assert_eq!(replay.version, 2);
+            assert_eq!(replay.version, 3);
             assert_eq!(
                 serde_json::to_value(&replay.config).unwrap(),
                 crazy_eights_config()
@@ -377,17 +377,20 @@ async fn invalid_configuration_is_rejected_before_room_creation() {
     let mut unknown = crazy_eights_config();
     unknown["rules"]["unknown_rule"] = json!(true);
     let mut wrong_type = crazy_eights_config();
-    wrong_type["rules"]["eight_wild"] = json!("true");
+    wrong_type["rules"]["two_draw_two"] = json!("true");
     let mut missing = crazy_eights_config();
     missing["rules"]
         .as_object_mut()
         .unwrap()
-        .remove("eight_wild");
+        .remove("two_draw_two");
+    let mut removed_toggle = crazy_eights_config();
+    removed_toggle["rules"]["eight_wild"] = json!(false);
     for config in [
         json!({"game":"mancala", "rules":{}}),
         unknown,
         wrong_type,
         missing,
+        removed_toggle,
     ] {
         let (status, _) = server
             .request(
@@ -404,7 +407,7 @@ async fn invalid_configuration_is_rejected_before_room_creation() {
     let alice = server.member("crazy_eights").await;
     let mut socket = server.socket(&alice).await;
     let room = snapshot(&mut socket, 1).await;
-    assert_eq!(room["config"]["rules"]["eight_wild"], true);
+    assert!(room["config"]["rules"].get("eight_wild").is_none());
     assert_eq!(room["config"]["rules"]["ace_are_you_strong"], false);
 }
 

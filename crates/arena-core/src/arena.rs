@@ -257,8 +257,14 @@ impl Match {
         let config = self.config();
         let configured = config != game.default_config();
         Replay {
-            version: if configured { 2 } else { 1 },
-            config: configured.then_some(config),
+            version: if game == GameKind::CrazyEights {
+                3
+            } else if configured {
+                2
+            } else {
+                1
+            },
+            config: (configured || game == GameKind::CrazyEights).then_some(config),
             game,
             players: dispatch!(self, s => s.players),
             seed: dispatch!(self, s => s.seed),
@@ -281,11 +287,11 @@ impl<A: Clone, E: Clone> Record<A, E> {
 /// Includes hidden information; only share after the game has ended.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct Replay {
-    /// Version 1 uses original defaults; version 2 includes explicit configuration.
+    /// Versions 1–2 use original rules; version 3 refines Crazy Eights.
     pub version: u32,
     /// The ruleset needed to interpret the history.
     pub game: GameKind,
-    /// Explicit rules for version 2; absent from legacy version-1 files.
+    /// Explicit rules for versions 2–3; absent from legacy version-1 files.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub config: Option<Config>,
     /// The number of seats present at setup.
@@ -300,9 +306,13 @@ pub struct Replay {
 impl Replay {
     /// Rebuilds the match, rejecting unsupported versions, invalid actions, or altered effects.
     pub fn simulate(&self) -> Result<Match, Error> {
+        if (self.game == GameKind::CrazyEights) != (self.version == 3) {
+            return Err(Error::Replay);
+        }
         let config = match (self.version, &self.config) {
             (1, None) => self.game.default_config(),
             (2, Some(config)) if config.kind() == self.game => config.clone(),
+            (3, Some(config)) if config.kind() == self.game => config.clone(),
             _ => return Err(Error::Replay),
         };
         let mut game = Match::with_config(config, self.players, self.seed)?;

@@ -9,28 +9,15 @@ use utoipa::ToSchema;
 
 const WILD_RANK: u8 = 8;
 
-/// Optional rank effects; defaults preserve the original Crazy Eights rules.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+/// Optional rank effects; eights are always wild. All options default to false.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 #[schema(as = CrazyEightsGameConfig)]
 pub struct GameConfig {
     pub ace_are_you_strong: bool,
     pub jack_skip: bool,
     pub ten_reverse: bool,
-    pub eight_wild: bool,
     pub two_draw_two: bool,
-}
-
-impl Default for GameConfig {
-    fn default() -> Self {
-        Self {
-            ace_are_you_strong: false,
-            jack_skip: false,
-            ten_reverse: false,
-            eight_wild: true,
-            two_draw_two: false,
-        }
-    }
 }
 
 /// A draw-two obligation: aces permit an ace response; twos do not stack.
@@ -58,6 +45,30 @@ mod tests {
         Card { rank, suit }
     }
 
+    #[test]
+    fn initial_state_deals_seven_or_five_and_opening_card_has_no_effect() {
+        for players in 2..=6 {
+            let game =
+                CrazyEights::with_config(players, [0; 32], configured(players).config).unwrap();
+            assert!(
+                game.hands
+                    .iter()
+                    .all(|hand| hand.len() == if players == 2 { 7 } else { 5 })
+            );
+            assert_eq!(game.turn, Turn::first());
+            assert_eq!(game.active_suit, game.top_card().suit);
+            assert_eq!(
+                game.deck.len()
+                    + game.hands.iter().map(Vec::len).sum::<usize>()
+                    + game.discard.len(),
+                52
+            );
+            assert_eq!(game.pending_draw, None);
+            assert!(!game.reversed);
+            assert!(game.outcome.is_none());
+        }
+    }
+
     fn configured(players: usize) -> CrazyEights {
         let mut game = CrazyEights::with_config(
             players,
@@ -66,7 +77,6 @@ mod tests {
                 ace_are_you_strong: true,
                 jack_skip: true,
                 ten_reverse: true,
-                eight_wild: true,
                 two_draw_two: true,
             },
         )
@@ -89,7 +99,7 @@ mod tests {
     }
 
     #[test]
-    fn aces_allow_any_ace_or_a_fixed_two_card_draw() {
+    fn responding_ace_clears_the_obligation_and_next_ace_asks_again() {
         let mut game = configured(3);
         play(&mut game, 14);
         game.hands[1] = vec![
@@ -114,23 +124,62 @@ mod tests {
                 suit: None,
             },
         );
-        assert_eq!(game.pending_draw, Some(PendingDraw::Ace));
-        let before = game.hands[2].len();
-        game.advance(2, &Action::Draw);
-        assert_eq!(game.hands[2].len(), before + 2);
         assert_eq!(game.pending_draw, None);
-        assert_eq!(game.turn.players, vec![0]);
+        assert!(game.legal_actions(2).contains(&Action::Draw));
+        play(&mut game, 14);
+        assert_eq!(game.pending_draw, Some(PendingDraw::Ace));
+        let before = game.hands[0].len();
+        game.advance(0, &Action::Draw);
+        assert_eq!(game.hands[0].len(), before + 2);
+        assert_eq!(game.pending_draw, None);
+        assert_eq!(game.turn.players, vec![1]);
+    }
+
+    #[test]
+    fn ace_can_be_answered_by_drawing_even_with_an_ace_in_hand() {
+        let mut game = configured(3);
+        play(&mut game, 14);
+        game.hands[1] = vec![card(14, Suit::Spades)];
+        let before = game.hands[1].len();
+        game.advance(1, &Action::Draw);
+        assert_eq!(game.hands[1].len(), before + 2);
+        assert_eq!(game.pending_draw, None);
+        assert_eq!(game.turn.players, vec![2]);
+    }
+
+    #[test]
+    fn voluntary_draw_is_legal_with_playable_cards_and_ends_turn() {
+        use crate::game::Session;
+        let mut session = Session::<CrazyEights>::new(2, [0; 32]).unwrap();
+        session.state.discard = vec![card(3, Suit::Hearts)];
+        session.state.active_suit = Suit::Hearts;
+        session.state.hands[0] = vec![card(5, Suit::Hearts), card(8, Suit::Clubs)];
+        let actions = session.state.legal_actions(0);
+        assert!(actions.contains(&Action::Play {
+            index: 0,
+            suit: None
+        }));
+        assert!(actions.contains(&Action::Draw));
+        let before = session.state.hands[0].len();
+        session.act(0, Action::Draw).unwrap();
+        assert_eq!(session.state.hands[0].len(), before + 1);
+        assert_eq!(session.state.turn.players, vec![1]);
+        assert!(session.state.legal_actions(0).is_empty());
     }
 
     #[test]
     fn twos_force_drawing_and_recycle_even_between_penalty_cards() {
         let mut game = configured(3);
         play(&mut game, 2);
-        game.hands[1] = vec![card(2, Suit::Hearts), card(14, Suit::Hearts)];
+        game.hands[1] = vec![
+            card(2, Suit::Hearts),
+            card(14, Suit::Hearts),
+            card(8, Suit::Hearts),
+        ];
         assert_eq!(game.legal_actions(1), vec![Action::Draw]);
         game.deck = Deck::new(vec![card(5, Suit::Clubs)]);
         game.advance(1, &Action::Draw);
-        assert_eq!(game.hands[1].len(), 4);
+        assert_eq!(game.hands[1].len(), 5);
         assert_eq!(game.discard, vec![card(2, Suit::Hearts)]);
         assert_eq!(game.turn.players, vec![2]);
         assert_eq!(game.pending_draw, None);
@@ -171,20 +220,24 @@ mod tests {
     }
 
     #[test]
-    fn disabled_special_ranks_are_ordinary_and_cannot_choose_suits() {
+    fn disabled_special_ranks_are_ordinary_but_eights_remain_wild() {
         let mut game = configured(3);
-        game.config = GameConfig {
-            eight_wild: false,
-            ..GameConfig::default()
-        };
+        game.config = GameConfig::default();
         game.hands[0] = vec![card(8, Suit::Clubs), card(8, Suit::Hearts)];
-        assert_eq!(
-            game.legal_actions(0),
-            vec![Action::Play {
-                index: 1,
-                suit: None
-            }]
-        );
+        assert_eq!(game.legal_actions(0).len(), 9);
+        for index in 0..2 {
+            for suit in Suit::ALL {
+                assert!(game.legal_actions(0).contains(&Action::Play {
+                    index,
+                    suit: Some(suit)
+                }));
+            }
+            assert!(
+                !game
+                    .legal_actions(0)
+                    .contains(&Action::Play { index, suit: None })
+            );
+        }
         for rank in [14, 11, 10, 2] {
             game.turn = Turn::first();
             play(&mut game, rank);
@@ -235,7 +288,7 @@ mod tests {
         game.hands[0] = vec![card(8, Suit::Clubs), card(3, Suit::Clubs)];
         game.discard = vec![card(14, Suit::Hearts)];
         game.active_suit = Suit::Hearts;
-        assert_eq!(game.legal_actions(game.turn.players[0]).len(), 4);
+        assert_eq!(game.legal_actions(game.turn.players[0]).len(), 5);
         game.advance(
             game.turn.players[0],
             &Action::Play {
@@ -247,10 +300,13 @@ mod tests {
         game.hands[1] = vec![card(2, Suit::Diamonds), card(11, Suit::Spades)];
         assert_eq!(
             game.legal_actions(game.turn.players[0]),
-            vec![Action::Play {
-                index: 0,
-                suit: None
-            }]
+            vec![
+                Action::Play {
+                    index: 0,
+                    suit: None
+                },
+                Action::Draw
+            ]
         );
         game.advance(
             game.turn.players[0],
@@ -318,6 +374,8 @@ mod tests {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CrazyEights {
+    // Required on deserialization: pre-v3 sessions must not adopt new rules silently.
+    rules_version: u32,
     #[serde(default)]
     config: GameConfig,
     #[serde(default)]
@@ -362,7 +420,9 @@ impl CrazyEights {
         self.discard.push(card);
         self.consecutive_passes = 0;
         self.pending_draw = match card.rank {
-            14 if self.config.ace_are_you_strong => Some(PendingDraw::Ace),
+            14 if self.config.ace_are_you_strong && self.pending_draw != Some(PendingDraw::Ace) => {
+                Some(PendingDraw::Ace)
+            }
             2 if self.config.two_draw_two => Some(PendingDraw::Two),
             _ => None,
         };
@@ -424,6 +484,7 @@ impl Game for CrazyEights {
             .collect();
         let top = deck.draw().expect("the deal leaves an opening discard");
         Ok(Self {
+            rules_version: 3,
             config,
             reversed: false,
             pending_draw: None,
@@ -454,7 +515,7 @@ impl Game for CrazyEights {
                 if pending == PendingDraw::Ace && card.rank == 14 {
                     actions.push(Action::Play { index, suit: None });
                 }
-            } else if card.rank == WILD_RANK && self.config.eight_wild {
+            } else if card.rank == WILD_RANK {
                 actions.extend(Suit::ALL.map(|suit| Action::Play {
                     index,
                     suit: Some(suit),
@@ -463,9 +524,7 @@ impl Game for CrazyEights {
                 actions.push(Action::Play { index, suit: None });
             }
         }
-        if actions.is_empty() || self.pending_draw.is_some() {
-            actions.push(Action::Draw);
-        }
+        actions.push(Action::Draw);
         actions
     }
     fn advance(&mut self, player: Player, action: &Action) -> Vec<Event> {

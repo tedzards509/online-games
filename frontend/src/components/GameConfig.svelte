@@ -8,6 +8,7 @@
 <section aria-label="Game rules">
   {#if config.game === 'crazy_eights'}
     <ul>
+      <li>8: Choose suit (always)</li>
       {#each Object.entries(crazyEightsRules) as [key, label]}
         <li>
           {label}: {config.rules[key as keyof typeof config.rules]

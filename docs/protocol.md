@@ -14,7 +14,7 @@ Keep the returned token private. For HTTP reads use `Authorization: Bearer <toke
 
 No tokens in URLs, no cookies, and no account identity. Joining is closed once a game has started; existing seats can reconnect at any time. The host is seat 0.
 
-The host selects immutable options before room creation. Supply `config` as `{"game":"crazy_eights","rules":{"ace_are_you_strong":true,"jack_skip":true,"ten_reverse":true,"eight_wild":true,"two_draw_two":true}}` alongside the matching `game` and nickname. Other games use empty `rules: {}`. Omitted configuration selects original defaults for older clients. Mismatched game tags, unknown rule fields, and nonboolean rule values are rejected. Every HTTP/WebSocket snapshot includes public `config`, even before starting and after reconnecting. Rematches retain it; there is no configuration update command.
+The host selects immutable options before room creation. Supply `config` as `{"game":"crazy_eights","rules":{"ace_are_you_strong":true,"jack_skip":true,"ten_reverse":true,"two_draw_two":true}}` alongside the matching `game` and nickname. Eights are always wild; `eight_wild` is no longer accepted. Other games use empty `rules: {}`. Omitted configuration selects current defaults. Mismatched game tags, unknown rule fields, and nonboolean rule values are rejected. Every HTTP/WebSocket snapshot includes public `config`, even before starting and after reconnecting. Rematches retain it; there is no configuration update command.
 
 ## Live channel
 
@@ -46,4 +46,4 @@ The server pings every 20 seconds and disconnects clients that miss the next hea
 
 ## Replays and simulations
 
-The server archives completed games transactionally. A replay contains a format version, game kind, player count, 32-byte seed, and accepted actions with resulting events. Version 1 retains original defaults; version 2 includes nondefault `config`. It intentionally reveals hidden cards, so running games have no downloadable replay. `Replay::simulate` recreates the game, validates every action, and checks the event history. The core also exposes `Game::advance` for fast, log-free simulation of actions drawn from `legal_actions`.
+The server archives completed games transactionally. A replay contains a format version, game kind, player count, 32-byte seed, and accepted actions with resulting events. Version 1 retains original defaults; version 2 includes nondefault `config`. Revised Crazy Eights uses version 3 with explicit `config`; old Crazy Eights replays require the previous implementation (see [compatibility](design.md)). It intentionally reveals hidden cards, so running games have no downloadable replay. `Replay::simulate` recreates the game, validates every action, and checks the event history. The core also exposes `Game::advance` for fast, log-free simulation of actions drawn from `legal_actions`.

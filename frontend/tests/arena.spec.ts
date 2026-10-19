@@ -69,7 +69,7 @@ async function snapshot(page: Page) {
   });
 }
 
-test('Crazy Eights: ordinary eights submit directly and penalties offer draw two', async ({
+test('Crazy Eights: choose a suit, draw voluntarily, and resolve draw two', async ({
   page,
 }) => {
   const room: Snapshot = {
@@ -83,7 +83,6 @@ test('Crazy Eights: ordinary eights submit directly and penalties offer draw two
         ace_are_you_strong: true,
         jack_skip: false,
         ten_reverse: false,
-        eight_wild: false,
         two_draw_two: true,
       },
     },
@@ -107,7 +106,11 @@ test('Crazy Eights: ordinary eights submit directly and penalties offer draw two
       },
     },
     legal_actions: [
-      { game: 'crazy_eights', action: { type: 'play', index: 0, suit: null } },
+      ...(['clubs', 'diamonds', 'hearts', 'spades'] as const).map((suit) => ({
+        game: 'crazy_eights' as const,
+        action: { type: 'play' as const, index: 0, suit },
+      })),
+      { game: 'crazy_eights', action: { type: 'draw' } },
     ],
   };
   await page.addInitScript(() =>
@@ -123,29 +126,43 @@ test('Crazy Eights: ordinary eights submit directly and penalties offer draw two
       if (message.type === 'move') {
         moves.push(message.action);
         room.revision++;
-        room.legal_actions = [
-          { game: 'crazy_eights', action: { type: 'draw' } },
-        ];
-        if (room.view?.game === 'crazy_eights')
-          room.view.state.pending_draw = 'two';
+        if (moves.length === 2) {
+          room.legal_actions = [
+            { game: 'crazy_eights', action: { type: 'draw' } },
+          ];
+          if (room.view?.game === 'crazy_eights')
+            room.view.state.pending_draw = 'two';
+        }
       }
       socket.send(JSON.stringify({ type: 'snapshot', room }));
     });
   });
   await page.goto('/room/ABC234');
+  await expect(
+    page
+      .getByLabel('Your hand', { exact: true })
+      .getByRole('button', { name: '8♥', exact: true }),
+  ).toBeEnabled();
+  await page.getByRole('button', { name: 'Draw', exact: true }).click();
+  await expect.poll(() => moves.length).toBe(1);
+  expect(moves[0]).toEqual({ game: 'crazy_eights', action: { type: 'draw' } });
   await page
     .getByLabel('Your hand', { exact: true })
     .getByRole('button', { name: '8♥', exact: true })
     .click();
-  await expect.poll(() => moves.length).toBe(1);
-  expect(moves[0]).toEqual({
+  await expect(page.getByLabel('Choose suit')).toBeVisible();
+  await page
+    .getByRole('button', { name: 'Choose spades', exact: true })
+    .click();
+  await expect.poll(() => moves.length).toBe(2);
+  expect(moves[1]).toEqual({
     game: 'crazy_eights',
-    action: { type: 'play', index: 0, suit: null },
+    action: { type: 'play', index: 0, suit: 'spades' },
   });
   await expect(page.getByLabel('Choose suit')).toHaveCount(0);
   await page.getByRole('button', { name: 'Draw two', exact: true }).click();
-  await expect.poll(() => moves.length).toBe(2);
-  expect(moves[1]).toEqual({ game: 'crazy_eights', action: { type: 'draw' } });
+  await expect.poll(() => moves.length).toBe(3);
+  expect(moves[2]).toEqual({ game: 'crazy_eights', action: { type: 'draw' } });
 });
 
 test('Crazy Eights: host selects fixed rules before opening the room', async ({
@@ -162,7 +179,8 @@ test('Crazy Eights: host selects fixed rules before opening the room', async ({
     .selectOption('crazy_eights');
   await expect(
     host.getByRole('checkbox', { name: '8: Choose suit' }),
-  ).toBeChecked();
+  ).toHaveCount(0);
+  await expect(host.getByRole('checkbox')).toHaveCount(4);
   for (const label of [
     'A: Are you strong',
     'J: Skip',
@@ -171,7 +189,6 @@ test('Crazy Eights: host selects fixed rules before opening the room', async ({
   ]) {
     await host.getByRole('checkbox', { name: new RegExp(label) }).check();
   }
-  await host.getByRole('checkbox', { name: '8: Choose suit' }).uncheck();
   const creating = host.waitForRequest(
     (request) =>
       request.url().endsWith('/api/rooms') && request.method() === 'POST',
@@ -183,7 +200,6 @@ test('Crazy Eights: host selects fixed rules before opening the room', async ({
       ace_are_you_strong: true,
       jack_skip: true,
       ten_reverse: true,
-      eight_wild: false,
       two_draw_two: true,
     },
   };
@@ -197,7 +213,7 @@ test('Crazy Eights: host selects fixed rules before opening the room', async ({
   for (const page of [host, guest]) {
     await expect(
       page.getByRole('region', { name: 'Game rules' }),
-    ).toContainText('8: Choose suit: Off');
+    ).toContainText('8: Choose suit (always)');
     await expect(
       page.getByRole('region', { name: 'Game rules' }),
     ).toContainText('2: Next player draws two: On');
@@ -210,7 +226,7 @@ test('Crazy Eights: host selects fixed rules before opening the room', async ({
     await page.reload();
     await expect(
       page.getByRole('region', { name: 'Game rules' }),
-    ).toContainText('8: Choose suit: Off');
+    ).toContainText('8: Choose suit (always)');
     expect((await snapshot(page)).config).toEqual(config);
   }
   await hostContext.close();
