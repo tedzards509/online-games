@@ -46,6 +46,8 @@ Read `README.md`, `docs/design.md`, and the relevant game's `crates/arena-core/s
 
 Follow `docs/adding-a-game.md` for the end-to-end checklist and Tic-Tac-Toe example.
 
+Each game's `rules.md`, tests, and implementation must always agree. Any change to `rules.md` must prompt corresponding test updates and, when behavior changes, game-logic updates. Keep these changes together in the same feature or fix commit; do not document new rules without testing and implementing them.
+
 Implement `Game` with its action, event, and view types; reuse `Event` or implement `GameEvent` for a custom event type. Add dispatch in `arena.rs`, board rendering in `GameBoard.svelte`, and a name in `types.ts`. Update the game's `rules.md`. Use unique `#[schema(as = ...)]` names for game-local `Action`/`View` types to avoid OpenAPI collisions. Do not force every game to use all shared utilities.
 
 Add rule-edge tests in the game module, seeded simulations/replay checks in `arena-core/tests`, and server/browser coverage where behavior crosses boundaries. Test malformed indices, rejected-action immutability, hidden information, exhausted decks, termination, and supported player counts.
