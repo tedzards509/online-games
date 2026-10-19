@@ -1,4 +1,4 @@
-import type { GameKind, Membership } from './types';
+import type { GameKind, Membership, Schemas } from './types';
 
 export async function request<T>(
   path: string,
@@ -23,8 +23,9 @@ export async function request<T>(
 export function createRoom(
   nickname: string,
   game: GameKind,
+  config: Schemas['Config'],
 ): Promise<Membership> {
-  return request('/rooms', { nickname, game });
+  return request('/rooms', { nickname, game, config });
 }
 
 export function joinRoom(code: string, nickname: string): Promise<Membership> {

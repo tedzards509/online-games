@@ -2,7 +2,7 @@ use crate::{
     error::ApiError,
     protocol::{Membership, PlayerView, Snapshot},
 };
-use arena_core::{GameKind, Match};
+use arena_core::{Config, GameKind, Match};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
@@ -17,6 +17,8 @@ pub struct Member {
 pub struct Room {
     pub code: String,
     pub kind: GameKind,
+    #[serde(default)]
+    config: Option<Config>,
     members: Vec<Member>,
     pub game: Option<Match>,
     pub revision: u64,
@@ -28,15 +30,21 @@ fn hash(token: &str) -> String {
 }
 
 impl Room {
-    pub fn new(code: String, kind: GameKind) -> Self {
+    pub fn new(code: String, config: Config) -> Self {
         Self {
             code,
-            kind,
+            kind: config.kind(),
+            config: Some(config),
             members: vec![],
             game: None,
             revision: 0,
             replays: vec![],
         }
+    }
+    fn config(&self) -> Config {
+        self.config
+            .clone()
+            .unwrap_or_else(|| self.kind.default_config())
     }
     pub fn join(&mut self, nickname: &str) -> Result<Membership, ApiError> {
         let nickname = nickname.trim();
@@ -88,7 +96,11 @@ impl Room {
         if self.game.as_ref().is_some_and(|g| g.outcome().is_none()) {
             return Err(ApiError::BadRequest("Game already started".into()));
         }
-        self.game = Some(Match::new(self.kind, self.members.len(), rand::random())?);
+        self.game = Some(Match::with_config(
+            self.config(),
+            self.members.len(),
+            rand::random(),
+        )?);
         self.revision += 1;
         Ok(())
     }
@@ -96,6 +108,7 @@ impl Room {
         Snapshot {
             code: self.code.clone(),
             game: self.kind,
+            config: self.config(),
             players: self
                 .members
                 .iter()
@@ -115,5 +128,29 @@ impl Room {
                 .unwrap_or_default(),
             replays: self.replays.clone(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn legacy_rooms_without_options_use_original_defaults() {
+        let mut room = Room::new("ABC234".into(), GameKind::CrazyEights.default_config());
+        room.join("Alice").unwrap();
+        room.join("Bob").unwrap();
+        let mut saved = serde_json::to_value(room).unwrap();
+        saved.as_object_mut().unwrap().remove("config");
+        let mut room: Room = serde_json::from_value(saved).unwrap();
+        assert_eq!(
+            room.snapshot(1).config,
+            GameKind::CrazyEights.default_config()
+        );
+        room.start(0).unwrap();
+        assert_eq!(
+            room.game.unwrap().config(),
+            GameKind::CrazyEights.default_config()
+        );
     }
 }

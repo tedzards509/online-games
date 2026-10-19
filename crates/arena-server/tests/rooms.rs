@@ -17,6 +17,13 @@ use tower::ServiceExt;
 
 type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
+fn crazy_eights_config() -> Value {
+    json!({"game":"crazy_eights", "rules": {
+        "ace_are_you_strong": true, "jack_skip": true, "ten_reverse": true,
+        "eight_wild": false, "two_draw_two": true
+    }})
+}
+
 struct Server {
     router: Router,
     address: String,
@@ -208,9 +215,27 @@ async fn games_over_real_websockets_export_and_archive_replays() {
         "skyjo",
         "tic_tac_toe",
     ] {
-        let alice = server.member(kind).await;
+        let alice = if kind == "crazy_eights" {
+            let (status, value) = server
+                .request(
+                    "POST",
+                    "/api/rooms",
+                    json!({
+                        "nickname":"Alice", "game":kind, "config":crazy_eights_config()
+                    }),
+                    None,
+                )
+                .await;
+            assert_eq!(status, StatusCode::CREATED);
+            serde_json::from_value(value).unwrap()
+        } else {
+            server.member(kind).await
+        };
         let mut host = server.socket(&alice).await;
-        snapshot(&mut host, 1).await;
+        let lobby = snapshot(&mut host, 1).await;
+        if kind == "crazy_eights" {
+            assert_eq!(lobby["config"], crazy_eights_config());
+        }
         let path = format!("/api/rooms/{}", alice.code);
         let (_, value) = server
             .request(
@@ -232,6 +257,10 @@ async fn games_over_real_websockets_export_and_archive_replays() {
         snapshot(&mut host, 2).await;
         send(&mut host, json!({"type":"start", "revision":2})).await;
         let mut views = [snapshot(&mut host, 3).await, snapshot(&mut guest, 3).await];
+        if kind == "crazy_eights" {
+            assert_eq!(views[0]["config"], crazy_eights_config());
+            assert_eq!(views[1]["config"], crazy_eights_config());
+        }
         assert_eq!(
             server
                 .request(
@@ -321,6 +350,13 @@ async fn games_over_real_websockets_export_and_archive_replays() {
             .await;
         assert_eq!(status, StatusCode::OK);
         let replay: arena_core::Replay = serde_json::from_value(value).unwrap();
+        if kind == "crazy_eights" {
+            assert_eq!(replay.version, 2);
+            assert_eq!(
+                serde_json::to_value(&replay.config).unwrap(),
+                crazy_eights_config()
+            );
+        }
         assert_eq!(
             serde_json::to_value(replay.simulate().unwrap().outcome()).unwrap(),
             views[0]["outcome"]
@@ -330,8 +366,107 @@ async fn games_over_real_websockets_export_and_archive_replays() {
         send(&mut host, json!({"type":"start", "revision":revision})).await;
         let fresh = snapshot(&mut host, revision + 1).await;
         assert!(fresh["outcome"].is_null());
+        assert_eq!(fresh["config"], lobby["config"]);
         assert_eq!(fresh["replays"].as_array().unwrap().len(), 1);
     }
+}
+
+#[tokio::test]
+async fn invalid_configuration_is_rejected_before_room_creation() {
+    let server = Server::open("sqlite::memory:").await;
+    let mut unknown = crazy_eights_config();
+    unknown["rules"]["unknown_rule"] = json!(true);
+    let mut wrong_type = crazy_eights_config();
+    wrong_type["rules"]["eight_wild"] = json!("true");
+    let mut missing = crazy_eights_config();
+    missing["rules"]
+        .as_object_mut()
+        .unwrap()
+        .remove("eight_wild");
+    for config in [
+        json!({"game":"mancala", "rules":{}}),
+        unknown,
+        wrong_type,
+        missing,
+    ] {
+        let (status, _) = server
+            .request(
+                "POST",
+                "/api/rooms",
+                json!({
+                    "nickname":"Alice", "game":"crazy_eights", "config":config
+                }),
+                None,
+            )
+            .await;
+        assert!(status.is_client_error());
+    }
+    let alice = server.member("crazy_eights").await;
+    let mut socket = server.socket(&alice).await;
+    let room = snapshot(&mut socket, 1).await;
+    assert_eq!(room["config"]["rules"]["eight_wild"], true);
+    assert_eq!(room["config"]["rules"]["ace_are_you_strong"], false);
+}
+
+#[tokio::test]
+async fn configured_lobby_and_game_survive_restart_and_reconnect() {
+    let directory = tempfile::tempdir().unwrap();
+    let database = format!("sqlite://{}", directory.path().join("config.db").display());
+    let server = Server::open(&database).await;
+    let (_, value) = server
+        .request(
+            "POST",
+            "/api/rooms",
+            json!({
+                "nickname":"Alice", "game":"crazy_eights", "config":crazy_eights_config()
+            }),
+            None,
+        )
+        .await;
+    let alice: Membership = serde_json::from_value(value).unwrap();
+    let path = format!("/api/rooms/{}", alice.code);
+    let (_, value) = server
+        .request(
+            "POST",
+            &format!("{path}/join"),
+            json!({"nickname":"Bob"}),
+            None,
+        )
+        .await;
+    let bob: Membership = serde_json::from_value(value).unwrap();
+    drop(server);
+    let server = Server::open(&database).await;
+    let mut host = server.socket(&alice).await;
+    let mut guest = server.socket(&bob).await;
+    for room in [snapshot(&mut host, 2).await, snapshot(&mut guest, 2).await] {
+        assert_eq!(room["config"], crazy_eights_config());
+        assert!(room["view"].is_null());
+    }
+    // Start cannot alter the agreed options, even for the host.
+    send(
+        &mut host,
+        json!({"type":"start", "revision":2, "config":crazy_eights_config()}),
+    )
+    .await;
+    assert_eq!(receive(&mut host).await["type"], "error");
+    assert_eq!(snapshot(&mut host, 2).await["revision"], 2);
+    send(&mut host, json!({"type":"start", "revision":2})).await;
+    let expected = snapshot(&mut host, 3).await;
+    assert_eq!(expected["config"], crazy_eights_config());
+    assert_eq!(
+        snapshot(&mut guest, 3).await["config"],
+        crazy_eights_config()
+    );
+    host.close(None).await.unwrap();
+    guest.close(None).await.unwrap();
+    drop(server);
+    let server = Server::open(&database).await;
+    let mut host = server.socket(&alice).await;
+    assert_eq!(snapshot(&mut host, 3).await, expected);
+    let (_, room) = server
+        .request("GET", &path, Value::Null, Some(&alice.token))
+        .await;
+    assert_eq!(room, expected);
 }
 
 #[tokio::test]
@@ -404,6 +539,9 @@ fn openapi_has_distinct_game_schemas() {
         "ShitheadView",
         "SkyjoView",
         "TicTacToeView",
+        "Config",
+        "GameConfig",
+        "CrazyEightsGameConfig",
     ] {
         assert!(
             spec["components"]["schemas"].get(name).is_some(),

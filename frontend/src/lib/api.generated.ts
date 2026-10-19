@@ -230,6 +230,7 @@ export interface components {
       top: components['schemas']['Card'];
     };
     CreateRoom: {
+      config?: null | components['schemas']['Config'];
       game: components['schemas']['GameKind'];
       nickname: string;
     };
@@ -420,6 +421,7 @@ export interface components {
     };
     Snapshot: {
       code: string;
+      config: components['schemas']['Config'];
       game: components['schemas']['GameKind'];
       legal_actions: components['schemas']['Action'][];
       outcome?: null | components['schemas']['Outcome'];

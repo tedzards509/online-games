@@ -11,6 +11,8 @@
   import { RoomConnection } from './lib/connection.svelte';
   import { games, type GameKind, type Membership } from './lib/types';
   import GameBoard from './components/GameBoard.svelte';
+  import GameConfig from './components/GameConfig.svelte';
+  import { crazyEightsDefaults, crazyEightsRules } from './lib/config';
 
   function pathCode(): string {
     return (
@@ -28,6 +30,7 @@
   let nickname = $state(localStorage.getItem('arena-nickname') ?? '');
   let joinCode = $state(initialCode);
   let kind = $state<GameKind>('shithead');
+  let crazyEightsConfig = $state({ ...crazyEightsDefaults });
   let busy = $state(false);
   let error = $state('');
   let recent = $state(savedRooms());
@@ -70,7 +73,13 @@
       const membership =
         existing ??
         (await (create
-          ? createRoom(nickname, kind)
+          ? createRoom(
+              nickname,
+              kind,
+              kind === 'crazy_eights'
+                ? { game: kind, rules: crazyEightsConfig }
+                : { game: kind, rules: {} },
+            )
           : joinRoom(target, nickname)));
       saveMembership(membership);
       localStorage.setItem('arena-nickname', nickname.trim());
@@ -151,6 +160,22 @@
                 >{/each}</select
             ></label
           >
+          {#if kind === 'crazy_eights'}
+            <fieldset>
+              <legend>Game rules</legend>
+              {#each Object.entries(crazyEightsRules) as [key, label]}
+                <label class="rule-toggle">
+                  <input
+                    type="checkbox"
+                    bind:checked={
+                      crazyEightsConfig[key as keyof typeof crazyEightsConfig]
+                    }
+                  />
+                  {label}
+                </label>
+              {/each}
+            </fieldset>
+          {/if}
           <button class="primary" disabled={busy || !nickname.trim()}
             >Create room</button
           >
@@ -204,6 +229,7 @@
           >{connection?.status === 'connected' ? '' : 'Reconnecting…'}</span
         >
       </div>
+      <GameConfig config={room.config} />
       <ul class="players" aria-label="Players">
         {#each room.players as player, index}
           <li
@@ -265,3 +291,18 @@
     </section>
   {/if}
 </main>
+
+<style>
+  fieldset {
+    min-width: 0;
+  }
+  .rule-toggle {
+    display: flex;
+    align-items: baseline;
+    margin-block: 8px;
+  }
+  .rule-toggle input {
+    width: auto;
+    flex-shrink: 0;
+  }
+</style>

@@ -9,6 +9,7 @@ The contract is defined in `crates/arena-core/src/game.rs`; runtime dispatch and
 | `Game` / state | A ruleset's concrete type is its complete authoritative state: board, hands, stock, phases, turn, outcome, and any RNG state. There is no separate state trait. |
 | `Player` | A zero-based seat index (`usize`), not a nickname or authentication token. |
 | `Seed` | Explicit `[u8; 32]` input to setup. The same rules, player count, seed, and actions must reproduce the same states and events. |
+| `Game::Config` / `GameConfig` | Serializable, immutable setup options defined by each game; runtime `Config` tags the game-owned struct. Options are public, unlike private state and seeds. |
 | `Action` | A proposed game-specific command, not an effect or state snapshot. The submitting player is passed separately. |
 | Legal actions | `legal_actions(player)` enumerates that seat's valid commands in the current phase; empty for ineligible seats or after completion. |
 | `Event` | An ordered effect of an accepted action, e.g. placement, capture, or completion. Events describe transitions; they are not commands or independently applied state updates. `GameEvent::finished` constructs the terminal event. |
@@ -46,5 +47,7 @@ Ported ideas, not source: deterministic setup, typed actions/events, per-player 
 Actions, events, and observations are associated types of `Game`. The included games share an `Event` enum, but another ruleset can provide its own `GameEvent` and still use `Session` and `Record<A, E>`.
 
 `arena-server` owns anonymous identities, rooms, persistence, and transport. Private engine state is persisted but never sent as a live observation. Replays include the seed and therefore reveal every card; downloads are restricted to finished games and room members.
+
+The host chooses configuration before creating a room. The server checks its game tag, persists it with the room, and includes it in every personalized snapshot. Starts and rematches use those same options. There is no in-room configuration mutation; existing rooms without options use original defaults.
 
 Replay format version 1 fixes the initial rules and RNG/dealing behavior and omits configuration. Version 2 records nondefault options explicitly; validation checks the game tag and recreates configured setup. Default matches still export version 1. Existing saved sessions missing configuration load with original defaults. Rules or RNG changes that alter historical results need a new replay version, not silent reinterpretation of existing files.

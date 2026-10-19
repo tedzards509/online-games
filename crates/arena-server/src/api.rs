@@ -85,6 +85,14 @@ async fn create_room(
     State(app): State<App>,
     Json(request): Json<CreateRoom>,
 ) -> Result<impl IntoResponse, ApiError> {
+    let config = request
+        .config
+        .unwrap_or_else(|| request.game.default_config());
+    if config.kind() != request.game {
+        return Err(ApiError::BadRequest(
+            "Configuration does not match game".into(),
+        ));
+    }
     const ALPHABET: &[u8] = b"ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let mut rooms = app.rooms.lock().await;
     let code = loop {
@@ -95,7 +103,7 @@ async fn create_room(
             break candidate;
         }
     };
-    let mut room = Room::new(code.clone(), request.game);
+    let mut room = Room::new(code.clone(), config);
     let membership = room.join(&request.nickname)?;
     app.store.save(&room, None).await?;
     rooms.insert(code, Arc::new(Lobby::new(room)));
@@ -312,7 +320,7 @@ mod tests {
         let app = App::open("sqlite::memory:", "http://localhost:5173")
             .await
             .unwrap();
-        let mut room = Room::new("ABC234".into(), GameKind::Mancala);
+        let mut room = Room::new("ABC234".into(), GameKind::Mancala.default_config());
         room.join("Alice").unwrap();
         room.join("Bob").unwrap();
         room.start(0).unwrap();

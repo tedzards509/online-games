@@ -7,6 +7,7 @@ test('multiple eligible seats become a single responder', async ({ page }) => {
   const room: Snapshot = {
     code: 'ABC234',
     game: 'tic_tac_toe',
+    config: { game: 'tic_tac_toe', rules: {} },
     you: 0,
     revision: 3,
     players: [{ nickname: 'Alice' }, { nickname: 'Bob' }],
@@ -67,6 +68,154 @@ async function snapshot(page: Page) {
     ).json();
   });
 }
+
+test('Crazy Eights: ordinary eights submit directly and penalties offer draw two', async ({
+  page,
+}) => {
+  const room: Snapshot = {
+    code: 'ABC234',
+    game: 'crazy_eights',
+    you: 0,
+    revision: 3,
+    config: {
+      game: 'crazy_eights',
+      rules: {
+        ace_are_you_strong: true,
+        jack_skip: false,
+        ten_reverse: false,
+        eight_wild: false,
+        two_draw_two: true,
+      },
+    },
+    players: [{ nickname: 'Alice' }, { nickname: 'Bob' }],
+    turn: { players: [0], number: 0 },
+    outcome: null,
+    replays: [],
+    view: {
+      game: 'crazy_eights',
+      state: {
+        hand: [
+          { rank: 8, suit: 'hearts' },
+          { rank: 4, suit: 'clubs' },
+        ],
+        counts: [2, 2],
+        top: { rank: 3, suit: 'hearts' },
+        suit: 'hearts',
+        stock: 10,
+        reversed: false,
+        pending_draw: null,
+      },
+    },
+    legal_actions: [
+      { game: 'crazy_eights', action: { type: 'play', index: 0, suit: null } },
+    ],
+  };
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      'arena:ABC234',
+      JSON.stringify({ code: 'ABC234', player: 0, token: 'test-seat' }),
+    ),
+  );
+  const moves: unknown[] = [];
+  await page.routeWebSocket('**/api/rooms/ABC234/ws', (socket) => {
+    socket.onMessage((data) => {
+      const message = JSON.parse(String(data));
+      if (message.type === 'move') {
+        moves.push(message.action);
+        room.revision++;
+        room.legal_actions = [
+          { game: 'crazy_eights', action: { type: 'draw' } },
+        ];
+        if (room.view?.game === 'crazy_eights')
+          room.view.state.pending_draw = 'two';
+      }
+      socket.send(JSON.stringify({ type: 'snapshot', room }));
+    });
+  });
+  await page.goto('/room/ABC234');
+  await page
+    .getByLabel('Your hand', { exact: true })
+    .getByRole('button', { name: '8♥', exact: true })
+    .click();
+  await expect.poll(() => moves.length).toBe(1);
+  expect(moves[0]).toEqual({
+    game: 'crazy_eights',
+    action: { type: 'play', index: 0, suit: null },
+  });
+  await expect(page.getByLabel('Choose suit')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Draw two', exact: true }).click();
+  await expect.poll(() => moves.length).toBe(2);
+  expect(moves[1]).toEqual({ game: 'crazy_eights', action: { type: 'draw' } });
+});
+
+test('Crazy Eights: host selects fixed rules before opening the room', async ({
+  browser,
+}) => {
+  const hostContext = await browser.newContext();
+  const guestContext = await browser.newContext();
+  const host = await hostContext.newPage();
+  const guest = await guestContext.newPage();
+  await host.goto('/');
+  await host.getByLabel('Nickname').fill('Alice');
+  await host
+    .getByRole('combobox', { name: 'Game', exact: true })
+    .selectOption('crazy_eights');
+  await expect(
+    host.getByRole('checkbox', { name: '8: Choose suit' }),
+  ).toBeChecked();
+  for (const label of [
+    'A: Are you strong',
+    'J: Skip',
+    '10: Reverse',
+    '2: Next',
+  ]) {
+    await host.getByRole('checkbox', { name: new RegExp(label) }).check();
+  }
+  await host.getByRole('checkbox', { name: '8: Choose suit' }).uncheck();
+  const creating = host.waitForRequest(
+    (request) =>
+      request.url().endsWith('/api/rooms') && request.method() === 'POST',
+  );
+  await host.getByRole('button', { name: 'Create room' }).click();
+  const config = {
+    game: 'crazy_eights',
+    rules: {
+      ace_are_you_strong: true,
+      jack_skip: true,
+      ten_reverse: true,
+      eight_wild: false,
+      two_draw_two: true,
+    },
+  };
+  expect((await creating).postDataJSON().config).toEqual(config);
+  await expect(
+    host.getByRole('heading', { name: 'Crazy Eights', exact: true }),
+  ).toBeVisible();
+  await guest.goto(new URL(host.url()).pathname);
+  await guest.getByLabel('Nickname').fill('Bob');
+  await guest.getByRole('button', { name: 'Join room' }).click();
+  for (const page of [host, guest]) {
+    await expect(
+      page.getByRole('region', { name: 'Game rules' }),
+    ).toContainText('8: Choose suit: Off');
+    await expect(
+      page.getByRole('region', { name: 'Game rules' }),
+    ).toContainText('2: Next player draws two: On');
+    await expect(page.getByRole('checkbox')).toHaveCount(0);
+    expect((await snapshot(page)).config).toEqual(config);
+  }
+  await host.getByRole('button', { name: 'Start game' }).click();
+  await expect(host.getByText('Your turn', { exact: true })).toBeVisible();
+  for (const page of [host, guest]) {
+    await page.reload();
+    await expect(
+      page.getByRole('region', { name: 'Game rules' }),
+    ).toContainText('8: Choose suit: Off');
+    expect((await snapshot(page)).config).toEqual(config);
+  }
+  await hostContext.close();
+  await guestContext.close();
+});
 
 for (const game of [
   'Mancala',

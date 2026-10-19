@@ -20,7 +20,7 @@ npm ci
 npm run dev
 ```
 
-Open **http://localhost:5173**. Create a room, share its six-character code, and start once everyone has joined. Test with separate browser profiles/private windows to occupy different seats. A refresh or temporary disconnection preserves your seat; clearing browser storage loses it.
+Open **http://localhost:5173**. Choose a game and its rule options before creating a room, share its six-character code, and start once everyone has joined. Everyone sees the fixed room rules; rematches keep them. Test with separate browser profiles/private windows to occupy different seats. A refresh or temporary disconnection preserves your seat; clearing browser storage loses it.
 
 SQLite creates `arena.db` automatically. Games, room tokens (hashed), and completed replays survive server restarts. The host can start a rematch; previous replays remain available.
 

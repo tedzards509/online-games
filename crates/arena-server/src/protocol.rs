@@ -1,4 +1,4 @@
-use arena_core::{Action, GameKind, Outcome, Turn, View};
+use arena_core::{Action, Config, GameKind, Outcome, Turn, View};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -7,6 +7,8 @@ use utoipa::ToSchema;
 pub struct CreateRoom {
     pub nickname: String,
     pub game: GameKind,
+    #[serde(default)]
+    pub config: Option<Config>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -32,6 +34,7 @@ pub struct PlayerView {
 pub struct Snapshot {
     pub code: String,
     pub game: GameKind,
+    pub config: Config,
     pub players: Vec<PlayerView>,
     pub you: usize,
     pub revision: u64,

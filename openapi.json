@@ -706,6 +706,16 @@
           "game"
         ],
         "properties": {
+          "config": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Config"
+              }
+            ]
+          },
           "game": {
             "$ref": "#/components/schemas/GameKind"
           },
@@ -1432,6 +1442,7 @@
         "required": [
           "code",
           "game",
+          "config",
           "players",
           "you",
           "revision",
@@ -1441,6 +1452,9 @@
         "properties": {
           "code": {
             "type": "string"
+          },
+          "config": {
+            "$ref": "#/components/schemas/Config"
           },
           "game": {
             "$ref": "#/components/schemas/GameKind"
