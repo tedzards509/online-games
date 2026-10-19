@@ -10,9 +10,9 @@ The contract is defined in `crates/arena-core/src/game.rs`; runtime dispatch and
 | `Player` | A zero-based seat index (`usize`), not a nickname or authentication token. |
 | `Seed` | Explicit `[u8; 32]` input to setup. The same rules, player count, seed, and actions must reproduce the same states and events. |
 | `Action` | A proposed game-specific command, not an effect or state snapshot. The submitting player is passed separately. |
-| Legal actions | `legal_actions()` enumerates exactly the active player's valid commands in the current phase; empty after completion. |
+| Legal actions | `legal_actions(player)` enumerates that seat's valid commands in the current phase; empty for ineligible seats or after completion. |
 | `Event` | An ordered effect of an accepted action, e.g. placement, capture, or completion. Events describe transitions; they are not commands or independently applied state updates. `GameEvent::finished` constructs the terminal event. |
-| `Turn` | Active `player` and ruleset-managed `number`. The ruleset owns extra turns, skipped seats, and multi-action phases; one action need not end a turn. Neither field is a room revision. |
+| `Turn` | Eligible `players: Vec<Player>` and ruleset-managed `number`. The list is not a queue or priority order. The ruleset owns extra turns, response windows, and multi-action phases. `Turn::advance(count)` rotates a singleton list and increments the counter; it panics for any other list length. Neither field is a room revision. |
 | `Outcome` | `None` during play; otherwise winning seats and optional scores in seat order. Draws and shared wins follow the ruleset's conventions. |
 | `View` | A viewer-specific projection of state. Only permitted information is exposed; full state and seeds remain private. |
 | `Session<G>` / `Record<A, E>` | A validation wrapper holding current state, setup inputs, and history. Each record contains the submitting player, accepted action, and resulting events. |
@@ -21,11 +21,13 @@ The contract is defined in `crates/arena-core/src/game.rs`; runtime dispatch and
 ### Transition contract
 
 1. `Game::new(players, seed)` validates player count and constructs deterministic setup.
-2. `Session::act(player, action)` rejects completed games, inactive players, and actions outside `legal_actions()` before any mutation or logging.
-3. `advance(action)` mutates state, resolves rule effects, updates phases/turn/outcome, and returns events. It assumes a legal action; simulations may call it directly with actions selected from `legal_actions()`.
+2. `Session::act(player, action)` rejects completed games, ineligible players, and actions outside `legal_actions(player)` before any mutation or logging.
+3. `advance(player, action)` mutates state, resolves rule effects, updates phases/turn/outcome, and returns events. It assumes a legal action; simulations may call it directly with actions selected from `legal_actions(player)`.
 4. The session appends a terminal event if the game ended, then records the action and events. It stores no per-event state snapshots.
 
 Rules are synchronous and deterministic: no clocks, OS randomness, I/O, or transport dependencies. See [Add a game](adding-a-game.md) for implementation and integration steps.
+
+Multiple eligible seats may submit against the same room revision. The server serializes commands under the room mutex: the first valid, successfully persisted command wins; all remaining submissions for that revision are stale and rejected. Invalid or failed writes do not consume the revision. No timestamp comparison or batching window is used. The ruleset then sets the next eligible list, e.g. all seats for an open response or only the next seat after a card play.
 
 ## Review of `../spiele`
 

@@ -20,11 +20,12 @@ fn simulate<G: Game>(count: usize) -> Result<(), Box<dyn std::error::Error>> {
         let mut game = G::new(2, rng.r#gen())?;
         let mut steps = 0;
         while game.outcome().is_none() {
-            let legal = game.legal_actions();
+            let player = game.turn().players[0];
+            let legal = game.legal_actions(player);
             if legal.is_empty() || steps >= 100_000 {
                 return Err("Simulation stalled".into());
             }
-            game.advance(&legal[rng.gen_range(0..legal.len())]);
+            game.advance(player, &legal[rng.gen_range(0..legal.len())]);
             steps += 1;
         }
         actions += steps;

@@ -261,6 +261,8 @@ async fn command(
     player: usize,
     message: ClientMessage,
 ) -> Result<(), ApiError> {
+    // The first valid command to commit wins a revision. Contenders wait on this
+    // lock, then fail the revision check; no client timestamp or seat priority.
     let mut room = lobby.room.lock().await;
     let revision = match &message {
         ClientMessage::Start { revision } | ClientMessage::Move { revision, .. } => *revision,
@@ -297,4 +299,75 @@ async fn command(
     *room = next;
     let _ = lobby.changed.send(());
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use arena_core::{Action, GameKind, Match, games::mancala};
+    use serde_json::json;
+
+    #[tokio::test]
+    async fn competing_eligible_players_commit_only_one_action_per_revision() {
+        let app = App::open("sqlite::memory:", "http://localhost:5173")
+            .await
+            .unwrap();
+        let mut room = Room::new("ABC234".into(), GameKind::Mancala);
+        room.join("Alice").unwrap();
+        room.join("Bob").unwrap();
+        room.start(0).unwrap();
+        // Both seats may sow into their store (an extra turn, so the singleton
+        // advancement helper is not used). Production Kalah remains sequential.
+        let mut state = serde_json::to_value(room.game.as_ref().unwrap()).unwrap();
+        state["Mancala"]["state"]["turn"]["players"] = json!([0, 1]);
+        room.game = Some(serde_json::from_value::<Match>(state).unwrap());
+        assert!(!room.snapshot(0).legal_actions.is_empty());
+        assert!(!room.snapshot(1).legal_actions.is_empty());
+        app.store.save(&room, None).await.unwrap();
+        let revision = room.revision;
+        let lobby = Lobby::new(room);
+        let mut changes = lobby.changed.subscribe();
+        let (alice, bob) = tokio::join!(
+            command(
+                &app,
+                &lobby,
+                0,
+                ClientMessage::Move {
+                    revision,
+                    action: Action::Mancala(mancala::Action { pit: 2 }),
+                }
+            ),
+            command(
+                &app,
+                &lobby,
+                1,
+                ClientMessage::Move {
+                    revision,
+                    action: Action::Mancala(mancala::Action { pit: 9 }),
+                }
+            ),
+        );
+        assert_ne!(alice.is_ok(), bob.is_ok());
+        assert!(matches!(
+            if alice.is_err() { alice } else { bob },
+            Err(ApiError::Conflict)
+        ));
+        let room = lobby.room.lock().await;
+        assert_eq!(room.revision, revision + 1);
+        let replay = room.game.as_ref().unwrap().replay();
+        assert_eq!(replay.records.len(), 1);
+        assert_eq!(
+            app.store.load().await.unwrap()[0]
+                .game
+                .as_ref()
+                .unwrap()
+                .replay(),
+            replay
+        );
+        changes.try_recv().unwrap();
+        assert!(matches!(
+            changes.try_recv(),
+            Err(broadcast::error::TryRecvError::Empty)
+        ));
+    }
 }

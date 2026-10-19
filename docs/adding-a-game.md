@@ -5,8 +5,8 @@ Use `crates/arena-core/src/games/tic_tac_toe.rs` and `frontend/src/components/Ti
 1. **Fix the rules.** Add player counts, turn order, special cases, and win/draw conditions to `docs/rules.md`. Choose a stable snake-case game ID.
 2. **Implement the core.** Add `crates/arena-core/src/games/<id>.rs` and export it from `games/mod.rs`. Implement `Game` with action, event, and view types. State needs `Clone`, `Serialize`, and `Deserialize`; actions also need `PartialEq`; actions/views need `ToSchema` with unique names such as `TicTacToeAction`.
    - `new`: validate player count; use only the supplied seed for randomness (ignore it for deterministic games).
-   - `legal_actions`: list exactly the active player's valid commands; return none after completion.
-   - `advance`: apply a legal command, update turns/outcomes, and emit effects. `Session::act` validates first and appends the final event.
+   - `legal_actions(player)`: list that seat's valid commands; return none for ineligible seats or after completion.
+   - `advance(player, action)`: apply a legal command for its submitting seat, update turns/outcomes, and emit effects. `Session::act` validates first and appends the final event. Set `turn.players` to the next eligible seats; `Turn::advance(count)` is only for singleton lists and panics otherwise. Competing submissions use first-successful-commit ordering at the server's room revision boundary.
    - `view`: expose only information that this viewer may see.
    Reuse `Event` for arena integration. Custom `GameEvent` types work with generic sessions; integrating them into `Match` also requires adapting its replay event representation. Cards and decks are optional.
 3. **Register it.** In `arena.rs`, extend `GameKind`, `max_players`, `Action`, `View`, `Match`, `dispatch!`, and every ruleset match arm. Add the ruleset to `examples/simulate.rs`. Existing replay-version-1 rules must remain unchanged; adding a new ID alone needs no version bump. Rooms and SQLite need no game-specific code or migration.

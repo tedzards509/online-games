@@ -399,15 +399,15 @@ export interface components {
     TicTacToeView: {
       board: (null | components['schemas']['usize'])[];
     };
-    /** @description The active seat and a ruleset-managed turn counter, not a room revision. */
+    /** @description Eligible seats and a ruleset-managed turn counter, not a room revision. */
     Turn: {
       /**
        * Format: int64
        * @description The number of turn advances since setup.
        */
       number: number;
-      /** @description The seat that may act next. */
-      player: components['schemas']['usize'];
+      /** @description The seats that may act next; this is not a queue or priority order. */
+      players: components['schemas']['usize'][];
     };
     /** @description A player's observation tagged with its ruleset. */
     View:

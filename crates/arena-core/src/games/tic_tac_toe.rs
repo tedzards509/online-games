@@ -49,15 +49,15 @@ impl Game for TicTacToe {
     }
 
     fn turn(&self) -> Turn {
-        self.turn
+        self.turn.clone()
     }
 
     fn outcome(&self) -> Option<Outcome> {
         self.outcome.clone()
     }
 
-    fn legal_actions(&self) -> Vec<Action> {
-        if self.outcome.is_some() {
+    fn legal_actions(&self, player: Player) -> Vec<Action> {
+        if self.outcome.is_some() || !self.turn.players.contains(&player) {
             return vec![];
         }
         self.board
@@ -68,8 +68,7 @@ impl Game for TicTacToe {
             .collect()
     }
 
-    fn advance(&mut self, action: &Action) -> Vec<Event> {
-        let player = self.turn.player;
+    fn advance(&mut self, player: Player, action: &Action) -> Vec<Event> {
         self.board[action.index] = Some(player);
         if LINES
             .iter()
@@ -85,7 +84,7 @@ impl Game for TicTacToe {
                 scores: None,
             });
         }
-        self.turn.next(2);
+        self.turn.advance(2);
         vec![Event::Played { player }]
     }
 
@@ -103,7 +102,7 @@ mod tests {
     fn play(indices: &[usize]) -> Session<TicTacToe> {
         let mut game = Session::<TicTacToe>::new(2, [0; 32]).unwrap();
         for &index in indices {
-            game.act(game.state().turn().player, Action { index })
+            game.act(game.state().turn().players[0], Action { index })
                 .unwrap();
         }
         game
@@ -139,7 +138,7 @@ mod tests {
                 scores: None
             })
         );
-        assert!(game.state().legal_actions().is_empty());
+        assert!(game.state().legal_actions(0).is_empty());
     }
 
     #[test]
@@ -186,7 +185,7 @@ mod tests {
             assert_eq!(
                 state.turn(),
                 Turn {
-                    player: filled % 2,
+                    players: vec![filled % 2],
                     number: filled as u64
                 }
             );
@@ -214,7 +213,7 @@ mod tests {
                 None
             };
             assert_eq!(state.outcome(), expected);
-            let legal = state.legal_actions();
+            let legal = state.legal_actions(state.turn().players[0]);
             let indices: Vec<_> = if expected.is_some() {
                 vec![]
             } else {
@@ -223,7 +222,7 @@ mod tests {
             assert_eq!(legal.iter().map(|a| a.index).collect::<Vec<_>>(), indices);
             for action in legal {
                 let mut next = game.clone();
-                next.act(state.turn().player, action).unwrap();
+                next.act(state.turn().players[0], action).unwrap();
                 visit(next, seen);
             }
         }

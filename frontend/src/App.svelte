@@ -209,7 +209,7 @@
           <li
             class:active={room.view &&
               !room.outcome &&
-              room.turn?.player === index}
+              room.turn?.players.includes(index)}
           >
             {player.nickname}{index === room.you ? ' · you' : ''}{index === 0
               ? ' · host'
@@ -244,9 +244,9 @@
             >{/if}
         {:else}
           <p class="turn" role="status">
-            {room.turn?.player === room.you
+            {room.turn?.players.includes(room.you)
               ? 'Your turn'
-              : `${room.players[room.turn?.player ?? 0].nickname}'s turn`}
+              : `${room.turn?.players.map((player) => room.players[player].nickname).join(', ') || 'Nobody'}'s turn`}
           </p>
         {/if}
         <GameBoard

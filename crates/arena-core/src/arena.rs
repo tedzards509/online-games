@@ -87,7 +87,7 @@ impl Match {
             GameKind::TicTacToe => Self::TicTacToe(Session::new(players, seed)?),
         })
     }
-    /// Returns the ruleset's active seat and turn counter.
+    /// Returns the ruleset's eligible seats and turn counter.
     pub fn turn(&self) -> Turn {
         dispatch!(self, s => s.state().turn())
     }
@@ -105,39 +105,39 @@ impl Match {
             Self::TicTacToe(s) => View::TicTacToe(s.state().view(player)),
         }
     }
-    /// Lists a seat's legal commands; inactive seats receive an empty list.
+    /// Lists a seat's legal commands; ineligible seats receive an empty list.
     pub fn legal_actions(&self, player: Player) -> Vec<Action> {
-        if self.turn().player != player {
+        if !self.turn().players.contains(&player) {
             return vec![];
         }
         match self {
             Self::Mancala(s) => s
                 .state()
-                .legal_actions()
+                .legal_actions(player)
                 .into_iter()
                 .map(Action::Mancala)
                 .collect(),
             Self::CrazyEights(s) => s
                 .state()
-                .legal_actions()
+                .legal_actions(player)
                 .into_iter()
                 .map(Action::CrazyEights)
                 .collect(),
             Self::Shithead(s) => s
                 .state()
-                .legal_actions()
+                .legal_actions(player)
                 .into_iter()
                 .map(Action::Shithead)
                 .collect(),
             Self::Skyjo(s) => s
                 .state()
-                .legal_actions()
+                .legal_actions(player)
                 .into_iter()
                 .map(Action::Skyjo)
                 .collect(),
             Self::TicTacToe(s) => s
                 .state()
-                .legal_actions()
+                .legal_actions(player)
                 .into_iter()
                 .map(Action::TicTacToe)
                 .collect(),

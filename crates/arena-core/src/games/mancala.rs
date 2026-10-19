@@ -39,23 +39,22 @@ impl Game for Mancala {
         })
     }
     fn turn(&self) -> Turn {
-        self.turn
+        self.turn.clone()
     }
     fn outcome(&self) -> Option<Outcome> {
         self.outcome.clone()
     }
-    fn legal_actions(&self) -> Vec<Action> {
-        if self.outcome.is_some() {
+    fn legal_actions(&self, player: Player) -> Vec<Action> {
+        if self.outcome.is_some() || !self.turn.players.contains(&player) {
             return vec![];
         }
-        let start = self.turn.player * 7;
+        let start = player * 7;
         (start..start + 6)
             .filter(|&pit| self.board[pit] > 0)
             .map(|pit| Action { pit })
             .collect()
     }
-    fn advance(&mut self, action: &Action) -> Vec<Event> {
-        let player = self.turn.player;
+    fn advance(&mut self, player: Player, action: &Action) -> Vec<Event> {
         let store = player * 7 + 6;
         let mut stones = self.board[action.pit];
         self.board[action.pit] = 0;
@@ -99,7 +98,7 @@ impl Game for Mancala {
         if pit == store {
             self.turn.number += 1;
         } else {
-            self.turn.next(2);
+            self.turn.advance(2);
         }
         events
     }
@@ -116,7 +115,7 @@ mod tests {
     fn extra_turn_and_conservation() {
         let mut game = Session::<Mancala>::new(2, [0; 32]).unwrap();
         game.act(0, Action { pit: 2 }).unwrap();
-        assert_eq!(game.state().turn().player, 0);
+        assert_eq!(game.state().turn().players, vec![0]);
         assert_eq!(game.state().board.iter().sum::<u16>(), 48);
     }
     #[test]
@@ -126,7 +125,7 @@ mod tests {
         game.board[0] = 1;
         game.board[11] = 3;
         game.board[7] = 2;
-        let events = game.advance(&Action { pit: 0 });
+        let events = game.advance(0, &Action { pit: 0 });
         assert!(events.contains(&Event::Captured {
             player: 0,
             count: 4

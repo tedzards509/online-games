@@ -22,7 +22,7 @@ Connect to `/api/rooms/{code}/ws`, then send within five seconds:
 {"type":"authenticate","token":"…"}
 ```
 
-The server replies with `{"type":"snapshot","room":{…}}`. A snapshot includes the room revision, players, your seat, current turn, outcome, a game-specific `view`, your `legal_actions`, and archived replay IDs. Before starting, `view` and `turn` are null. Only the active seat receives legal actions. Every accepted change notifies all room sockets; each receives a fresh, independently projected snapshot, not the private engine state or raw event log.
+The server replies with `{"type":"snapshot","room":{…}}`. A snapshot includes the room revision, players, your seat, current turn, outcome, a game-specific `view`, your `legal_actions`, and archived replay IDs. Before starting, `view` and `turn` are null. A turn contains `players` (eligible seat indices) and `number` (the ruleset's counter). Only eligible seats receive legal actions, personalized per seat. Every accepted change notifies all room sockets; each receives a fresh, independently projected snapshot, not the private engine state or raw event log.
 
 Start or rematch (host only; at least two players, no running game):
 
@@ -37,6 +37,8 @@ Use an action from your latest snapshot's `legal_actions`:
 ```
 
 Every accepted join/start/move increments the revision. A stale revision, wrong turn, invalid action, or finished game is rejected without mutation. An authenticated command error returns `{"type":"error","error":"…"}` followed by a fresh snapshot. A rejected initial authentication closes the connection. Browser origins must match `PUBLIC_ORIGIN`; native clients can omit Origin.
+
+When multiple eligible seats submit for the same revision, the first valid command committed under the room lock wins. Other submissions for that revision are rejected as stale, even if their seats remain eligible. Failed validation or persistence does not consume the revision. This is server processing order, not client timestamp or seat priority.
 
 The server pings every 20 seconds and disconnects clients that miss the next heartbeat. Reconnect, authenticate again, and replace local state with the new snapshot. Do not resend old moves automatically: a committed move may have succeeded before the connection dropped.
 

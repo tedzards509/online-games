@@ -1394,9 +1394,9 @@
       },
       "Turn": {
         "type": "object",
-        "description": "The active seat and a ruleset-managed turn counter, not a room revision.",
+        "description": "Eligible seats and a ruleset-managed turn counter, not a room revision.",
         "required": [
-          "player",
+          "players",
           "number"
         ],
         "properties": {
@@ -1406,9 +1406,12 @@
             "description": "The number of turn advances since setup.",
             "minimum": 0
           },
-          "player": {
-            "$ref": "#/components/schemas/usize",
-            "description": "The seat that may act next."
+          "players": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/usize"
+            },
+            "description": "The seats that may act next; this is not a queue or priority order."
           }
         }
       },

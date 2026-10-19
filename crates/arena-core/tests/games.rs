@@ -65,7 +65,7 @@ fn all_games_finish_and_replay_exactly() {
                 if game.outcome().is_some() {
                     break;
                 }
-                let player = game.turn().player;
+                let player = game.turn().players[0];
                 let actions = game.legal_actions(player);
                 assert!(!actions.is_empty(), "{kind:?} stalled");
                 let action = actions[rng.gen_range(0..actions.len())].clone();
@@ -105,7 +105,7 @@ fn all_games_finish_and_replay_exactly() {
             );
             let before = serde_json::to_value(&game).unwrap();
             assert!(
-                game.act(game.turn().player, replay.records[0].action.clone())
+                game.act(game.turn().players[0], replay.records[0].action.clone())
                     .is_err()
             );
             assert_eq!(serde_json::to_value(game).unwrap(), before);
@@ -135,7 +135,7 @@ fn every_supported_player_count_completes_and_invalid_counts_are_rejected() {
                 if game.outcome().is_some() {
                     break;
                 }
-                let player = game.turn().player;
+                let player = game.turn().players[0];
                 let actions = game.legal_actions(player);
                 assert!(!actions.is_empty(), "{kind:?} with {count} players stalled");
                 game.act(player, actions[rng.gen_range(0..actions.len())].clone())

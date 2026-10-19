@@ -29,25 +29,31 @@ mod tests {
         game.hands[0] = vec![card(8, Suit::Clubs), card(3, Suit::Clubs)];
         game.discard = vec![card(14, Suit::Hearts)];
         game.suit = Suit::Hearts;
-        assert_eq!(game.legal_actions().len(), 4);
-        game.advance(&Action::Play {
-            index: 0,
-            suit: Some(Suit::Diamonds),
-        });
+        assert_eq!(game.legal_actions(game.turn.players[0]).len(), 4);
+        game.advance(
+            game.turn.players[0],
+            &Action::Play {
+                index: 0,
+                suit: Some(Suit::Diamonds),
+            },
+        );
         assert_eq!(game.suit, Suit::Diamonds);
         game.hands[1] = vec![card(2, Suit::Diamonds), card(11, Suit::Spades)];
         assert_eq!(
-            game.legal_actions(),
+            game.legal_actions(game.turn.players[0]),
             vec![Action::Play {
                 index: 0,
                 suit: None
             }]
         );
-        game.advance(&Action::Play {
-            index: 0,
-            suit: None,
-        });
-        assert_eq!(game.turn.player, 0);
+        game.advance(
+            game.turn.players[0],
+            &Action::Play {
+                index: 0,
+                suit: None,
+            },
+        );
+        assert_eq!(game.turn.players, vec![0]);
     }
 
     #[test]
@@ -57,10 +63,10 @@ mod tests {
         game.discard = vec![card(3, Suit::Hearts)];
         game.suit = Suit::Hearts;
         game.hands = vec![vec![card(4, Suit::Clubs)], vec![card(5, Suit::Spades)]];
-        assert_eq!(game.legal_actions(), vec![Action::Draw]);
-        game.advance(&Action::Draw);
+        assert_eq!(game.legal_actions(game.turn.players[0]), vec![Action::Draw]);
+        game.advance(game.turn.players[0], &Action::Draw);
         assert!(game.outcome.is_none());
-        game.advance(&Action::Draw);
+        game.advance(game.turn.players[0], &Action::Draw);
         assert!(game.outcome.unwrap().winners.is_empty());
     }
 }
@@ -118,17 +124,17 @@ impl Game for CrazyEights {
         })
     }
     fn turn(&self) -> Turn {
-        self.turn
+        self.turn.clone()
     }
     fn outcome(&self) -> Option<Outcome> {
         self.outcome.clone()
     }
-    fn legal_actions(&self) -> Vec<Action> {
-        if self.outcome.is_some() {
+    fn legal_actions(&self, player: Player) -> Vec<Action> {
+        if self.outcome.is_some() || !self.turn.players.contains(&player) {
             return vec![];
         }
         let top = self.discard.last().unwrap();
-        let actions: Vec<_> = self.hands[self.turn.player]
+        let actions: Vec<_> = self.hands[player]
             .iter()
             .enumerate()
             .flat_map(|(index, card)| {
@@ -153,8 +159,7 @@ impl Game for CrazyEights {
             actions
         }
     }
-    fn advance(&mut self, action: &Action) -> Vec<Event> {
-        let player = self.turn.player;
+    fn advance(&mut self, player: Player, action: &Action) -> Vec<Event> {
         match action {
             Action::Play { index, suit } => {
                 let card = self.hands[player].remove(*index);
@@ -184,7 +189,7 @@ impl Game for CrazyEights {
                 }
             }
         }
-        self.turn.next(self.hands.len());
+        self.turn.advance(self.hands.len());
         vec![Event::Played { player }]
     }
     fn view(&self, viewer: Player) -> View {

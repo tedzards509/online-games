@@ -28,11 +28,12 @@ pub enum Error {
     Replay,
 }
 
-/// The active seat and a ruleset-managed turn counter, not a room revision.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+/// Eligible seats and a ruleset-managed turn counter, not a room revision.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct Turn {
-    /// The seat that may act next.
-    pub player: Player,
+    /// The seats that may act next; this is not a queue or priority order.
+    #[serde(alias = "player", deserialize_with = "deserialize_turn_players")]
+    pub players: Vec<Player>,
     /// The number of turn advances since setup.
     pub number: u64,
 }
@@ -41,15 +42,38 @@ impl Turn {
     /// Starts at seat zero with turn number zero.
     pub fn first() -> Self {
         Self {
-            player: 0,
+            players: vec![0],
             number: 0,
         }
     }
-    /// Moves to the next seat and increments the counter; `count` must be positive.
-    pub fn next(&mut self, count: usize) {
-        self.player = (self.player + 1) % count;
+    /// Moves a single eligible seat forward and increments the counter.
+    /// Panics unless exactly one seat is eligible and `count` is positive.
+    pub fn advance(&mut self, count: usize) {
+        assert_eq!(
+            self.players.len(),
+            1,
+            "advance requires exactly one eligible player"
+        );
+        assert!(count > 0, "player count must be positive");
+        self.players[0] = (self.players[0] + 1) % count;
         self.number += 1;
     }
+}
+
+/// Reads both current eligibility lists and legacy persisted single-seat turns.
+fn deserialize_turn_players<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Vec<Player>, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Players {
+        Many(Vec<Player>),
+        One(Player),
+    }
+    Ok(match Players::deserialize(deserializer)? {
+        Players::Many(players) => players,
+        Players::One(player) => vec![player],
+    })
 }
 
 /// A finished result with optional scores in seat order.
@@ -100,14 +124,14 @@ pub trait Game: Clone {
     type View: Serialize;
     /// Creates a seeded initial state, rejecting unsupported player counts.
     fn new(players: usize, seed: Seed) -> Result<Self, Error>;
-    /// Returns the active seat and ruleset turn counter.
+    /// Returns eligible seats and the ruleset turn counter.
     fn turn(&self) -> Turn;
     /// Returns the final result, or `None` while play continues.
     fn outcome(&self) -> Option<Outcome>;
-    /// Lists the active player's available actions; empty after completion.
-    fn legal_actions(&self) -> Vec<Self::Action>;
+    /// Lists a seat's available actions; empty for ineligible seats or after completion.
+    fn legal_actions(&self, player: Player) -> Vec<Self::Action>;
     /// Applies a legal action, updates turn order, and returns effects without a terminal event.
-    fn advance(&mut self, action: &Self::Action) -> Vec<Self::Event>;
+    fn advance(&mut self, player: Player, action: &Self::Action) -> Vec<Self::Event>;
     /// Projects state for one viewer without leaking other players' private information.
     fn view(&self, viewer: Player) -> Self::View;
 }
@@ -160,13 +184,13 @@ impl<G: Game> Session<G> {
         if self.state.outcome().is_some() {
             return Err(Error::Finished);
         }
-        if self.state.turn().player != player {
+        if player >= self.players || !self.state.turn().players.contains(&player) {
             return Err(Error::NotYourTurn);
         }
-        if !self.state.legal_actions().contains(&action) {
+        if !self.state.legal_actions(player).contains(&action) {
             return Err(Error::IllegalMove);
         }
-        let mut events = self.state.advance(&action);
+        let mut events = self.state.advance(player, &action);
         if let Some(outcome) = self.state.outcome() {
             events.push(G::Event::finished(outcome));
         }

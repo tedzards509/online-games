@@ -1,5 +1,60 @@
 import { test, expect, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
+import type { Snapshot } from '../src/lib/types';
+
+test('multiple eligible seats become a single responder', async ({ page }) => {
+  // Protocol fixture: existing Tic-Tac-Toe rules remain sequential.
+  const room: Snapshot = {
+    code: 'ABC234',
+    game: 'tic_tac_toe',
+    you: 0,
+    revision: 3,
+    players: [{ nickname: 'Alice' }, { nickname: 'Bob' }],
+    turn: { players: [0, 1], number: 0 },
+    outcome: null,
+    view: { game: 'tic_tac_toe', state: { board: Array(9).fill(null) } },
+    legal_actions: [{ game: 'tic_tac_toe', action: { index: 0 } }],
+    replays: [],
+  };
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      'arena:ABC234',
+      JSON.stringify({
+        code: 'ABC234',
+        player: 0,
+        token: 'test-seat',
+      }),
+    ),
+  );
+  await page.routeWebSocket('**/api/rooms/ABC234/ws', (socket) => {
+    socket.onMessage((data) => {
+      const message = JSON.parse(String(data));
+      if (message.type === 'move') {
+        expect(message.revision).toBe(3);
+        expect(message.action).toEqual(room.legal_actions[0]);
+        room.revision++;
+        room.turn = { players: [1], number: 1 };
+        room.view = {
+          game: 'tic_tac_toe',
+          state: { board: [0, ...Array(8).fill(null)] },
+        };
+        room.legal_actions = [];
+      }
+      socket.send(JSON.stringify({ type: 'snapshot', room }));
+    });
+  });
+  await page.goto('/room/ABC234');
+  await expect(page.getByText('Your turn', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Players').locator('li.active')).toHaveCount(2);
+  await page
+    .getByRole('button', { name: 'Cell 1: empty', exact: true })
+    .click();
+  await expect(page.getByText("Bob's turn", { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Players').locator('li.active')).toHaveCount(1);
+  await expect(
+    page.getByLabel('Tic-Tac-Toe board').locator('button:enabled'),
+  ).toHaveCount(0);
+});
 
 async function snapshot(page: Page) {
   return page.evaluate(async () => {

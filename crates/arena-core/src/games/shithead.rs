@@ -38,17 +38,20 @@ mod tests {
         game.pile.push(card(2));
         assert!(game.playable(card(3)));
         game.players[0].hand = vec![card(10)];
-        let events = game.advance(&Action::Play { indices: vec![0] });
+        let events = game.advance(0, &Action::Play { indices: vec![0] });
         assert!(events.contains(&Event::Burned));
         assert!(game.pile.is_empty());
-        assert_eq!(game.turn.player, 0);
+        assert_eq!(game.turn.players, vec![0]);
         game.pile = vec![card(7), card(7)];
         game.players[0].hand = vec![card(7), card(7)];
-        game.advance(&Action::Play {
-            indices: vec![0, 1],
-        });
+        game.advance(
+            0,
+            &Action::Play {
+                indices: vec![0, 1],
+            },
+        );
         assert!(game.pile.is_empty());
-        assert_eq!(game.turn.player, 0);
+        assert_eq!(game.turn.players, vec![0]);
     }
 
     #[test]
@@ -61,11 +64,11 @@ mod tests {
             up: vec![],
             down: vec![card(3), card(4)],
         };
-        assert!(game.legal_actions().contains(&Action::Blind { index: 0 }));
-        game.advance(&Action::Blind { index: 0 });
+        assert!(game.legal_actions(0).contains(&Action::Blind { index: 0 }));
+        game.advance(0, &Action::Blind { index: 0 });
         assert_eq!(game.players[0].hand, vec![card(14), card(3)]);
         assert_eq!(game.view(1).players[0].down, 1);
-        assert_eq!(game.turn.player, 1);
+        assert_eq!(game.turn.players, vec![1]);
     }
 
     #[test]
@@ -172,16 +175,16 @@ impl Game for Shithead {
         })
     }
     fn turn(&self) -> Turn {
-        self.turn
+        self.turn.clone()
     }
     fn outcome(&self) -> Option<Outcome> {
         self.outcome.clone()
     }
-    fn legal_actions(&self) -> Vec<Action> {
-        if self.outcome.is_some() {
+    fn legal_actions(&self, player: Player) -> Vec<Action> {
+        if self.outcome.is_some() || !self.turn.players.contains(&player) {
             return vec![];
         }
-        let cards = &self.players[self.turn.player];
+        let cards = &self.players[player];
         let mut actions = if cards.hand.is_empty() && cards.up.is_empty() {
             (0..cards.down.len())
                 .map(|index| Action::Blind { index })
@@ -218,8 +221,7 @@ impl Game for Shithead {
         }
         actions
     }
-    fn advance(&mut self, action: &Action) -> Vec<Event> {
-        let player = self.turn.player;
+    fn advance(&mut self, player: Player, action: &Action) -> Vec<Event> {
         let mut events = vec![Event::Played { player }];
         let mut again = false;
         match action {
@@ -283,9 +285,9 @@ impl Game for Shithead {
         if again {
             self.turn.number += 1;
         } else {
-            self.turn.next(self.players.len());
-            while self.finished.contains(&self.turn.player) {
-                self.turn.player = (self.turn.player + 1) % self.players.len();
+            self.turn.advance(self.players.len());
+            while self.finished.contains(&self.turn.players[0]) {
+                self.turn.players[0] = (self.turn.players[0] + 1) % self.players.len();
             }
         }
         events

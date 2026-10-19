@@ -248,7 +248,7 @@ async fn games_over_real_websockets_export_and_archive_replays() {
             if !views[0]["outcome"].is_null() {
                 break;
             }
-            let player = views[0]["turn"]["player"].as_u64().unwrap() as usize;
+            let player = views[0]["turn"]["players"][0].as_u64().unwrap() as usize;
             let revision = views[0]["revision"].as_u64().unwrap();
             let actions = views[player]["legal_actions"].as_array().unwrap();
             // Make progress rather than voluntarily cycling pickups or replacing revealed cards.

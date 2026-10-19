@@ -46,24 +46,30 @@ mod tests {
     fn stock_card_is_private_and_discard_must_be_replaced() {
         let mut game = Skyjo::new(2, [0; 32]).unwrap();
         game.phase = Phase::Draw;
-        game.advance(&Action::Draw {
-            source: Source::Stock,
-        });
+        game.advance(
+            0,
+            &Action::Draw {
+                source: Source::Stock,
+            },
+        );
         assert!(game.view(0).pending.is_some());
         assert!(game.view(1).pending.is_none());
-        assert!(game.legal_actions().contains(&Action::Discard));
-        game.advance(&Action::Discard);
+        assert!(game.legal_actions(0).contains(&Action::Discard));
+        game.advance(0, &Action::Discard);
         assert_eq!(game.phase, Phase::Reveal);
         assert!(
-            game.legal_actions()
+            game.legal_actions(0)
                 .iter()
                 .all(|a| matches!(a, Action::Reveal { .. }))
         );
-        game.advance(&Action::Reveal { index: 0 });
-        game.advance(&Action::Draw {
-            source: Source::Discard,
-        });
-        assert!(!game.legal_actions().contains(&Action::Discard));
+        game.advance(0, &Action::Reveal { index: 0 });
+        game.advance(
+            1,
+            &Action::Draw {
+                source: Source::Discard,
+            },
+        );
+        assert!(!game.legal_actions(1).contains(&Action::Discard));
     }
 
     #[test]
@@ -169,17 +175,17 @@ impl Skyjo {
         }
     }
     fn end_turn(&mut self, events: &mut Vec<Event>) {
-        self.eliminate(self.turn.player, events);
+        self.eliminate(self.turn.players[0], events);
         if self.finisher.is_none()
-            && self.grids[self.turn.player]
+            && self.grids[self.turn.players[0]]
                 .iter()
                 .all(|c| c.is_none_or(|c| c.revealed))
         {
-            self.finisher = Some(self.turn.player);
+            self.finisher = Some(self.turn.players[0]);
         }
-        self.turn.next(self.grids.len());
+        self.turn.advance(self.grids.len());
         self.phase = Phase::Draw;
-        if self.finisher == Some(self.turn.player) {
+        if self.finisher == Some(self.turn.players[0]) {
             for player in 0..self.grids.len() {
                 for cell in self.grids[player].iter_mut().flatten() {
                     cell.revealed = true;
@@ -260,16 +266,16 @@ impl Game for Skyjo {
         })
     }
     fn turn(&self) -> Turn {
-        self.turn
+        self.turn.clone()
     }
     fn outcome(&self) -> Option<Outcome> {
         self.outcome.clone()
     }
-    fn legal_actions(&self) -> Vec<Action> {
-        if self.outcome.is_some() {
+    fn legal_actions(&self, player: Player) -> Vec<Action> {
+        if self.outcome.is_some() || !self.turn.players.contains(&player) {
             return vec![];
         }
-        let grid = &self.grids[self.turn.player];
+        let grid = &self.grids[player];
         match self.phase {
             Phase::Setup | Phase::Reveal => grid
                 .iter()
@@ -302,8 +308,7 @@ impl Game for Skyjo {
             }
         }
     }
-    fn advance(&mut self, action: &Action) -> Vec<Event> {
-        let player = self.turn.player;
+    fn advance(&mut self, player: Player, action: &Action) -> Vec<Event> {
         let mut events = vec![Event::Played { player }];
         match *action {
             Action::Reveal { index } => {
@@ -316,10 +321,10 @@ impl Game for Skyjo {
                         .count()
                         == 2
                     {
-                        self.turn.next(self.grids.len());
-                        if self.turn.player == 0 {
+                        self.turn.advance(self.grids.len());
+                        if self.turn.players[0] == 0 {
                             self.phase = Phase::Draw;
-                            self.turn.player = (0..self.grids.len())
+                            self.turn.players[0] = (0..self.grids.len())
                                 .max_by_key(|&p| {
                                     (
                                         self.grids[p]
@@ -379,7 +384,7 @@ impl Game for Skyjo {
                 .collect(),
             top: self.discard.last().copied(),
             stock: self.deck.len(),
-            pending: if viewer == self.turn.player {
+            pending: if self.turn.players.contains(&viewer) {
                 self.pending
             } else {
                 None
