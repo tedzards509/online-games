@@ -112,6 +112,22 @@ mod tests {
     use crate::Session;
     use std::collections::HashSet;
 
+    #[test]
+    fn setup_is_public_seed_independent_and_has_exactly_nine_choices() {
+        let first = TicTacToe::new(2, [0; 32]).unwrap();
+        let second = TicTacToe::new(2, [255; 32]).unwrap();
+        assert_eq!(first.turn(), Turn::first());
+        assert!(first.outcome().is_none());
+        assert_eq!(first.view(0).board, [None; 9]);
+        assert_eq!(first.view(0), first.view(1));
+        assert_eq!(first.view(0), second.view(0));
+        assert_eq!(
+            first.legal_actions(0),
+            (0..9).map(|index| Action { index }).collect::<Vec<_>>()
+        );
+        assert!(first.legal_actions(1).is_empty());
+    }
+
     fn play(indices: &[usize]) -> Session<TicTacToe> {
         let mut game = Session::<TicTacToe>::new(2, [0; 32]).unwrap();
         for &index in indices {

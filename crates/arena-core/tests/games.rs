@@ -199,13 +199,39 @@ fn every_supported_player_count_completes_and_invalid_counts_are_rejected() {
         for count in 2..=kind.max_players() {
             let mut game = Match::new(kind, count, [count as u8; 32]).unwrap();
             let mut rng = ChaCha12Rng::from_seed([count as u8; 32]);
-            for _ in 0..20000 {
+            for step in 0..20000 {
                 if game.outcome().is_some() {
                     break;
                 }
                 let player = game.turn().players[0];
                 let actions = game.legal_actions(player);
                 assert!(!actions.is_empty(), "{kind:?} with {count} players stalled");
+                if step % 32 == 0 {
+                    let saved = serde_json::to_value(&game).unwrap();
+                    let restored: Match = serde_json::from_value(saved.clone()).unwrap();
+                    assert_eq!(serde_json::to_value(&restored).unwrap(), saved);
+                    assert_eq!(restored.legal_actions(player), actions);
+                    for viewer in 0..count {
+                        assert_eq!(
+                            serde_json::to_value(restored.view(viewer)).unwrap(),
+                            serde_json::to_value(game.view(viewer)).unwrap()
+                        );
+                    }
+                }
+                match game.view(player) {
+                    arena_core::View::Mancala(view) => {
+                        assert_eq!(view.board.iter().sum::<u16>(), 48)
+                    }
+                    arena_core::View::Shithead(view) => {
+                        let held: usize = view
+                            .players
+                            .iter()
+                            .map(|cards| cards.count + cards.up.len() + cards.down)
+                            .sum();
+                        assert_eq!(held + view.stock + view.pile + view.burned, 52);
+                    }
+                    _ => {}
+                }
                 game.act(player, actions[rng.gen_range(0..actions.len())].clone())
                     .unwrap();
             }
@@ -213,6 +239,8 @@ fn every_supported_player_count_completes_and_invalid_counts_are_rejected() {
                 game.outcome().is_some(),
                 "{kind:?} with {count} players did not finish"
             );
+            let replay = game.replay();
+            assert_eq!(replay.simulate().unwrap().replay(), replay);
         }
     }
 }

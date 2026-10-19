@@ -22,9 +22,264 @@ pub enum Source {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Session;
 
     fn cell(value: i8, revealed: bool) -> Option<Cell> {
         Some(Cell { value, revealed })
+    }
+
+    #[test]
+    fn setup_has_twelve_hidden_slots_per_player_and_one_discard() {
+        for players in 2..=8 {
+            let game = Skyjo::new(players, [0; 32]).unwrap();
+            assert_eq!(game.phase, Phase::Setup);
+            assert_eq!(game.turn(), Turn::first());
+            assert_eq!(game.deck.len(), 150 - 12 * players - 1);
+            assert_eq!(game.discard.len(), 1);
+            assert_eq!(game.pending, None);
+            assert_eq!(game.finisher, None);
+            assert!(game.outcome().is_none());
+            for viewer in 0..players {
+                assert!(game.view(viewer).grids.iter().all(|grid| {
+                    grid.len() == 12
+                        && grid
+                            .iter()
+                            .all(|slot| !slot.removed && slot.value.is_none())
+                }));
+            }
+            assert_eq!(
+                game.legal_actions(0),
+                (0..12)
+                    .map(|index| Action::Reveal { index })
+                    .collect::<Vec<_>>()
+            );
+            assert!(game.legal_actions(1).is_empty());
+        }
+    }
+
+    #[test]
+    fn phase_inappropriate_and_malformed_actions_preserve_state_and_history() {
+        let mut session = Session::<Skyjo>::new(2, [0; 32]).unwrap();
+        for phase in [Phase::Setup, Phase::Draw, Phase::Place, Phase::Reveal] {
+            session.state.phase = phase;
+            session.state.source = Source::Discard;
+            session.state.pending = (phase == Phase::Place).then_some(5);
+            session.state.grids[0].cells[0] = cell(4, true);
+            session.state.grids[0].cells[1] = None;
+            let mut illegal = vec![
+                Action::Reveal { index: usize::MAX },
+                Action::Replace { index: usize::MAX },
+            ];
+            match phase {
+                Phase::Setup | Phase::Reveal => illegal.extend([
+                    Action::Reveal { index: 0 },
+                    Action::Reveal { index: 1 },
+                    Action::Draw {
+                        source: Source::Stock,
+                    },
+                    Action::Replace { index: 2 },
+                    Action::Discard,
+                ]),
+                Phase::Draw => illegal.extend([
+                    Action::Reveal { index: 2 },
+                    Action::Replace { index: 2 },
+                    Action::Discard,
+                ]),
+                Phase::Place => illegal.extend([
+                    Action::Reveal { index: 2 },
+                    Action::Replace { index: 1 },
+                    Action::Draw {
+                        source: Source::Stock,
+                    },
+                    Action::Discard,
+                ]),
+            }
+            let before = serde_json::to_value(&session).unwrap();
+            for action in illegal {
+                assert_eq!(session.act(0, action).unwrap_err(), Error::IllegalMove);
+                assert_eq!(serde_json::to_value(&session).unwrap(), before);
+            }
+            for player in [1, 2, usize::MAX] {
+                assert_eq!(
+                    session
+                        .act(player, Action::Reveal { index: 2 })
+                        .unwrap_err(),
+                    Error::NotYourTurn
+                );
+                assert_eq!(serde_json::to_value(&session).unwrap(), before);
+            }
+        }
+    }
+
+    #[test]
+    fn replacement_accepts_hidden_or_revealed_slots_and_discards_previous_value() {
+        for revealed in [false, true] {
+            for source in [Source::Stock, Source::Discard] {
+                let mut session = Session::<Skyjo>::new(2, [0; 32]).unwrap();
+                session.state.phase = Phase::Draw;
+                session.state.deck = Deck::new(vec![6]);
+                session.state.discard = vec![6];
+                session.state.grids[0].cells[0] = cell(-2, revealed);
+                session.act(0, Action::Draw { source }).unwrap();
+                assert_eq!(session.state.phase, Phase::Place);
+                assert_eq!(session.state.turn.players, vec![0]);
+                assert!(
+                    session
+                        .state
+                        .legal_actions(0)
+                        .contains(&Action::Replace { index: 0 })
+                );
+                session.act(0, Action::Replace { index: 0 }).unwrap();
+                assert_eq!(session.state.grids[0].cells[0].unwrap().value, 6);
+                assert!(session.state.grids[0].cells[0].unwrap().revealed);
+                assert_eq!(session.state.discard.last(), Some(&-2));
+                assert_eq!(session.state.pending, None);
+                assert_eq!(session.state.phase, Phase::Draw);
+                assert_eq!(session.state.turn.players, vec![1]);
+            }
+        }
+    }
+
+    #[test]
+    fn discarding_stock_requires_a_hidden_card_and_reveal_completes_the_turn() {
+        let mut session = Session::<Skyjo>::new(2, [0; 32]).unwrap();
+        session.state.phase = Phase::Draw;
+        session.state.deck = Deck::new(vec![6]);
+        session
+            .act(
+                0,
+                Action::Draw {
+                    source: Source::Stock,
+                },
+            )
+            .unwrap();
+        session.act(0, Action::Discard).unwrap();
+        assert_eq!(session.state.discard.last(), Some(&6));
+        assert_eq!(session.state.pending, None);
+        assert_eq!(session.state.phase, Phase::Reveal);
+        assert_eq!(session.state.turn.players, vec![0]);
+        session.act(0, Action::Reveal { index: 0 }).unwrap();
+        assert_eq!(session.state.phase, Phase::Draw);
+        assert_eq!(session.state.turn.players, vec![1]);
+        session.state.grids[1].reveal_all();
+        session
+            .act(
+                1,
+                Action::Draw {
+                    source: Source::Stock,
+                },
+            )
+            .unwrap();
+        assert!(!session.state.legal_actions(1).contains(&Action::Discard));
+        let before = serde_json::to_value(&session).unwrap();
+        assert_eq!(
+            session.act(1, Action::Discard).unwrap_err(),
+            Error::IllegalMove
+        );
+        assert_eq!(serde_json::to_value(&session).unwrap(), before);
+    }
+
+    #[test]
+    fn final_cycle_wraps_once_without_restarting_for_later_finishers() {
+        let mut session = Session::<Skyjo>::new(3, [0; 32]).unwrap();
+        session.state.phase = Phase::Place;
+        session.state.turn.players = vec![1];
+        session.state.pending = Some(0);
+        session.state.source = Source::Stock;
+        for grid in &mut session.state.grids {
+            grid.cells = vec![None; GRID_SIZE];
+            grid.cells[0] = cell(0, false);
+        }
+        session.act(1, Action::Replace { index: 0 }).unwrap();
+        assert_eq!(session.state.finisher, Some(1));
+        for player in [2, 0] {
+            assert!(session.state.outcome().is_none());
+            assert_eq!(session.state.turn.players, vec![player]);
+            session
+                .act(
+                    player,
+                    Action::Draw {
+                        source: Source::Discard,
+                    },
+                )
+                .unwrap();
+            session.act(player, Action::Replace { index: 0 }).unwrap();
+            assert_eq!(session.state.finisher, Some(1));
+        }
+        let outcome = Outcome {
+            winners: vec![0, 1, 2],
+            scores: Some(vec![0, 0, 0]),
+        };
+        assert_eq!(session.state.outcome(), Some(outcome.clone()));
+        assert_eq!(
+            session.records().last().unwrap().events.last(),
+            Some(&Event::Finished { outcome })
+        );
+        let before = serde_json::to_value(&session).unwrap();
+        for player in 0..3 {
+            assert!(session.state.legal_actions(player).is_empty());
+            assert_eq!(
+                session
+                    .act(
+                        player,
+                        Action::Draw {
+                            source: Source::Stock
+                        }
+                    )
+                    .unwrap_err(),
+                Error::Finished
+            );
+            assert_eq!(serde_json::to_value(&session).unwrap(), before);
+        }
+    }
+
+    #[test]
+    fn final_scoring_removes_newly_revealed_columns_before_choosing_winners() {
+        let mut game = Skyjo::new(2, [0; 32]).unwrap();
+        for grid in &mut game.grids {
+            grid.cells = vec![None; GRID_SIZE];
+        }
+        for index in [0, 4, 8] {
+            game.grids[1].cells[index] = cell(12, false);
+        }
+        game.grids[0].cells[1] = cell(-1, true);
+        game.grids[1].cells[1] = cell(-1, false);
+        let old_discard_size = game.discard.len();
+        let mut events = vec![];
+        game.finish_round(0, &mut events);
+        assert_eq!(
+            game.outcome().unwrap(),
+            Outcome {
+                winners: vec![0, 1],
+                scores: Some(vec![-1, -1])
+            }
+        );
+        assert!(events.contains(&Event::ColumnRemoved {
+            player: 1,
+            column: 0
+        }));
+        assert!(game.grids.iter().all(Grid::fully_revealed));
+        assert_eq!(game.grids[1].cells.iter().flatten().count(), 1);
+        assert_eq!(&game.discard[old_discard_size..], &[12, 12, 12]);
+    }
+
+    #[test]
+    fn removing_the_last_column_counts_as_finishing() {
+        let mut session = Session::<Skyjo>::new(2, [0; 32]).unwrap();
+        session.state.phase = Phase::Reveal;
+        session.state.grids[0].cells = vec![None; GRID_SIZE];
+        session.state.grids[0].cells[0] = cell(7, true);
+        session.state.grids[0].cells[4] = cell(7, true);
+        session.state.grids[0].cells[8] = cell(7, false);
+        let record = session.act(0, Action::Reveal { index: 8 }).unwrap();
+        assert!(record.events.contains(&Event::ColumnRemoved {
+            player: 0,
+            column: 0
+        }));
+        assert!(session.state.grids[0].cells.iter().all(Option::is_none));
+        assert_eq!(session.state.finisher, Some(0));
+        assert_eq!(session.state.turn.players, vec![1]);
+        assert!(session.state.outcome().is_none());
     }
 
     #[test]

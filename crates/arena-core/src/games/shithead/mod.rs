@@ -34,6 +34,252 @@ mod tests {
     }
 
     #[test]
+    fn setup_deals_three_cards_per_zone_and_keeps_private_cards_hidden() {
+        for players in 2..=5 {
+            let game = Shithead::new(players, [0; 32]).unwrap();
+            assert_eq!(game.turn(), Turn::first());
+            assert!(game.pile.is_empty());
+            assert_eq!(game.burned, 0);
+            assert!(game.finished.is_empty());
+            assert!(game.outcome().is_none());
+            assert_eq!(game.deck.len(), 52 - 9 * players);
+            let mut cards = vec![];
+            let mut stock = game.deck.clone();
+            while let Some(card) = stock.draw() {
+                cards.push(card);
+            }
+            for (player, zones) in game.players.iter().enumerate() {
+                assert_eq!(
+                    (zones.hand.len(), zones.face_up.len(), zones.face_down.len()),
+                    (3, 3, 3)
+                );
+                cards.extend(
+                    zones
+                        .hand
+                        .iter()
+                        .chain(&zones.face_up)
+                        .chain(&zones.face_down)
+                        .copied(),
+                );
+                let view = game.view(player);
+                assert_eq!(view.hand, zones.hand);
+                for (other, public) in view.players.iter().enumerate() {
+                    assert_eq!(public.count, 3);
+                    assert_eq!(public.down, 3);
+                    assert_eq!(public.up, game.players[other].face_up);
+                }
+                let json = serde_json::to_value(view).unwrap();
+                assert!(json.get("deck").is_none());
+                assert!(
+                    json["players"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .all(|p| p.get("hand").is_none() && p["down"] == 3)
+                );
+            }
+            assert_eq!(cards.len(), 52);
+            for rank in 2..=14 {
+                for suit in Suit::ALL {
+                    assert_eq!(
+                        cards.iter().filter(|&&c| c == Card { rank, suit }).count(),
+                        1
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn rank_legality_matches_the_rules_for_every_rank_and_top() {
+        let mut game = Shithead::new(2, [0; 32]).unwrap();
+        for top in 2..=14 {
+            game.pile = vec![card(top)];
+            for rank in 2..=14 {
+                for suit in Suit::ALL {
+                    assert_eq!(
+                        game.playable(Card { rank, suit }),
+                        rank == 2 || rank == 10 || top == 2 || rank >= top
+                    );
+                }
+            }
+        }
+        game.pile.clear();
+        assert!((2..=14).all(|rank| game.playable(card(rank))));
+    }
+
+    #[test]
+    fn pickup_is_optional_with_a_play_mandatory_without_one_and_illegal_on_empty_pile() {
+        let mut session = Session::<Shithead>::new(2, [0; 32]).unwrap();
+        session.state.pile = vec![card(7)];
+        session.state.players[0].hand = vec![card(8)];
+        assert_eq!(
+            session.state.legal_actions(0),
+            vec![Action::Play { indices: vec![0] }, Action::Pickup]
+        );
+        let stock = session.state.deck.len();
+        session.act(0, Action::Pickup).unwrap();
+        assert_eq!(session.state.players[0].hand, vec![card(8), card(7)]);
+        assert!(session.state.pile.is_empty());
+        assert_eq!(session.state.deck.len(), stock);
+        assert_eq!(session.state.turn.players, vec![1]);
+        let before = serde_json::to_value(&session).unwrap();
+        assert_eq!(
+            session.act(1, Action::Pickup).unwrap_err(),
+            Error::IllegalMove
+        );
+        assert_eq!(serde_json::to_value(&session).unwrap(), before);
+        session.state.pile = vec![card(14)];
+        session.state.players[1].hand = vec![card(3)];
+        assert_eq!(session.state.legal_actions(1), vec![Action::Pickup]);
+    }
+
+    #[test]
+    fn refill_prevents_early_finishing_and_never_recycles_burned_cards() {
+        let mut game = Shithead::new(2, [0; 32]).unwrap();
+        game.players[0] = PlayerCards {
+            hand: vec![card(10)],
+            face_up: vec![],
+            face_down: vec![],
+        };
+        game.deck = Deck::new(vec![card(4), card(5)]);
+        game.advance(0, &Action::Play { indices: vec![0] });
+        assert_eq!(game.players[0].hand.len(), 2);
+        assert!(game.deck.is_empty());
+        assert_eq!(game.burned, 1);
+        assert!(game.pile.is_empty());
+        assert!(game.finished.is_empty());
+        assert_eq!(game.turn.players, vec![0]);
+        let before = game.players[0].hand.clone();
+        game.refill_hand(0);
+        assert_eq!(game.players[0].hand, before);
+        assert!(game.deck.is_empty());
+        assert_eq!(game.burned, 1);
+    }
+
+    #[test]
+    fn illegal_zone_and_card_selections_leave_state_and_history_unchanged() {
+        let mut session = Session::<Shithead>::new(2, [0; 32]).unwrap();
+        session.state.pile = vec![card(7)];
+        session.state.players[0].hand = vec![card(8), card(9), card(3)];
+        let before = serde_json::to_value(&session).unwrap();
+        for action in [
+            Action::Play { indices: vec![] },
+            Action::Play {
+                indices: vec![0, 1],
+            },
+            Action::Play { indices: vec![2] },
+            Action::Play {
+                indices: vec![usize::MAX],
+            },
+            Action::Blind { index: 0 },
+        ] {
+            assert_eq!(session.act(0, action).unwrap_err(), Error::IllegalMove);
+            assert_eq!(serde_json::to_value(&session).unwrap(), before);
+        }
+        session.state.deck = Deck::new(vec![]);
+        session.state.players[0] = PlayerCards {
+            hand: vec![],
+            face_up: vec![card(8)],
+            face_down: vec![card(9)],
+        };
+        assert_eq!(
+            session.state.legal_actions(0),
+            vec![Action::Play { indices: vec![0] }, Action::Pickup]
+        );
+        session.act(0, Action::Play { indices: vec![0] }).unwrap();
+        session.state.turn.players = vec![0];
+        assert_eq!(
+            session.state.legal_actions(0),
+            vec![Action::Blind { index: 0 }, Action::Pickup]
+        );
+        let before = serde_json::to_value(&session).unwrap();
+        for action in [
+            Action::Play { indices: vec![0] },
+            Action::Blind { index: usize::MAX },
+        ] {
+            assert_eq!(session.act(0, action).unwrap_err(), Error::IllegalMove);
+            assert_eq!(serde_json::to_value(&session).unwrap(), before);
+        }
+    }
+
+    #[test]
+    fn successful_blind_play_can_finish_and_no_actions_follow_the_result() {
+        let mut session = Session::<Shithead>::new(2, [0; 32]).unwrap();
+        session.state.deck = Deck::new(vec![]);
+        session.state.players[0] = PlayerCards {
+            hand: vec![],
+            face_up: vec![],
+            face_down: vec![card(10)],
+        };
+        session.state.pile = vec![card(14)];
+        let record = session.act(0, Action::Blind { index: 0 }).unwrap();
+        let outcome = Outcome {
+            winners: vec![0],
+            scores: None,
+        };
+        assert!(record.events.contains(&Event::Burned));
+        assert_eq!(
+            record.events.last(),
+            Some(&Event::Finished {
+                outcome: outcome.clone()
+            })
+        );
+        assert_eq!(session.state.outcome(), Some(outcome));
+        assert_eq!(session.state.finished, vec![0]);
+        let before = serde_json::to_value(&session).unwrap();
+        for player in 0..2 {
+            assert!(session.state.legal_actions(player).is_empty());
+            assert_eq!(
+                session.act(player, Action::Pickup).unwrap_err(),
+                Error::Finished
+            );
+            assert_eq!(serde_json::to_value(&session).unwrap(), before);
+        }
+    }
+
+    #[test]
+    fn finished_seats_are_skipped_and_winners_keep_finishing_order() {
+        let mut session = Session::<Shithead>::new(4, [0; 32]).unwrap();
+        session.state.deck = Deck::new(vec![]);
+        session.state.players[1] = PlayerCards {
+            hand: vec![],
+            face_up: vec![],
+            face_down: vec![],
+        };
+        session.state.finished = vec![1];
+        for player in [0, 2] {
+            session.state.players[player] = PlayerCards {
+                hand: vec![card(8)],
+                face_up: vec![],
+                face_down: vec![],
+            };
+        }
+        session.act(0, Action::Play { indices: vec![0] }).unwrap();
+        assert_eq!(session.state.finished, vec![1, 0]);
+        assert_eq!(session.state.turn.players, vec![2]);
+        assert!(session.state.outcome().is_none());
+        let before = serde_json::to_value(&session).unwrap();
+        for player in [0, 1, 3, usize::MAX] {
+            assert!(session.state.legal_actions(player).is_empty());
+            assert_eq!(
+                session.act(player, Action::Pickup).unwrap_err(),
+                Error::NotYourTurn
+            );
+            assert_eq!(serde_json::to_value(&session).unwrap(), before);
+        }
+        session.act(2, Action::Play { indices: vec![0] }).unwrap();
+        assert_eq!(session.state.finished, vec![1, 0, 2]);
+        assert_eq!(
+            session.state.outcome().unwrap(),
+            Outcome {
+                winners: vec![1, 0, 2],
+                scores: None
+            }
+        );
+    }
+
+    #[test]
     fn reset_burn_and_four_of_a_kind() {
         let mut game = Shithead::new(2, [0; 32]).unwrap();
         game.pile = vec![card(14)];
@@ -47,6 +293,7 @@ mod tests {
         assert!(events.contains(&Event::Burned));
         assert!(game.pile.is_empty());
         assert_eq!(game.turn.players, vec![0]);
+        assert_eq!(game.players[0].hand.len(), 3);
         game.pile = vec![card(7), card(7)];
         game.players[0].hand = vec![card(7), card(7)];
         game.advance(

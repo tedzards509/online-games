@@ -233,6 +233,75 @@ mod tests {
     use crate::Session;
 
     #[test]
+    fn setup_and_public_views_are_seed_independent() {
+        let first = Mancala::new(2, [0; 32]).unwrap();
+        let second = Mancala::new(2, [255; 32]).unwrap();
+        assert_eq!(first.turn(), Turn::first());
+        assert!(first.outcome().is_none());
+        assert_eq!(
+            first.view(0).board,
+            [4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4, 0]
+        );
+        assert_eq!(first.view(0).board, first.view(1).board);
+        assert_eq!(first.view(0).board, second.view(0).board);
+        assert_eq!(
+            first.legal_actions(0),
+            (0..6).map(|pit| Action { pit }).collect::<Vec<_>>()
+        );
+        assert!(first.legal_actions(1).is_empty());
+    }
+
+    #[test]
+    fn illegal_houses_stores_and_seats_leave_session_unchanged() {
+        let mut session = Session::<Mancala>::new(2, [0; 32]).unwrap();
+        session.state.board.pits[0].stones = 0;
+        session.state.board.pits[6].stones = 4;
+        let before = serde_json::to_value(&session).unwrap();
+        for pit in [0, 6, 7, 12, 13, 14, usize::MAX] {
+            assert_eq!(
+                session.act(0, Action { pit }).unwrap_err(),
+                Error::IllegalMove
+            );
+            assert_eq!(serde_json::to_value(&session).unwrap(), before);
+        }
+        for player in [1, 2, usize::MAX] {
+            assert_eq!(
+                session.act(player, Action { pit: 1 }).unwrap_err(),
+                Error::NotYourTurn
+            );
+            assert_eq!(serde_json::to_value(&session).unwrap(), before);
+        }
+    }
+
+    #[test]
+    fn final_store_landing_ends_game_instead_of_granting_another_action() {
+        let mut session = Session::<Mancala>::new(2, [0; 32]).unwrap();
+        session.state.board = Board::from([0, 0, 0, 0, 0, 1, 30, 2, 3, 4, 0, 0, 0, 8]);
+        let record = session.act(0, Action { pit: 5 }).unwrap();
+        let outcome = Outcome {
+            winners: vec![0],
+            scores: Some(vec![31, 17]),
+        };
+        assert_eq!(
+            record.events.last(),
+            Some(&Event::Finished {
+                outcome: outcome.clone()
+            })
+        );
+        assert_eq!(session.state.outcome(), Some(outcome));
+        assert_eq!(session.state.board.stones().iter().sum::<u16>(), 48);
+        let before = serde_json::to_value(&session).unwrap();
+        for player in 0..2 {
+            assert!(session.state.legal_actions(player).is_empty());
+            assert_eq!(
+                session.act(player, Action { pit: 5 }).unwrap_err(),
+                Error::Finished
+            );
+            assert_eq!(serde_json::to_value(&session).unwrap(), before);
+        }
+    }
+
+    #[test]
     fn pit_layout_identifies_stores_and_opposites() {
         let board = Board::new();
         for (index, pit) in board.pits.iter().enumerate() {
