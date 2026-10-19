@@ -523,7 +523,7 @@
                 ]
               },
               "rules": {
-                "$ref": "#/components/schemas/GameConfig"
+                "$ref": "#/components/schemas/ShitheadGameConfig"
               }
             }
           },
@@ -1192,6 +1192,28 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "select_face_up"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "indices",
+              "type"
+            ],
+            "properties": {
+              "indices": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "type": {
+                "type": "string",
+                "enum": [
                   "play"
                 ]
               }
@@ -1232,6 +1254,19 @@
           }
         ]
       },
+      "ShitheadGameConfig": {
+        "type": "object",
+        "description": "Whether four matching cards may bypass the ordinary rank restrictions.",
+        "required": [
+          "four_card_bombs"
+        ],
+        "properties": {
+          "four_card_bombs": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
       "ShitheadPlayerView": {
         "type": "object",
         "required": [
@@ -1259,6 +1294,7 @@
       "ShitheadView": {
         "type": "object",
         "required": [
+          "setup",
           "hand",
           "players",
           "pile",
@@ -1270,6 +1306,16 @@
           "burned": {
             "type": "integer",
             "minimum": 0
+          },
+          "effective_top": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Card"
+              }
+            ]
           },
           "finished": {
             "type": "array",
@@ -1292,6 +1338,9 @@
             "items": {
               "$ref": "#/components/schemas/ShitheadPlayerView"
             }
+          },
+          "setup": {
+            "type": "boolean"
           },
           "stock": {
             "type": "integer",

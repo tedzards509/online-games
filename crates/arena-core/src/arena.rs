@@ -22,7 +22,7 @@ impl GameKind {
     /// Returns the currently supported replay rules revision for this game.
     pub fn replay_version(self) -> u32 {
         match self {
-            Self::CrazyEights | Self::Mancala => 4,
+            Self::CrazyEights | Self::Mancala | Self::Shithead => 4,
             _ => 1,
         }
     }
@@ -59,7 +59,7 @@ impl GameKind {
 pub enum Config {
     Mancala(crate::game::GameConfig),
     CrazyEights(crazy_eights::GameConfig),
-    Shithead(crate::game::GameConfig),
+    Shithead(shithead::GameConfig),
     Skyjo(crate::game::GameConfig),
     TicTacToe(crate::game::GameConfig),
 }

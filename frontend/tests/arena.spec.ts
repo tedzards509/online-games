@@ -261,6 +261,18 @@ for (const game of [
     await host
       .getByRole('combobox', { name: 'Game', exact: true })
       .selectOption({ label: game });
+    if (game === 'Shithead') {
+      await expect(
+        host.getByRole('checkbox', {
+          name: 'Four-card bombs bypass rank restrictions',
+        }),
+      ).not.toBeChecked();
+      await host
+        .getByRole('checkbox', {
+          name: 'Four-card bombs bypass rank restrictions',
+        })
+        .check();
+    }
     await host.getByRole('button', { name: 'Create room' }).click();
     await expect(
       host.getByRole('heading', { name: game, exact: true }),
@@ -274,7 +286,9 @@ for (const game of [
     await host.getByRole('button', { name: 'Start game' }).click();
     await expect(host.getByText('Your turn', { exact: true })).toBeVisible();
     await expect(
-      guest.getByText("Alice's turn", { exact: true }),
+      guest.getByText(game === 'Shithead' ? 'Your turn' : "Alice's turn", {
+        exact: true,
+      }),
     ).toBeVisible();
     const before = (await snapshot(host)).revision;
 
@@ -340,6 +354,37 @@ for (const game of [
         .click();
       await expect(guest.getByText('Your turn', { exact: true })).toBeVisible();
     } else if (game === 'Shithead') {
+      for (const page of [guest, host]) {
+        await expect(
+          page.getByRole('region', { name: 'Game rules' }),
+        ).toContainText('Four-card bombs: On');
+        await expect(
+          page.getByLabel('Your hand', { exact: true }).locator('button'),
+        ).toHaveCount(7);
+        for (let index = 0; index < 3; index++) {
+          await page
+            .getByLabel('Your hand', { exact: true })
+            .locator('button')
+            .nth(index)
+            .click();
+        }
+        await page
+          .getByRole('button', { name: 'Set face-up cards', exact: true })
+          .click();
+        await expect(
+          page.getByLabel('Your hand', { exact: true }).locator('button'),
+        ).toHaveCount(4);
+        if (page === guest) {
+          await expect(
+            guest.getByText('Waiting for other players', { exact: true }),
+          ).toBeVisible();
+          await guest.reload();
+          await expect(
+            guest.getByText('Waiting for other players', { exact: true }),
+          ).toBeVisible();
+        }
+      }
+      await expect(host.getByText('Your turn', { exact: true })).toBeVisible();
       await host
         .getByLabel('Your hand', { exact: true })
         .locator('button:enabled')

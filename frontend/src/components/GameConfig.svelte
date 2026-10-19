@@ -17,6 +17,8 @@
         </li>
       {/each}
     </ul>
+  {:else if config.game === 'shithead'}
+    <p>Four-card bombs: {config.rules.four_card_bombs ? 'On' : 'Off'}</p>
   {:else}
     <p class="muted">Standard rules</p>
   {/if}

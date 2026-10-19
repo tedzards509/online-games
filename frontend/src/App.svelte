@@ -31,6 +31,7 @@
   let joinCode = $state(initialCode);
   let kind = $state<GameKind>('shithead');
   let crazyEightsConfig = $state({ ...crazyEightsDefaults });
+  let fourCardBombs = $state(false);
   let busy = $state(false);
   let error = $state('');
   let recent = $state(savedRooms());
@@ -78,7 +79,9 @@
               kind,
               kind === 'crazy_eights'
                 ? { game: kind, rules: crazyEightsConfig }
-                : { game: kind, rules: {} },
+                : kind === 'shithead'
+                  ? { game: kind, rules: { four_card_bombs: fourCardBombs } }
+                  : { game: kind, rules: {} },
             )
           : joinRoom(target, nickname)));
       saveMembership(membership);
@@ -175,6 +178,11 @@
                 </label>
               {/each}
             </fieldset>
+          {:else if kind === 'shithead'}
+            <label class="rule-toggle">
+              <input type="checkbox" bind:checked={fourCardBombs} />
+              Four-card bombs bypass rank restrictions
+            </label>
           {/if}
           <button class="primary" disabled={busy || !nickname.trim()}
             >Create room</button

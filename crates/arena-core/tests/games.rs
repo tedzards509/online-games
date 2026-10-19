@@ -8,6 +8,36 @@ use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha12Rng;
 
 #[test]
+fn shithead_bomb_configurations_finish_and_replay_with_every_supported_player_count() {
+    use arena_core::{Config, games::shithead::GameConfig};
+    for four_card_bombs in [false, true] {
+        for players in 2..=5 {
+            let config = Config::Shithead(GameConfig { four_card_bombs });
+            let mut game =
+                Match::with_config(config.clone(), players, [players as u8; 32]).unwrap();
+            let mut rng = ChaCha12Rng::from_seed([17; 32]);
+            for _ in 0..20000 {
+                if game.outcome().is_some() {
+                    break;
+                }
+                let seats = game.turn().players;
+                let player = seats[rng.gen_range(0..seats.len())];
+                let actions = game.legal_actions(player);
+                game.act(player, actions[rng.gen_range(0..actions.len())].clone())
+                    .unwrap();
+            }
+            assert!(
+                game.outcome().is_some(),
+                "{players} players, bombs {four_card_bombs}"
+            );
+            assert_eq!(game.config(), config);
+            let replay = game.replay();
+            assert_eq!(replay.simulate().unwrap().replay(), replay);
+        }
+    }
+}
+
+#[test]
 fn crazy_eights_configurations_finish_persist_and_replay() {
     use arena_core::{Config, Replay, games::crazy_eights::GameConfig};
     for bits in 0..16 {
@@ -252,7 +282,10 @@ fn player_views_do_not_contain_private_state() {
         let view = serde_json::to_value(game.view(0)).unwrap();
         assert!(view["state"].get("seed").is_none());
         assert!(view["state"].get("deck").is_none());
-        assert!(game.legal_actions(1).is_empty());
+        assert_eq!(
+            game.legal_actions(1).is_empty(),
+            !game.turn().players.contains(&1)
+        );
         if kind == GameKind::Skyjo {
             assert!(
                 view["state"]["grids"]

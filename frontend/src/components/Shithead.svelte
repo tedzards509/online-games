@@ -21,7 +21,7 @@
     actions.find(
       (a) =>
         a.game === 'shithead' &&
-        a.action.type === 'play' &&
+        (a.action.type === 'play' || a.action.type === 'select_face_up') &&
         a.action.indices.length === indices.length &&
         a.action.indices.every((index, i) => index === indices[i]),
     ),
@@ -56,7 +56,19 @@
       class="empty-card">—</span
     >{/if}
   <span class="muted">{view.pile} in pile · {view.stock} in stock</span>
+  {#if view.top?.rank === 3}
+    <span>3 is transparent</span>
+    {#if view.effective_top}<PlayingCard
+        card={view.effective_top}
+        disabled
+      />{/if}
+  {/if}
 </div>
+{#if view.setup}<p class="muted">
+    {actions.length
+      ? 'Choose three face-up cards'
+      : 'Waiting for other players'}
+  </p>{/if}
 <div
   class="hand"
   aria-label={view.hand.length ? 'Your hand' : 'Your face-up cards'}
@@ -68,7 +80,7 @@
       disabled={!actions.some(
         (a) =>
           a.game === 'shithead' &&
-          a.action.type === 'play' &&
+          (a.action.type === 'play' || a.action.type === 'select_face_up') &&
           a.action.indices.includes(index),
       )}
       onclick={() => toggle(index)}
@@ -98,7 +110,8 @@
 <div class="actions">
   {#if source.length}<button
       disabled={!playable}
-      onclick={() => playable && move(playable)}>Play</button
+      onclick={() => playable && move(playable)}
+      >{view.setup ? 'Set face-up cards' : 'Play'}</button
     >{/if}
   {#each actions as action}
     {#if action.game === 'shithead' && action.action.type === 'pickup'}<button

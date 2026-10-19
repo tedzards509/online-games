@@ -184,7 +184,7 @@ export interface components {
       | {
           /** @enum {string} */
           game: 'shithead';
-          rules: components['schemas']['GameConfig'];
+          rules: components['schemas']['ShitheadGameConfig'];
         }
       | {
           /** @enum {string} */
@@ -363,6 +363,11 @@ export interface components {
       | {
           indices: number[];
           /** @enum {string} */
+          type: 'select_face_up';
+        }
+      | {
+          indices: number[];
+          /** @enum {string} */
           type: 'play';
         }
       | {
@@ -374,6 +379,10 @@ export interface components {
           /** @enum {string} */
           type: 'pickup';
         };
+    /** @description Whether four matching cards may bypass the ordinary rank restrictions. */
+    ShitheadGameConfig: {
+      four_card_bombs: boolean;
+    };
     ShitheadPlayerView: {
       count: number;
       down: number;
@@ -381,10 +390,12 @@ export interface components {
     };
     ShitheadView: {
       burned: number;
+      effective_top?: null | components['schemas']['Card'];
       finished: components['schemas']['usize'][];
       hand: components['schemas']['Card'][];
       pile: number;
       players: components['schemas']['ShitheadPlayerView'][];
+      setup: boolean;
       stock: number;
       top?: null | components['schemas']['Card'];
     };

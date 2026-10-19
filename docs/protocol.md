@@ -14,7 +14,7 @@ Keep the returned token private. For HTTP reads use `Authorization: Bearer <toke
 
 No tokens in URLs, no cookies, and no account identity. Joining is closed once a game has started; existing seats can reconnect at any time. The host is seat 0.
 
-The host selects immutable options before room creation. Supply `config` as `{"game":"crazy_eights","rules":{"ace_are_you_strong":true,"jack_skip":true,"ten_reverse":true,"two_draw_two":true}}` alongside the matching `game` and nickname. Eights are always wild; `eight_wild` is no longer accepted. Other games use empty `rules: {}`. Omitted configuration selects current defaults. Mismatched game tags, unknown rule fields, and nonboolean rule values are rejected. Every HTTP/WebSocket snapshot includes public `config`, even before starting and after reconnecting. Rematches retain it; there is no configuration update command.
+The host selects immutable options before room creation. Supply `config` as `{"game":"crazy_eights","rules":{"ace_are_you_strong":true,"jack_skip":true,"ten_reverse":true,"two_draw_two":true}}` alongside the matching `game` and nickname. Eights are always wild; `eight_wild` is no longer accepted. Shithead uses `{"game":"shithead","rules":{"four_card_bombs":false}}`; other games use empty `rules: {}`. Omitted configuration selects current defaults. Mismatched game tags, unknown rule fields, and nonboolean rule values are rejected. Every HTTP/WebSocket snapshot includes public `config`, even before starting and after reconnecting. Rematches retain it; there is no configuration update command.
 
 ## Live channel
 
