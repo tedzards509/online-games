@@ -205,7 +205,7 @@ async fn identity_capacity_and_origin_checks() {
 }
 
 #[tokio::test]
-async fn simultaneous_setup_keeps_both_seats_eligible_but_rejects_stale_commands() {
+async fn queued_setup_actions_from_the_same_revision_both_commit() {
     for kind in ["shithead", "skyjo"] {
         let server = Server::open("sqlite::memory:").await;
         let alice = server.member(kind).await;
@@ -234,28 +234,22 @@ async fn simultaneous_setup_keeps_both_seats_eligible_but_rejects_stale_commands
             json!({"type":"move", "revision":3, "action":host_action}),
         )
         .await;
-        snapshot(&mut host, 4).await;
-        let fresh = snapshot(&mut guest, 4).await;
-        assert!(
-            fresh["turn"]["players"]
-                .as_array()
-                .unwrap()
-                .contains(&json!(1))
-        );
         send(
             &mut guest,
             json!({"type":"move", "revision":3, "action":guest_action}),
         )
         .await;
-        assert_eq!(receive(&mut guest).await["type"], "error");
-        assert_eq!(snapshot(&mut guest, 4).await, fresh);
+        let updated = snapshot(&mut host, 5).await;
+        let other = snapshot(&mut guest, 5).await;
         send(
             &mut guest,
-            json!({"type":"move", "revision":4, "action":guest_action}),
+            json!({"type":"move", "revision":3, "action":guest_action}),
         )
         .await;
-        let updated = snapshot(&mut host, 5).await;
-        snapshot(&mut guest, 5).await;
+        let error = receive(&mut guest).await;
+        assert_eq!(error["type"], "error");
+        assert_ne!(error["error"], "Room changed; try again");
+        assert_eq!(snapshot(&mut guest, 5).await, other);
         if kind == "shithead" {
             assert_eq!(updated["turn"]["players"], json!([0]));
             assert_eq!(updated["view"]["state"]["setup"], false);
@@ -616,7 +610,7 @@ fn openapi_has_distinct_game_schemas() {
 }
 
 #[tokio::test]
-async fn failed_persistence_and_duplicate_commands_do_not_advance_the_room() {
+async fn failed_persistence_and_now_illegal_commands_do_not_advance_the_room() {
     use sqlx::Connection;
     let directory = tempfile::tempdir().unwrap();
     let database = format!("sqlite://{}", directory.path().join("atomic.db").display());
@@ -669,7 +663,7 @@ async fn failed_persistence_and_duplicate_commands_do_not_advance_the_room() {
     snapshot(&mut host, 4).await;
     snapshot(&mut guest, 4).await;
     send(&mut host, command).await;
-    assert_eq!(receive(&mut host).await["error"], "Room changed; try again");
+    assert_eq!(receive(&mut host).await["error"], "Not your turn");
     let unchanged = snapshot(&mut host, 4).await;
     assert_eq!(unchanged["revision"], 4);
     assert_eq!(unchanged["view"]["state"]["board"][0], 0);

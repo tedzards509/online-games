@@ -217,10 +217,12 @@ async fn connection(mut socket: WebSocket, app: App, lobby: Arc<Lobby>) {
     };
     let mut changes = lobby.changed.subscribe();
     let snapshot = lobby.room.lock().await.snapshot(player);
+    let mut last_revision = snapshot.revision;
     if send(
         &mut socket,
         &ServerMessage::Snapshot {
             room: Box::new(snapshot),
+            acknowledged: false,
         },
     )
     .await
@@ -239,11 +241,13 @@ async fn connection(mut socket: WebSocket, app: App, lobby: Arc<Lobby>) {
                         Ok(message) => command(&app, &lobby, player, message).await,
                         Err(_) => Err(ApiError::BadRequest("Invalid message".into())),
                     };
+                    let acknowledged = result.is_ok();
                     if let Err(error) = result {
                         if send(&mut socket, &ServerMessage::Error { error: error.to_string() }).await.is_err() { break; }
-                        let room = lobby.room.lock().await.snapshot(player);
-                        if send(&mut socket, &ServerMessage::Snapshot { room: Box::new(room) }).await.is_err() { break; }
                     }
+                    let room = lobby.room.lock().await.snapshot(player);
+                    last_revision = room.revision;
+                    if send(&mut socket, &ServerMessage::Snapshot { room: Box::new(room), acknowledged }).await.is_err() { break; }
                 }
                 Some(Ok(Message::Ping(data))) => { if socket.send(Message::Pong(data)).await.is_err() { break; } }
                 Some(Ok(Message::Pong(_))) => alive = true,
@@ -253,7 +257,10 @@ async fn connection(mut socket: WebSocket, app: App, lobby: Arc<Lobby>) {
             change = changes.recv() => {
                 if matches!(change, Err(broadcast::error::RecvError::Closed)) { break; }
                 let room = lobby.room.lock().await.snapshot(player);
-                if send(&mut socket, &ServerMessage::Snapshot { room: Box::new(room) }).await.is_err() { break; }
+                if room.revision > last_revision {
+                    last_revision = room.revision;
+                    if send(&mut socket, &ServerMessage::Snapshot { room: Box::new(room), acknowledged: false }).await.is_err() { break; }
+                }
             }
             _ = heartbeat.tick() => {
                 if !alive { break; } alive = false;
@@ -269,14 +276,27 @@ async fn command(
     player: usize,
     message: ClientMessage,
 ) -> Result<(), ApiError> {
-    // The first valid command to commit wins a revision. Contenders wait on this
-    // lock, then fail the revision check; no client timestamp or seat priority.
+    // Tokio's mutex queues lock acquisitions FIFO. Each move is validated only
+    // when it reaches the head, against the last successfully persisted state.
     let mut room = lobby.room.lock().await;
     let revision = match &message {
         ClientMessage::Start { revision } | ClientMessage::Move { revision, .. } => *revision,
         _ => return Err(ApiError::BadRequest("Already authenticated".into())),
     };
-    if revision != room.revision {
+    let invalid_revision = match &message {
+        ClientMessage::Start { .. } => revision != room.revision,
+        ClientMessage::Move { .. } => {
+            // Joins are closed during a game, so only its accepted moves have
+            // advanced the room revision since the start/rematch.
+            let started_at = room
+                .game
+                .as_ref()
+                .map(|game| room.revision - game.action_count() as u64);
+            revision > room.revision || started_at.is_some_and(|start| revision < start)
+        }
+        _ => unreachable!(),
+    };
+    if invalid_revision {
         return Err(ApiError::Conflict);
     }
     let mut next = room.clone();
@@ -312,70 +332,165 @@ async fn command(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use arena_core::{Action, GameKind, Match, games::mancala};
-    use serde_json::json;
+    use arena_core::{
+        Action, GameKind,
+        games::{skyjo, tic_tac_toe},
+    };
 
     #[tokio::test]
-    async fn competing_eligible_players_commit_only_one_action_per_revision() {
+    async fn queued_eligible_players_both_commit_from_the_same_revision() {
+        for kind in [GameKind::Shithead, GameKind::Skyjo] {
+            let app = App::open("sqlite::memory:", "http://localhost:5173")
+                .await
+                .unwrap();
+            let mut room = Room::new("ABC234".into(), kind.default_config());
+            room.join("Alice").unwrap();
+            room.join("Bob").unwrap();
+            room.start(0).unwrap();
+            let alice_action = room.snapshot(0).legal_actions[0].clone();
+            let bob_action = room.snapshot(1).legal_actions[0].clone();
+            assert!(!room.snapshot(0).legal_actions.is_empty());
+            assert!(!room.snapshot(1).legal_actions.is_empty());
+            app.store.save(&room, None).await.unwrap();
+            let revision = room.revision;
+            let lobby = Lobby::new(room);
+            let mut changes = lobby.changed.subscribe();
+            let (alice, bob) = tokio::join!(
+                biased;
+                command(
+                    &app,
+                    &lobby,
+                    0,
+                    ClientMessage::Move {
+                        revision,
+                        action: alice_action,
+                    }
+                ),
+                command(
+                    &app,
+                    &lobby,
+                    1,
+                    ClientMessage::Move {
+                        revision,
+                        action: bob_action,
+                    }
+                ),
+            );
+            alice.unwrap();
+            bob.unwrap();
+            let room = lobby.room.lock().await;
+            assert_eq!(room.revision, revision + 2);
+            let replay = room.game.as_ref().unwrap().replay();
+            assert_eq!(
+                replay.records.iter().map(|r| r.player).collect::<Vec<_>>(),
+                vec![0, 1]
+            );
+            assert_eq!(
+                app.store.load().await.unwrap()[0]
+                    .game
+                    .as_ref()
+                    .unwrap()
+                    .replay(),
+                replay
+            );
+            changes.try_recv().unwrap();
+            changes.try_recv().unwrap();
+            assert!(matches!(
+                changes.try_recv(),
+                Err(broadcast::error::TryRecvError::Empty)
+            ));
+        }
+    }
+
+    #[tokio::test]
+    async fn an_illegal_queued_action_does_not_block_the_next_legal_action() {
         let app = App::open("sqlite::memory:", "http://localhost:5173")
             .await
             .unwrap();
-        let mut room = Room::new("ABC234".into(), GameKind::Mancala.default_config());
+        let mut room = Room::new("ABC234".into(), GameKind::Skyjo.default_config());
         room.join("Alice").unwrap();
         room.join("Bob").unwrap();
         room.start(0).unwrap();
-        // Both seats may sow into their store (an extra turn, so the singleton
-        // advancement helper is not used). Production Kalah remains sequential.
-        let mut state = serde_json::to_value(room.game.as_ref().unwrap()).unwrap();
-        state["Mancala"]["state"]["turn"]["players"] = json!([0, 1]);
-        room.game = Some(serde_json::from_value::<Match>(state).unwrap());
-        assert!(!room.snapshot(0).legal_actions.is_empty());
-        assert!(!room.snapshot(1).legal_actions.is_empty());
         app.store.save(&room, None).await.unwrap();
         let revision = room.revision;
         let lobby = Lobby::new(room);
-        let mut changes = lobby.changed.subscribe();
-        let (alice, bob) = tokio::join!(
-            command(
-                &app,
-                &lobby,
-                0,
-                ClientMessage::Move {
-                    revision,
-                    action: Action::Mancala(mancala::Action { pit: 2 }),
-                }
-            ),
-            command(
-                &app,
-                &lobby,
-                1,
-                ClientMessage::Move {
-                    revision,
-                    action: Action::Mancala(mancala::Action { pit: 9 }),
-                }
-            ),
+        let reveal = || ClientMessage::Move {
+            revision,
+            action: Action::Skyjo(skyjo::Action::Reveal { index: 0 }),
+        };
+        let (first, invalid, next) = tokio::join!(biased;
+            command(&app, &lobby, 0, reveal()),
+            command(&app, &lobby, 0, reveal()),
+            command(&app, &lobby, 1, reveal()),
         );
-        assert_ne!(alice.is_ok(), bob.is_ok());
-        assert!(matches!(
-            if alice.is_err() { alice } else { bob },
-            Err(ApiError::Conflict)
-        ));
+        first.unwrap();
+        assert!(matches!(invalid, Err(ApiError::BadRequest(_))));
+        next.unwrap();
         let room = lobby.room.lock().await;
-        assert_eq!(room.revision, revision + 1);
-        let replay = room.game.as_ref().unwrap().replay();
-        assert_eq!(replay.records.len(), 1);
+        assert_eq!(room.revision, revision + 2);
+        assert_eq!(room.game.as_ref().unwrap().action_count(), 2);
         assert_eq!(
             app.store.load().await.unwrap()[0]
                 .game
                 .as_ref()
                 .unwrap()
                 .replay(),
-            replay
+            room.game.as_ref().unwrap().replay()
         );
-        changes.try_recv().unwrap();
+    }
+
+    #[tokio::test]
+    async fn future_revisions_and_actions_from_previous_games_are_rejected() {
+        let app = App::open("sqlite::memory:", "http://localhost:5173")
+            .await
+            .unwrap();
+        let mut room = Room::new("ABC234".into(), GameKind::TicTacToe.default_config());
+        room.join("Alice").unwrap();
+        room.join("Bob").unwrap();
+        room.start(0).unwrap();
+        app.store.save(&room, None).await.unwrap();
+        let revision = room.revision;
+        let lobby = Lobby::new(room);
+        for (player, index) in [(0, 0), (1, 3), (0, 1), (1, 4), (0, 2)] {
+            command(
+                &app,
+                &lobby,
+                player,
+                ClientMessage::Move {
+                    revision,
+                    action: Action::TicTacToe(tic_tac_toe::Action { index }),
+                },
+            )
+            .await
+            .unwrap();
+        }
         assert!(matches!(
-            changes.try_recv(),
-            Err(broadcast::error::TryRecvError::Empty)
+            command(&app, &lobby, 0, ClientMessage::Start { revision }).await,
+            Err(ApiError::Conflict)
         ));
+        let current = lobby.room.lock().await.revision;
+        command(&app, &lobby, 0, ClientMessage::Start { revision: current })
+            .await
+            .unwrap();
+        let before = serde_json::to_value(&*lobby.room.lock().await).unwrap();
+        for revision in [revision, current + 2] {
+            assert!(matches!(
+                command(
+                    &app,
+                    &lobby,
+                    0,
+                    ClientMessage::Move {
+                        revision,
+                        action: Action::TicTacToe(tic_tac_toe::Action { index: 0 })
+                    }
+                )
+                .await,
+                Err(ApiError::Conflict)
+            ));
+            assert_eq!(
+                serde_json::to_value(&*lobby.room.lock().await).unwrap(),
+                before
+            );
+        }
     }
 }

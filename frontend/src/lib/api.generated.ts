@@ -148,7 +148,8 @@ export interface components {
     };
     /**
      * @description Send Authenticate as the first text frame within five seconds. Subsequent
-     *     commands must carry the most recent Snapshot revision.
+     *     commands carry the latest observed Snapshot revision. Moves may be queued
+     *     behind other moves in the same game and are revalidated against current state.
      */
     ClientMessage:
       | {
@@ -350,6 +351,8 @@ export interface components {
     };
     ServerMessage:
       | {
+          /** @description True only for the submitting socket's successful command response. */
+          acknowledged: boolean;
           room: components['schemas']['Snapshot'];
           /** @enum {string} */
           type: 'snapshot';

@@ -41,7 +41,13 @@ test('multiple eligible seats become a single responder', async ({ page }) => {
         };
         room.legal_actions = [];
       }
-      socket.send(JSON.stringify({ type: 'snapshot', room }));
+      socket.send(
+        JSON.stringify({
+          type: 'snapshot',
+          room,
+          acknowledged: message.type === 'move',
+        }),
+      );
     });
   });
   await page.goto('/room/ABC234');
@@ -68,6 +74,66 @@ async function snapshot(page: Page) {
     ).json();
   });
 }
+
+test('another player snapshot does not acknowledge a queued move', async ({
+  page,
+}) => {
+  const room: Snapshot = {
+    code: 'ABC234',
+    game: 'tic_tac_toe',
+    config: { game: 'tic_tac_toe', rules: {} },
+    you: 0,
+    revision: 3,
+    players: [{ nickname: 'Alice' }, { nickname: 'Bob' }],
+    turn: { players: [0, 1], number: 0 },
+    outcome: null,
+    replays: [],
+    view: { game: 'tic_tac_toe', state: { board: Array(9).fill(null) } },
+    legal_actions: [{ game: 'tic_tac_toe', action: { index: 0 } }],
+  };
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      'arena:ABC234',
+      JSON.stringify({ code: 'ABC234', player: 0, token: 'test-seat' }),
+    ),
+  );
+  let moves = 0;
+  let acknowledge: () => void = () => {
+    throw new Error('No queued move');
+  };
+  await page.routeWebSocket('**/api/rooms/ABC234/ws', (socket) => {
+    socket.onMessage((data) => {
+      const message = JSON.parse(String(data));
+      if (message.type === 'move') {
+        moves++;
+        room.revision = 4;
+        acknowledge = () => {
+          room.revision = 5;
+          room.legal_actions = [{ game: 'tic_tac_toe', action: { index: 1 } }];
+          socket.send(
+            JSON.stringify({ type: 'snapshot', room, acknowledged: true }),
+          );
+        };
+      }
+      socket.send(
+        JSON.stringify({ type: 'snapshot', room, acknowledged: false }),
+      );
+    });
+  });
+  await page.goto('/room/ABC234');
+  await page
+    .getByRole('button', { name: 'Cell 1: empty', exact: true })
+    .click();
+  await expect.poll(() => moves).toBe(1);
+  await expect(
+    page.getByLabel('Tic-Tac-Toe board').locator('button:enabled'),
+  ).toHaveCount(0);
+  acknowledge();
+  await expect(
+    page.getByRole('button', { name: 'Cell 2: empty', exact: true }),
+  ).toBeEnabled();
+  expect(moves).toBe(1);
+});
 
 test('Crazy Eights: choose a suit, draw voluntarily, and resolve draw two', async ({
   page,
@@ -134,7 +200,13 @@ test('Crazy Eights: choose a suit, draw voluntarily, and resolve draw two', asyn
             room.view.state.pending_draw = 'two';
         }
       }
-      socket.send(JSON.stringify({ type: 'snapshot', room }));
+      socket.send(
+        JSON.stringify({
+          type: 'snapshot',
+          room,
+          acknowledged: message.type === 'move',
+        }),
+      );
     });
   });
   await page.goto('/room/ABC234');

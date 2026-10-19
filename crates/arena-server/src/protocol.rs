@@ -46,7 +46,8 @@ pub struct Snapshot {
 }
 
 /// Send Authenticate as the first text frame within five seconds. Subsequent
-/// commands must carry the most recent Snapshot revision.
+/// commands carry the latest observed Snapshot revision. Moves may be queued
+/// behind other moves in the same game and are revalidated against current state.
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ClientMessage {
@@ -58,6 +59,12 @@ pub enum ClientMessage {
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ServerMessage {
-    Snapshot { room: Box<Snapshot> },
-    Error { error: String },
+    Snapshot {
+        room: Box<Snapshot>,
+        /// True only for the submitting socket's successful command response.
+        acknowledged: bool,
+    },
+    Error {
+        error: String,
+    },
 }

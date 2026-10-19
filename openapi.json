@@ -469,7 +469,7 @@
             }
           }
         ],
-        "description": "Send Authenticate as the first text frame within five seconds. Subsequent\ncommands must carry the most recent Snapshot revision."
+        "description": "Send Authenticate as the first text frame within five seconds. Subsequent\ncommands carry the latest observed Snapshot revision. Moves may be queued\nbehind other moves in the same game and are revalidated against current state."
       },
       "Config": {
         "oneOf": [
@@ -1139,9 +1139,14 @@
             "type": "object",
             "required": [
               "room",
+              "acknowledged",
               "type"
             ],
             "properties": {
+              "acknowledged": {
+                "type": "boolean",
+                "description": "True only for the submitting socket's successful command response."
+              },
               "room": {
                 "$ref": "#/components/schemas/Snapshot"
               },

@@ -123,6 +123,11 @@ macro_rules! dispatch {
 }
 
 impl Match {
+    /// Counts accepted actions in the current game, excluding previous rematches.
+    pub fn action_count(&self) -> usize {
+        dispatch!(self, s => s.records.len())
+    }
+
     /// Creates the selected ruleset with the supplied seats and seed.
     pub fn new(kind: GameKind, players: usize, seed: Seed) -> Result<Self, Error> {
         Self::with_config(kind.default_config(), players, seed)

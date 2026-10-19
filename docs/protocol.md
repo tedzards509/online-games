@@ -24,7 +24,7 @@ Connect to `/api/rooms/{code}/ws`, then send within five seconds:
 {"type":"authenticate","token":"…"}
 ```
 
-The server replies with `{"type":"snapshot","room":{…}}`. A snapshot includes the room revision, players, your seat, current turn, outcome, a game-specific `view`, your `legal_actions`, and archived replay IDs. Before starting, `view` and `turn` are null. A turn contains `players` (eligible seat indices) and `number` (the ruleset's counter). Only eligible seats receive legal actions, personalized per seat. Every accepted change notifies all room sockets; each receives a fresh, independently projected snapshot, not the private engine state or raw event log.
+The server replies with `{"type":"snapshot","room":{…},"acknowledged":false}`. A snapshot includes the room revision, players, your seat, current turn, outcome, a game-specific `view`, your `legal_actions`, and archived replay IDs. Before starting, `view` and `turn` are null. A turn contains `players` (eligible seat indices) and `number` (the ruleset's counter). Only eligible seats receive legal actions, personalized per seat. Every accepted change notifies all room sockets; each receives a fresh, independently projected snapshot, not the private engine state or raw event log. Successful command responses to the submitting socket set `acknowledged: true`; broadcasts and initial/error-refresh snapshots set it to false. Broadcasts may coalesce intermediate revisions and must not clear an outstanding command's pending state.
 
 Start or rematch (host only; at least two players, no running game):
 
@@ -38,9 +38,9 @@ Use an action from your latest snapshot's `legal_actions`:
 {"type":"move","revision":3,"action":{"game":"mancala","action":{"pit":0}}}
 ```
 
-Every accepted join/start/move increments the revision. A stale revision, wrong turn, invalid action, or finished game is rejected without mutation. An authenticated command error returns `{"type":"error","error":"…"}` followed by a fresh snapshot. A rejected initial authentication closes the connection. Browser origins must match `PUBLIC_ORIGIN`; native clients can omit Origin.
+Every accepted join/start/move increments the revision. Starts require the exact current revision. Moves accept the latest observed revision or an older one from the same game, but reject future revisions or revisions before the current start/rematch. Wrong-turn, illegal, and post-game moves are rejected without mutation. An authenticated command error returns `{"type":"error","error":"…"}` followed by a fresh snapshot. Validation or storage failures leave state unchanged. A rejected initial authentication closes the connection. Browser origins must match `PUBLIC_ORIGIN`; native clients can omit Origin.
 
-When multiple eligible seats submit for the same revision, the first valid command committed under the room lock wins. Other submissions for that revision are rejected as stale, even if their seats remain eligible. Failed validation or persistence does not consume the revision. This is server processing order, not client timestamp or seat priority.
+Incoming moves are queued FIFO by the room mutex. Each is validated against the state resulting from earlier successful commits; every still-legal move executes, even if several commands reference the same revision. Only moves made invalid by that updated state fail game validation. Invalid commands and failed writes do not consume a revision or stop later queued moves. Queue order is server lock-acquisition order, not client timestamp or seat priority. This is not deduplication: sending a move twice can execute it twice if both are legal, so clients must not resend automatically.
 
 The server pings every 20 seconds and disconnects clients that miss the next heartbeat. Reconnect, authenticate again, and replace local state with the new snapshot. Do not resend old moves automatically: a committed move may have succeeded before the connection dropped.
 

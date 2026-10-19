@@ -36,12 +36,13 @@ export class RoomConnection {
       );
     socket.onmessage = (event) => {
       const message: ServerMessage = JSON.parse(event.data);
-      this.pending = false;
       if (message.type === 'snapshot') {
+        if (message.acknowledged) this.pending = false;
         this.room = message.room;
         this.status = 'connected';
         this.retry = 500;
       } else {
+        this.pending = false;
         this.error = message.error;
         if (message.error === 'Invalid room token') this.close();
       }

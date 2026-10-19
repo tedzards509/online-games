@@ -28,7 +28,9 @@ The contract is defined in `crates/arena-core/src/game.rs`; runtime dispatch and
 
 Rules are synchronous and deterministic: no clocks, OS randomness, I/O, or transport dependencies. See [Add a game](adding-a-game.md) for implementation and integration steps.
 
-Multiple eligible seats may submit against the same room revision. The server serializes commands under the room mutex: the first valid, successfully persisted command wins; all remaining submissions for that revision are stale and rejected. Invalid or failed writes do not consume the revision. No timestamp comparison or batching window is used. The ruleset then sets the next eligible list, e.g. all seats for an open response or only the next seat after a card play.
+Multiple seats may submit against the same observed room revision. Tokio's room mutex is the FIFO command queue; each move is checked against the latest successfully persisted state when it reaches the head. Commit every move that is still legal, even when earlier moves advanced the revision. Reject moves that are now out of turn, illegal, or post-game without mutation; a rejected move does not block later commands. No timestamps, batching window, background queue worker, or automatic retries are used.
+
+Clients send their latest observed revision. Moves may reference older revisions within the current game, but never a future revision or one before its start/rematch. The start revision is the current room revision minus the game's accepted-action count, since joins are closed during play. Starts require the exact current revision to prevent stale rematches. Each commit persists independently before memory replacement and notification; failed writes do not consume a revision. Broadcast snapshots carry `acknowledged: false`; the submitting socket also receives a current snapshot with `acknowledged: true` after its command succeeds. Only that response (or an error/disconnection) releases its pending UI state. Snapshots may coalesce intermediate commits; the accepted-action log preserves their order.
 
 ## Review of `../spiele`
 
