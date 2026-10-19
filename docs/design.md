@@ -1,5 +1,32 @@
 # Design notes
 
+## Game model
+
+The contract is defined in `crates/arena-core/src/game.rs`; runtime dispatch and replay types live in `arena.rs`.
+
+| Concept | Definition |
+| --- | --- |
+| `Game` / state | A ruleset's concrete type is its complete authoritative state: board, hands, stock, phases, turn, outcome, and any RNG state. There is no separate state trait. |
+| `Player` | A zero-based seat index (`usize`), not a nickname or authentication token. |
+| `Seed` | Explicit `[u8; 32]` input to setup. The same rules, player count, seed, and actions must reproduce the same states and events. |
+| `Action` | A proposed game-specific command, not an effect or state snapshot. The submitting player is passed separately. |
+| Legal actions | `legal_actions()` enumerates exactly the active player's valid commands in the current phase; empty after completion. |
+| `Event` | An ordered effect of an accepted action, e.g. placement, capture, or completion. Events describe transitions; they are not commands or independently applied state updates. `GameEvent::finished` constructs the terminal event. |
+| `Turn` | Active `player` and ruleset-managed `number`. The ruleset owns extra turns, skipped seats, and multi-action phases; one action need not end a turn. Neither field is a room revision. |
+| `Outcome` | `None` during play; otherwise winning seats and optional scores in seat order. Draws and shared wins follow the ruleset's conventions. |
+| `View` | A viewer-specific projection of state. Only permitted information is exposed; full state and seeds remain private. |
+| `Session<G>` / `Record<A, E>` | A validation wrapper holding current state, setup inputs, and history. Each record contains the submitting player, accepted action, and resulting events. |
+| `Match` / `Replay` | Runtime ruleset dispatch / versioned setup and action history. Replay validation recreates setup, executes actions, and compares regenerated records, including events. |
+
+### Transition contract
+
+1. `Game::new(players, seed)` validates player count and constructs deterministic setup.
+2. `Session::act(player, action)` rejects completed games, inactive players, and actions outside `legal_actions()` before any mutation or logging.
+3. `advance(action)` mutates state, resolves rule effects, updates phases/turn/outcome, and returns events. It assumes a legal action; simulations may call it directly with actions selected from `legal_actions()`.
+4. The session appends a terminal event if the game ended, then records the action and events. It stores no per-event state snapshots.
+
+Rules are synchronous and deterministic: no clocks, OS randomness, I/O, or transport dependencies. See [Add a game](adding-a-game.md) for implementation and integration steps.
+
 ## Review of `../spiele`
 
 - `mancala/src/mancala_game.rs` and `mancala/mancala.md` are empty. Its entrypoint only prints a greeting. There is no Mancala rules implementation to reuse.
