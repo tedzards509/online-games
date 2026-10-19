@@ -1,0 +1,4 @@
+- Configurable rule configs per-game & fix rules
+- Allow arenas to decay
+- Make frontend usable
+- Moar games
