@@ -35,7 +35,17 @@ Run from the repository root. The server serves `frontend/dist` with SPA routing
 
 Configuration: `DATABASE_URL` (default `sqlite://arena.db`), `BIND_ADDR` (default `127.0.0.1:3000`), `PUBLIC_ORIGIN` (default `http://localhost:5173`), `RUST_LOG`.
 
-This is a **single-server, trusted-friends foundation**, not a public service: no room expiry, seat removal/host transfer, spectators, or abuse rate limiting. Do not run multiple server processes against the same database. Room codes are invitations, not secrets; seat tokens are secrets. Back up the database; it contains hidden game state. Skyjo currently plays one round, not a cumulative match to 100. See [rules](docs/rules.md) for every initial variant.
+This is a **single-server, trusted-friends foundation**, not a public service: no room expiry, seat removal/host transfer, spectators, or abuse rate limiting. Do not run multiple server processes against the same database. Room codes are invitations, not secrets; seat tokens are secrets. Back up the database; it contains hidden game state. Skyjo currently plays one round, not a cumulative match to 100.
+
+## Game rules
+
+Each game module documents its supported variant, not every house rule:
+
+- [Mancala — Kalah](crates/arena-core/src/games/mancala/rules.md)
+- [Crazy Eights](crates/arena-core/src/games/crazy_eights/rules.md)
+- [Shithead](crates/arena-core/src/games/shithead/rules.md)
+- [Skyjo](crates/arena-core/src/games/skyjo/rules.md)
+- [Tic-Tac-Toe](crates/arena-core/src/games/tic_tac_toe/rules.md)
 
 ## Develop
 

@@ -1,9 +1,9 @@
 # Add a game
 
-Use `crates/arena-core/src/games/tic_tac_toe.rs` and `frontend/src/components/TicTacToe.svelte` as the smallest complete example.
+Use `crates/arena-core/src/games/tic_tac_toe/` and `frontend/src/components/TicTacToe.svelte` as the smallest complete example.
 
-1. **Fix the rules.** Add player counts, turn order, special cases, and win/draw conditions to `docs/rules.md`. Choose a stable snake-case game ID.
-2. **Implement the core.** Add `crates/arena-core/src/games/<id>.rs` and export it from `games/mod.rs`. Implement `Game` with action, event, and view types. State needs `Clone`, `Serialize`, and `Deserialize`; actions also need `PartialEq`; actions/views need `ToSchema` with unique names such as `TicTacToeAction`.
+1. **Fix the rules.** Choose a stable snake-case game ID. Document player counts, turn order, special cases, and win/draw conditions in `crates/arena-core/src/games/<id>/rules.md`, and link it from the README's game rules section.
+2. **Implement the core.** Add `crates/arena-core/src/games/<id>/mod.rs` and export it from `games/mod.rs`. Implement `Game` with action, event, and view types. State needs `Clone`, `Serialize`, and `Deserialize`; actions also need `PartialEq`; actions/views need `ToSchema` with unique names such as `TicTacToeAction`.
    - `Config`: define a serializable, comparable, defaultable `GameConfig` struct, or use `game::GameConfig` for no options. Register it in runtime `Config` and `GameKind::default_config`, plus `Match::config` and `with_config`.
    - `with_config`: validate player count and apply setup options; use only the supplied seed for randomness (ignore it for deterministic games). `new` uses defaults. Preserve original defaults for version-1 replays.
    - `legal_actions(player)`: list that seat's valid commands; return none for ineligible seats or after completion.
