@@ -14,6 +14,8 @@ Read `README.md`, `docs/design.md`, and the relevant game's `crates/arena-core/s
 - `crates/arena-server/src/store.rs`, `schema.sql`: SQLite persistence and direct schema initialization.
 - `frontend/src/lib/connection.svelte.ts`: socket authentication, reconnects, revisions, pending state.
 - `frontend/src/components/`: game-specific boards. `App.svelte` handles entry, room navigation, and room chrome.
+- `frontend/src/components/ui/`, `components/cards/`: shared controls and composable card layers; game boards opt in explicitly.
+- `frontend/src/design.css`, `lib/i18n.ts`, `lib/locales/`: documented design values, language selection, and independent translation catalogs. See `frontend/README.md` and `docs/frontend-design.md`.
 - `frontend/src/lib/api.generated.ts`: generated from `openapi.json`; do not edit by hand.
 
 ## Code style

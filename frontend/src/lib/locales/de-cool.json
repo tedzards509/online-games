@@ -1,0 +1,21 @@
+{
+  "nickname": "Spitzname",
+  "roomCode": "Raumcode",
+  "createRoom": "Raum erstellen",
+  "joinRoom": "Raum beitreten",
+  "settings": "Einstellungen",
+  "language": "Sprache",
+  "enterFailed": "Beitritt zum Raum fehlgeschlagen",
+  "roomNotFound": "Raum nicht gefunden",
+  "nicknameTaken": "Spitzname bereits vergeben",
+  "nicknameInvalid": "Verwende einen Spitznamen mit 1–24 Zeichen",
+  "hiddenCard": "Verdeckte Karte",
+  "card": "{suit} {rank}",
+  "ranks": { "11": "Bube", "12": "Dame", "13": "König", "14": "Ass" },
+  "suits": {
+    "clubs": "Kreuz",
+    "diamonds": "Karo",
+    "hearts": "Herz",
+    "spades": "Pik"
+  }
+}

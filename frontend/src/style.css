@@ -1,5 +1,5 @@
 :root {
-  font-family: system-ui, sans-serif;
+  font-family: var(--arena-font);
   color: #222923;
   background: #f6f5f1;
   font-synthesis: none;
@@ -97,30 +97,6 @@ input,
 select {
   width: 100%;
   min-width: 0;
-}
-.entry {
-  width: min(100%, 360px);
-  margin: 0 auto;
-}
-.entry form {
-  display: grid;
-  gap: 16px;
-  margin-top: 24px;
-}
-.divider {
-  border-top: 1px solid #d7dad3;
-  margin-top: 32px;
-}
-.code-input {
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-}
-.recent {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-top: 32px;
-  font-family: monospace;
 }
 .muted {
   color: #646c64;

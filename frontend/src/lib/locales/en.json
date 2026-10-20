@@ -1,0 +1,21 @@
+{
+  "nickname": "Nickname",
+  "roomCode": "Room code",
+  "createRoom": "Create room",
+  "joinRoom": "Join room",
+  "settings": "Settings",
+  "language": "Language",
+  "enterFailed": "Could not enter room",
+  "roomNotFound": "Room not found",
+  "nicknameTaken": "Nickname already taken",
+  "nicknameInvalid": "Use a nickname of 1–24 characters",
+  "hiddenCard": "Face-down card",
+  "card": "{rank} of {suit}",
+  "ranks": { "11": "Jack", "12": "Queen", "13": "King", "14": "Ace" },
+  "suits": {
+    "clubs": "clubs",
+    "diamonds": "diamonds",
+    "hearts": "hearts",
+    "spades": "spades"
+  }
+}

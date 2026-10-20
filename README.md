@@ -56,6 +56,7 @@ Crazy Eights, Mancala, Shithead, and Skyjo use replay version 4; Tic-Tac-Toe, Th
 - `crates/arena-core`: deterministic rules, shared cards/decks, `Game` trait, validated sessions, action/event logs, player views, replays. No I/O or async runtime.
 - `crates/arena-server`: Axum/Tokio, SQLite, anonymous membership, personalized per-room WebSockets.
 - `frontend`: Svelte 5 SPA, generated API types, one board component per game.
+- [Frontend components and languages](frontend/README.md) · [Frontend design](docs/frontend-design.md)
 - [Add a game](docs/adding-a-game.md) · [Design and `../spiele` review](docs/design.md) · [Wire protocol](docs/protocol.md) · [Agent guidance](AGENTS.md)
 
 OpenAPI: [`openapi.json`](openapi.json), also served at `/api/openapi.json`. After changing API types/routes:

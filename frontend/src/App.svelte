@@ -1,11 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { t } from './lib/i18n';
   import {
     createRoom,
     downloadReplay,
     joinRoom,
     loadMembership,
-    savedRooms,
     saveMembership,
   } from './lib/api';
   import { RoomConnection } from './lib/connection.svelte';
@@ -13,6 +13,8 @@
   import GameBoard from './components/GameBoard.svelte';
   import GameConfig from './components/GameConfig.svelte';
   import RoomSettings from './components/RoomSettings.svelte';
+  import LandingPage from './components/LandingPage.svelte';
+  import LanguageSettings from './components/LanguageSettings.svelte';
 
   function pathCode(): string {
     return (
@@ -31,7 +33,7 @@
   let joinCode = $state(initialCode);
   let busy = $state(false);
   let error = $state('');
-  let recent = $state(savedRooms());
+  let entryError = $state<string | null>(null);
   let copied = $state(false);
   const room = $derived(connection?.room);
   const game = $derived(room?.game);
@@ -60,7 +62,7 @@
     joinCode = code;
     member = code ? loadMembership(code) : null;
     error = '';
-    recent = savedRooms();
+    entryError = null;
   }
   onMount(() => {
     window.addEventListener('popstate', syncLocation);
@@ -81,6 +83,7 @@
     if (busy) return;
     busy = true;
     error = '';
+    entryError = null;
     try {
       const target = joinCode.trim().toUpperCase();
       const existing = !create ? loadMembership(target) : null;
@@ -91,7 +94,14 @@
       localStorage.setItem('arena-nickname', nickname.trim());
       navigate(membership.code);
     } catch (cause) {
-      error = cause instanceof Error ? cause.message : 'Could not enter room';
+      // The HTTP API supplies English messages; translate expected entry errors.
+      const messages: Record<string, string> = {
+        'Room or replay not found': 'roomNotFound',
+        'Nickname already taken': 'nicknameTaken',
+        'Use a nickname of 1–24 characters': 'nicknameInvalid',
+      };
+      entryError =
+        (cause instanceof Error && messages[cause.message]) || 'enterFailed';
     } finally {
       busy = false;
     }
@@ -120,84 +130,33 @@
   ><title>{code ? `${code} · ` : ''}Friends' Arena</title></svelte:head
 >
 
-<main>
-  <header>
-    <a
-      class="brand"
-      href="/"
-      onclick={(event) => {
-        event.preventDefault();
-        navigate('');
-      }}>Friends' Arena</a
-    >
-    {#if code}<button
-        class="quiet"
-        onclick={copyCode}
-        aria-label="Copy room code">{code} {copied ? '✓' : '⧉'}</button
-      >{/if}
-  </header>
+<main class:entry-shell={!member} lang={member ? 'en' : undefined}>
+  <LanguageSettings />
+  {#if member}<header>
+      <a
+        class="brand"
+        href="/"
+        onclick={(event) => {
+          event.preventDefault();
+          navigate('');
+        }}>Friends' Arena</a
+      >
+      {#if code}<button
+          class="quiet"
+          onclick={copyCode}
+          aria-label="Copy room code">{code} {copied ? '✓' : '⧉'}</button
+        >{/if}
+    </header>{/if}
 
   {#if error || connection?.error}<p class="error" role="alert">
       {error || connection?.error}
     </p>{/if}
+  {#if entryError}<p class="error entry-error" role="alert">
+      {$t(entryError)}
+    </p>{/if}
 
   {#if !member}
-    <section class="entry">
-      <h1>{code ? 'Join room' : 'A table for friends.'}</h1>
-      <label
-        >Nickname<input
-          bind:value={nickname}
-          maxlength="24"
-          autocomplete="nickname"
-          required
-        /></label
-      >
-      {#if !code}
-        <form
-          onsubmit={(event) => {
-            event.preventDefault();
-            enter(true);
-          }}
-        >
-          <button class="primary" disabled={busy || !nickname.trim()}
-            >Create room</button
-          >
-        </form>
-        <div class="divider"></div>
-      {/if}
-      <form
-        onsubmit={(event) => {
-          event.preventDefault();
-          enter(false);
-        }}
-      >
-        <label
-          >Room code<input
-            class="code-input"
-            bind:value={joinCode}
-            maxlength="6"
-            minlength="6"
-            pattern={'[A-Za-z2-9]{6}'}
-            autocapitalize="characters"
-            spellcheck="false"
-            required
-          /></label
-        >
-        <button
-          disabled={busy || !nickname.trim() || joinCode.trim().length !== 6}
-          >Join room</button
-        >
-      </form>
-      {#if recent.length && !code}<nav class="recent" aria-label="Your rooms">
-          {#each recent as saved}<a
-              href={`/room/${saved}`}
-              onclick={(event) => {
-                event.preventDefault();
-                navigate(saved);
-              }}>{saved}</a
-            >{/each}
-        </nav>{/if}
-    </section>
+    <LandingPage bind:nickname bind:joinCode invited={!!code} {busy} {enter} />
   {:else if !room}
     <p role="status">
       {connection?.status === 'offline'
@@ -346,3 +305,24 @@
     </section>
   {/if}
 </main>
+
+<style>
+  main.entry-shell {
+    max-width: none;
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    padding: 6rem var(--arena-space-3);
+    background: var(--arena-canvas);
+    color: var(--arena-text);
+  }
+  .entry-error {
+    width: min(100%, var(--arena-entry-width));
+    margin: 0 auto var(--arena-space-3);
+  }
+  @media (max-width: 40rem) {
+    main.entry-shell {
+      padding: var(--arena-space-4) var(--arena-space-2) 6rem;
+    }
+  }
+</style>

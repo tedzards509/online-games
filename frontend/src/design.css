@@ -1,0 +1,36 @@
+/* Shared design values. New UI uses these tokens; game boards own their layouts.
+   Rem values follow the browser's text size. The 40rem mobile breakpoint is also
+   used in LandingPage and LanguageSettings (CSS variables cannot query media). */
+:root {
+  --arena-font: 'Nunito Sans Variable', sans-serif;
+  --arena-canvas: #e1f0d1;
+  --arena-text: #1e553d;
+  --arena-primary: #235e45;
+  --arena-primary-hover: #194a35;
+  --arena-on-primary: #fffbea;
+  --arena-surface: #fff8e7;
+  --arena-input: #fffdf1;
+  --arena-border: #9abd95;
+  --arena-placeholder: #536e50;
+  --arena-focus: #ae4534;
+  --arena-error: #922f25;
+  --arena-card-face: #fffcf5;
+  --arena-card-dark: #21513c;
+  --arena-card-red: #b64032;
+  --arena-card-back: #235e45;
+  /* Controls: 48px at default text size, exceeding the 44px touch minimum. */
+  --arena-control-height: 3rem;
+  --arena-control-radius: 0.8125rem;
+  --arena-panel-radius: 1.25rem;
+  --arena-space-1: 0.5rem;
+  --arena-space-2: 1rem;
+  --arena-space-3: 1.5rem;
+  --arena-space-4: 2rem;
+  --arena-entry-width: 42rem;
+  --arena-shadow: 0 3px 0 #1e553d18;
+  /* All card layers inherit the same 5:7 shape; width can be overridden locally. */
+  --arena-card-width: 4.25rem;
+  --arena-card-radius: 0.75rem;
+  --arena-card-shadow: 0 4px 0 #1a382129;
+  --arena-transition: 150ms ease;
+}
