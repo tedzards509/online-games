@@ -65,6 +65,8 @@ Use a legal action from your personalized game snapshot:
 
 The server maps the authenticated member to their immutable player index and routes the action to that game. The game tag must match. Benched members cannot move and receive no `view` or legal actions; spectator projections are not implemented. Player observations never expose private engine state or seeds.
 
+The Crew's `view.commander` identifies the original black-four holder. `view.communication_played` contains one boolean per frozen player seat; it is true only when that player's publicly communicated card has been played. Communications retain their card and declaration. Both markers are included in every snapshot, including reconnects; neither reveals an uncommunicated card.
+
 Game messages require the matching game ID and an observed revision between that game's start revision and the current room revision. Older same-game revisions remain valid even across unrelated joins. Future, pre-start, aborted-game, and previous-game messages are rejected. The room mutex queues commands FIFO; each action is revalidated against the latest successfully persisted state. Every still-legal move executes. A rejected action or failed write does not consume a revision or block later commands. This is not deduplication: do not automatically resend an unacknowledged move.
 
 ### Host game controls

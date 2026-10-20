@@ -87,6 +87,10 @@ pub struct View {
     pub hand: Vec<Card>,
     pub counts: Vec<usize>,
     pub communications: Vec<Option<Communication>>,
+    /// Whether each seat's publicly communicated card has left its hand.
+    pub communication_played: Vec<bool>,
+    /// Original holder of black four, retained after that card is played.
+    pub commander: Player,
     pub trick: Vec<Play>,
     pub last_trick: Option<Trick>,
     pub tricks_won: Vec<usize>,
@@ -295,6 +299,39 @@ impl Game for TheCrew {
             hand: self.hands[viewer].clone(),
             counts: self.hands.iter().map(Vec::len).collect(),
             communications: self.communications.clone(),
+            communication_played: self
+                .communications
+                .iter()
+                .zip(&self.hands)
+                .map(|(communication, hand)| {
+                    communication
+                        .as_ref()
+                        .is_some_and(|communication| !hand.contains(&communication.card))
+                })
+                .collect(),
+            commander: self
+                .hands
+                .iter()
+                .position(|hand| {
+                    hand.contains(&Card {
+                        color: Color::Black,
+                        number: 4,
+                    })
+                })
+                .or_else(|| {
+                    self.trick
+                        .iter()
+                        .chain(self.completed.iter().flat_map(|trick| &trick.cards))
+                        .find(|play| {
+                            play.card
+                                == Card {
+                                    color: Color::Black,
+                                    number: 4,
+                                }
+                        })
+                        .map(|play| play.player)
+                })
+                .expect("black four remains in a hand or a played trick"),
             trick: self.trick.clone(),
             last_trick: self.completed.last().cloned(),
             tricks_won: (0..self.hands.len())
@@ -375,6 +412,8 @@ mod tests {
                 for viewer in 0..players {
                     let view = game.view(viewer);
                     assert_eq!(view.hand, game.hands[viewer]);
+                    assert_eq!(view.commander, game.next_player);
+                    assert_eq!(view.communication_played, vec![false; players]);
                     let json = serde_json::to_value(view).unwrap();
                     for key in ["hands", "seed", "deck", "completed"] {
                         assert!(json.get(key).is_none());
@@ -579,6 +618,59 @@ mod tests {
         )
         .unwrap();
         assert_eq!(s.state.next_player, 2);
+    }
+
+    #[test]
+    fn public_markers_survive_plays_serialization_and_completion() {
+        for players in 3..=5 {
+            let mut session = Session::<TheCrew>::new(players, [4; 32]).unwrap();
+            let commander = session.state.next_player;
+            for player in 0..players {
+                let action = session
+                    .state
+                    .legal_actions(player)
+                    .into_iter()
+                    .find(|action| matches!(action, Action::Communicate { .. }))
+                    .unwrap();
+                session.act(player, action).unwrap();
+            }
+            loop {
+                let restored: TheCrew =
+                    serde_json::from_value(serde_json::to_value(&session.state).unwrap()).unwrap();
+                for viewer in 0..players {
+                    let view = restored.view(viewer);
+                    assert_eq!(view.commander, commander);
+                    assert_eq!(view.hand, restored.hands[viewer]);
+                    for player in 0..players {
+                        let communicated = view.communications[player].as_ref().unwrap().card;
+                        assert_eq!(
+                            view.communication_played[player],
+                            !restored.hands[player].contains(&communicated)
+                        );
+                    }
+                }
+                let player = session.state.next_player;
+                let action = session
+                    .state
+                    .legal_actions(player)
+                    .into_iter()
+                    .find(|action| matches!(action, Action::Play { .. }));
+                let Some(action) = action else { break };
+                session.act(player, action).unwrap();
+            }
+            assert!(
+                session
+                    .state
+                    .view(0)
+                    .communication_played
+                    .iter()
+                    .any(|played| *played)
+            );
+            session
+                .resolve(Resolution::SharedResult { won: true })
+                .unwrap();
+            assert_eq!(session.state.view(0).commander, commander);
+        }
     }
 
     #[test]

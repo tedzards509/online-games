@@ -38,7 +38,8 @@ preferences are matched in order by base language (`de-AT` → `de`); otherwise
 English is used. An explicit choice is saved under `arena-language` in browser
 storage. German (cool) sets the document's language to `de` for assistive tools.
 Landing errors use translated copy; server diagnostics are not translation keys.
-Room/game copy is outside this design pass.
+The Crew board uses the `crew` catalog namespace. Other room/game copy remains
+English.
 
 ## Fonts
 
@@ -79,3 +80,28 @@ announcements. Never place interactive controls inside card content.
   </svg>
 </PlayingCard>
 ```
+
+## The Crew table
+
+`components/TheCrew.svelte` owns relative seating, card selection, legal command
+lookup, and stable visual trick offsets. `components/crew/` supplies its card face,
+fan, communication slot, trick pile, and opponent/info panel. Room metadata uses
+member IDs; game actions and marker arrays use frozen player indices.
+
+- `crew/cards.ts` documents the exact printed colors. SVG circle, triangle,
+  square, cross, and rocket shapes distinguish suits without relying on color.
+  Face numbers retain a dark, readable ink color.
+- Own fans expose at least 44px of each card. Long hands scroll horizontally
+  instead of shrinking touch targets. Selecting a card never submits a command;
+  play and communication controls use the latest server-provided legal actions.
+- Opponent fans render only public hand counts with shared card backs. Player
+  info contains public room identity, seat, hand/trick counts, communication, and
+  commander/next-player status. It never receives another player's hand.
+- Communication markers show unused/active in green and played in red. Active
+  markers occupy the top, middle, or bottom for highest, only, or lowest.
+  `communication_played` and `commander` come from every server projection;
+  neither marker relies on a browser remembering earlier tricks.
+- Table-specific dimensions live in the board's scoped CSS. Compact rack cards
+  use `--crew-small-card`; central cards use `--crew-trick-card`. Opponents remain
+  upright around the table; on narrow/short screens the table can scroll vertically.
+  Existing room/setup controls remain accessible in a collapsible section.

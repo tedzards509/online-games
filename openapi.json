@@ -1002,6 +1002,8 @@
           "hand",
           "counts",
           "communications",
+          "communication_played",
+          "commander",
           "trick",
           "tricks_won",
           "next_player",
@@ -1010,6 +1012,17 @@
         "properties": {
           "awaiting_result": {
             "type": "boolean"
+          },
+          "commander": {
+            "$ref": "#/components/schemas/usize",
+            "description": "Original holder of black four, retained after that card is played."
+          },
+          "communication_played": {
+            "type": "array",
+            "items": {
+              "type": "boolean"
+            },
+            "description": "Whether each seat's publicly communicated card has left its hand."
           },
           "communications": {
             "type": "array",

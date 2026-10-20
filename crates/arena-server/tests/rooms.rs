@@ -435,6 +435,13 @@ async fn benched_host_records_crew_results_atomically_and_replays_remain_accessi
     assert!(views[0]["game"]["view"].is_null());
     assert_eq!(views[3]["game"]["you"], 0);
     assert_eq!(views[3]["game"]["can_finish"], false);
+    let commander = views[3]["game"]["view"]["state"]["next_player"].clone();
+    for member in [3, 1, 2] {
+        let state = &views[member]["game"]["view"]["state"];
+        assert_eq!(state["commander"], commander);
+        assert_eq!(state["communication_played"], json!([false, false, false]));
+        assert!(state.get("hands").is_none());
+    }
     for view in &views {
         assert!(
             view["game"]["legal_actions"]
@@ -539,6 +546,12 @@ async fn benched_host_records_crew_results_atomically_and_replays_remain_accessi
     drop(server);
     let server = Server::open(&database).await;
     assert_eq!(server.snapshot(&members[0]).await, completed);
+    let restored = server.snapshot(&members[3]).await;
+    assert_eq!(restored["game"]["view"]["state"]["commander"], commander);
+    assert_eq!(
+        restored["game"]["view"]["state"]["communication_played"],
+        json!([false, false, false])
+    );
     let late = server.join(&members[0].code, "Later arrival").await;
     let path = format!(
         "/api/rooms/{}/replays/{}",

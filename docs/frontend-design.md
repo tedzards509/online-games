@@ -42,7 +42,13 @@ their hand/table layouts, legal-action behavior, and responsive card sizing.
 
 ## Scope
 
-The shared components, landing flow, and language settings use this design.
-Room setup and individual game boards retain their own presentation and English
-copy until explicitly included in a design pass. Do not apply a new theme to
-existing boards merely because a shared component is available.
+The shared components, landing flow, language settings, and The Crew table use
+this design. Room setup and other game boards retain their own presentation and
+English copy. Do not apply a new theme to existing boards merely because a
+shared component is available.
+
+The Crew places the viewer's selectable fan and controls below a central trick,
+with upright opponent racks and compact face-down fans around the outside.
+Communications and won-trick piles stay beside their owner. The board favors
+readable faces and accessible touch targets over fitting a long hand onto a
+short screen without scrolling. Player details belong in dismissible info panels.

@@ -39,6 +39,9 @@
   const game = $derived(room?.game);
   const host = $derived(room?.you === room?.host);
   const active = $derived(game != null && game.outcome == null);
+  const crewTable = $derived(
+    game?.config.game === 'the_crew' && game.you != null,
+  );
   const disabled = $derived(
     connection?.pending || connection?.status !== 'connected',
   );
@@ -130,7 +133,11 @@
   ><title>{code ? `${code} · ` : ''}Friends' Arena</title></svelte:head
 >
 
-<main class:entry-shell={!member} lang={member ? 'en' : undefined}>
+<main
+  class:entry-shell={!member}
+  class:crew-shell={crewTable}
+  lang={member ? 'en' : undefined}
+>
   <LanguageSettings />
   {#if member}<header>
       <a
@@ -171,64 +178,67 @@
           >{connection?.status === 'connected' ? '' : 'Reconnecting…'}</span
         >
       </div>
-      <ul aria-label="Members">
-        {#each room.members as member}
-          <li>
-            {member.nickname}{member.id === room.you
-              ? ' · you'
-              : ''}{member.id === room.host ? ' · host' : ''}
-          </li>
-        {/each}
-      </ul>
-      {#if room.config}<p>Selected game: {games[room.config.game]}</p>{/if}
-      {#if host}
-        <RoomSettings
-          config={room.config}
-          players={room.seating.map((id) => room.members[id].nickname)}
-          disabled={disabled || active}
-          change={(config) => connection?.configure(config)}
-        />
-      {:else if room.config}
-        <GameConfig config={room.config} />
-      {:else}<p>Waiting for host to choose a game</p>{/if}
-      <ol aria-label="Seating">
-        {#each room.seating as member, index}
-          <li>
-            {room.members[member].nickname}
-            {#if host}
-              <button
-                aria-label={`Move ${room.members[member].nickname} up`}
-                disabled={disabled || active || index === 0}
-                onclick={() => reorder(index, -1)}>↑</button
-              >
-              <button
-                aria-label={`Move ${room.members[member].nickname} down`}
-                disabled={disabled ||
-                  active ||
-                  index === room.seating.length - 1}
-                onclick={() => reorder(index, 1)}>↓</button
-              >
-              <button
-                disabled={disabled || active}
-                onclick={() =>
-                  connection?.seat(room.seating.filter((m) => m !== member))}
-                >Bench {room.members[member].nickname}</button
-              >
-            {/if}
-          </li>
-        {/each}
-      </ol>
-      <ul aria-label="Bench">
-        {#each room.members.filter((m) => !room.seating.includes(m.id)) as member}
-          <li>
-            {member.nickname}{#if host}<button
-                disabled={disabled || active}
-                onclick={() => connection?.seat([...room.seating, member.id])}
-                >Seat {member.nickname}</button
-              >{/if}
-          </li>
-        {/each}
-      </ul>
+      <svelte:element this={crewTable ? 'details' : 'div'} class="room-setup">
+        {#if crewTable}<summary>Room · {code}</summary>{/if}
+        <ul aria-label="Members">
+          {#each room.members as member}
+            <li>
+              {member.nickname}{member.id === room.you
+                ? ' · you'
+                : ''}{member.id === room.host ? ' · host' : ''}
+            </li>
+          {/each}
+        </ul>
+        {#if room.config}<p>Selected game: {games[room.config.game]}</p>{/if}
+        {#if host}
+          <RoomSettings
+            config={room.config}
+            players={room.seating.map((id) => room.members[id].nickname)}
+            disabled={disabled || active}
+            change={(config) => connection?.configure(config)}
+          />
+        {:else if room.config}
+          <GameConfig config={room.config} />
+        {:else}<p>Waiting for host to choose a game</p>{/if}
+        <ol aria-label="Seating">
+          {#each room.seating as member, index}
+            <li>
+              {room.members[member].nickname}
+              {#if host}
+                <button
+                  aria-label={`Move ${room.members[member].nickname} up`}
+                  disabled={disabled || active || index === 0}
+                  onclick={() => reorder(index, -1)}>↑</button
+                >
+                <button
+                  aria-label={`Move ${room.members[member].nickname} down`}
+                  disabled={disabled ||
+                    active ||
+                    index === room.seating.length - 1}
+                  onclick={() => reorder(index, 1)}>↓</button
+                >
+                <button
+                  disabled={disabled || active}
+                  onclick={() =>
+                    connection?.seat(room.seating.filter((m) => m !== member))}
+                  >Bench {room.members[member].nickname}</button
+                >
+              {/if}
+            </li>
+          {/each}
+        </ol>
+        <ul aria-label="Bench">
+          {#each room.members.filter((m) => !room.seating.includes(m.id)) as member}
+            <li>
+              {member.nickname}{#if host}<button
+                  disabled={disabled || active}
+                  onclick={() => connection?.seat([...room.seating, member.id])}
+                  >Seat {member.nickname}</button
+                >{/if}
+            </li>
+          {/each}
+        </ul>
+      </svelte:element>
       {#if !active && host}
         <button
           class="primary"
@@ -247,13 +257,13 @@
         {#if host}<button {disabled} onclick={() => connection?.abort()}
             >{active ? 'Abort game' : 'Return to setup'}</button
           >{/if}
-        <ul class="players" aria-label="Players">
-          {#each game.players as player, index}
-            <li class:active={active && game.turn.players.includes(index)}>
-              {player.nickname}{index === game.you ? ' · you' : ''}
-            </li>
-          {/each}
-        </ul>
+        {#if !crewTable}<ul class="players" aria-label="Players">
+            {#each game.players as player, index}
+              <li class:active={active && game.turn.players.includes(index)}>
+                {player.nickname}{index === game.you ? ' · you' : ''}
+              </li>
+            {/each}
+          </ul>{/if}
         {#if game.outcome}
           <h2 role="status">
             {game.outcome.winners.length
@@ -268,7 +278,10 @@
                 .join(' · ')}
             </p>{/if}
         {:else}
-          {#if game.turn.players.length}<p class="turn" role="status">
+          {#if game.turn.players.length && !crewTable}<p
+              class="turn"
+              role="status"
+            >
               {game.you != null && game.turn.players.includes(game.you)
                 ? 'Your turn'
                 : `${game.turn.players.map((player) => game.players[player].nickname).join(', ') || 'Nobody'}'s turn`}
@@ -290,6 +303,7 @@
         {/if}
         <GameBoard
           room={game}
+          roomInfo={{ code: room.code, host: room.host }}
           disabled={connection?.pending || connection?.status !== 'connected'}
           move={(action) => connection?.move(action)}
         />
@@ -307,6 +321,24 @@
 </main>
 
 <style>
+  main.crew-shell {
+    max-width: 90rem;
+    background: var(--arena-canvas);
+    min-height: 100svh;
+  }
+  .crew-shell header {
+    margin-bottom: 0.75rem;
+    padding-right: 4rem;
+  }
+  .crew-shell .room-title h1 {
+    margin-bottom: 0.5rem;
+  }
+  .crew-shell .room-setup {
+    margin-bottom: 0.5rem;
+  }
+  .crew-shell .room-setup > :global(summary) {
+    padding: 0.5rem 0;
+  }
   main.entry-shell {
     max-width: none;
     min-height: 100svh;
@@ -321,6 +353,9 @@
     margin: 0 auto var(--arena-space-3);
   }
   @media (max-width: 40rem) {
+    .crew-shell header {
+      padding-right: 0;
+    }
     main.entry-shell {
       padding: var(--arena-space-4) var(--arena-space-2) 6rem;
     }

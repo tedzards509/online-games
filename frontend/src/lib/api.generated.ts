@@ -314,6 +314,10 @@ export interface components {
     };
     CrewView: {
       awaiting_result: boolean;
+      /** @description Original holder of black four, retained after that card is played. */
+      commander: components['schemas']['usize'];
+      /** @description Whether each seat's publicly communicated card has left its hand. */
+      communication_played: boolean[];
       communications: (null | components['schemas']['CrewCommunication'])[];
       counts: number[];
       hand: components['schemas']['CrewCard'][];

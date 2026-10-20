@@ -11,7 +11,8 @@
 - State consists of hands, current and completed tricks, next card-playing seat, each player's communication, action
    counter, and result.
 - Players see their own hand, all hand sizes, current and last completed trick (including its winner), trick counts,
-  next player, and all communications. Other hands and the seed remain private.
+  next player, original black-four holder, and all communications including whether each declared card has been played.
+  Other hands and the seed remain private.
 
 ## Actions and eligibility
 

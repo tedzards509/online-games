@@ -50,7 +50,7 @@ The framework uses deterministic setup, typed actions/events, per-player observa
 
 Actions, events, and observations are associated types of `Game`. The included games share an `Event` enum, but another ruleset can provide its own `GameEvent` and still use `Session` and `Record<A, E>`.
 
-The Crew uses its own colored cards with `Deck<Card>`. Its next card-playing seat is separate from eligibility: between tricks other players may communicate. Communications retain their card/declaration after play; private hands are never projected to other seats. Without missions, exhausting playable tricks waits for an external `SharedResult` resolution. The Crew uses replay version 1.
+The Crew uses its own colored cards with `Deck<Card>`. Its next card-playing seat is separate from eligibility: between tricks other players may communicate. Communications retain their card/declaration after play; the view also identifies played communications and the original black-four holder. These public markers are derived from retained cards and tricks, including after reconnects. Private hands are never projected to other seats. Without missions, exhausting playable tricks waits for an external `SharedResult` resolution. The Crew uses replay version 1.
 
 Tempel des Schreckens keeps roles private and projects only each viewer's unrevealed card counts, never their positions. Public rows contain face-up card values and hidden placeholders. Its `initial_key` configuration identifies a player and is validated at setup; simultaneous readiness precedes each reveal phase. The key passes to the revealed card's owner and persists across seeded redeals of unrevealed cards. Revealed-pile counts persist for all four rounds; outcomes list the seats with the winning role.
 
