@@ -16,3 +16,19 @@ export const crewInk = '#0e1e16';
 export function cardKey(card: Schemas['CrewCard']): string {
   return `${card.color}-${card.number}`;
 }
+
+/** Winning seat in a public, possibly incomplete trick. */
+export function trickLeader(cards: Schemas['CrewPlay'][]): number | null {
+  let best = cards[0];
+  if (!best) return null;
+  for (const played of cards.slice(1)) {
+    if (
+      (played.card.color === best.card.color &&
+        played.card.number > best.card.number) ||
+      (played.card.color === 'black' && best.card.color !== 'black')
+    ) {
+      best = played;
+    }
+  }
+  return best.player;
+}

@@ -403,6 +403,51 @@ test('Crew info uses member identity rather than seat for room role and shows pu
   await expect(opponent).not.toContainText('Blue 6');
 });
 
+test('Crew highlights the winning card as led-color cards and trumps are played', async ({
+  page,
+}) => {
+  const room = fixture();
+  const state = view(room);
+  const { publish } = await mock(page, room);
+  const trick = page.getByRole('region', {
+    name: 'Current trick',
+    exact: true,
+  });
+  await expect(trick.locator('.winning')).toHaveCount(0);
+  const plays: Schemas['CrewPlay'][] = [
+    { player: 0, card: { color: 'blue', number: 7 } },
+    { player: 1, card: { color: 'green', number: 9 } },
+    { player: 2, card: { color: 'blue', number: 8 } },
+    { player: 3, card: { color: 'black', number: 3 } },
+    { player: 4, card: { color: 'black', number: 1 } },
+  ];
+  const winners = ['Blue 7', 'Blue 7', 'Blue 8', 'Black 3', 'Black 3'];
+  for (const [index, played] of plays.entries()) {
+    state.trick.push(played);
+    room.revision++;
+    publish();
+    await expect(trick.locator('.winning')).toHaveCount(1);
+    await expect(
+      trick.locator('.winning').getByRole('img', {
+        name: `${winners[index]} · winning card`,
+        exact: true,
+      }),
+    ).toHaveCSS('outline-style', 'solid');
+  }
+  await page.reload();
+  await expect(trick.locator('.winning')).toHaveCount(1);
+  await expect(trick.locator('.winning').getByRole('img')).toHaveAccessibleName(
+    'Black 3 · winning card',
+  );
+  state.last_trick = { cards: [...state.trick], winner: 3 };
+  state.trick = [{ player: 3, card: { color: 'pink', number: 1 } }];
+  room.revision++;
+  publish();
+  await expect(trick.locator('.winning').getByRole('img')).toHaveAccessibleName(
+    'Pink 1 · winning card',
+  );
+});
+
 test('Crew trick scatter is stable; labels and last trick remain available', async ({
   page,
 }) => {

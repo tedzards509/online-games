@@ -56,6 +56,7 @@
     "currentTrick": "Current trick",
     "lastTrick": "Last trick",
     "trickWinner": "{name} won the trick",
+    "winningCard": "{card} · winning card",
     "finished": "Game finished",
     "awaitingResult": "Waiting for host to record the result",
     "playsNext": "{name} plays next",

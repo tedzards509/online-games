@@ -118,5 +118,7 @@ member IDs; game actions and marker arrays use frozen player indices.
   button; setup, finish, abort/rematch, room code, and replay controls live there.
   Disconnections remain visible as a compact status notice.
 - The previous-trick popover displays card faces with player captions and the
-  winner. A high-contrast localized turn pill identifies the viewer's actual
+  winner. The winning card has a contrasting outline and an accessible label;
+  an unfinished trick updates its highlight using led-color and trump rules.
+  A high-contrast localized turn pill identifies the viewer's actual
   card-playing turn (`next_player`), not eligibility to communicate.

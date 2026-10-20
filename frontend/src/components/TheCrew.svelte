@@ -6,7 +6,7 @@
   import CrewPlayer from './crew/CrewPlayer.svelte';
   import CommunicationSlot from './crew/CommunicationSlot.svelte';
   import TrickPile from './crew/TrickPile.svelte';
-  import { cardKey, crewColors } from './crew/cards';
+  import { cardKey, crewColors, trickLeader } from './crew/cards';
 
   let {
     view,
@@ -45,6 +45,11 @@
   );
   const currentCards = $derived(
     view.trick.length ? view.trick : (view.last_trick?.cards ?? []),
+  );
+  const winningPlayer = $derived(
+    view.trick.length
+      ? trickLeader(view.trick)
+      : (view.last_trick?.winner ?? null),
   );
   const communicationAvailable = $derived(
     crewActions.some((action) => action.action.type === 'communicate'),
@@ -90,11 +95,25 @@
   }
 </script>
 
-{#snippet trickCards(cards: Schemas['CrewPlay'][], scattered = false)}
+{#snippet trickCards(
+  cards: Schemas['CrewPlay'][],
+  scattered = false,
+  winner: number | null = null,
+)}
   <div class="trick-cards" class:history-cards={!scattered}>
     {#each cards as played (played.player)}
-      <figure style:transform={scattered ? scatter(played) : undefined}>
-        <CrewCard card={played.card} />
+      <figure
+        class:winning={played.player === winner}
+        style:transform={scattered ? scatter(played) : undefined}
+      >
+        <CrewCard
+          card={played.card}
+          label={played.player === winner
+            ? $t('crew.winningCard', {
+                values: { card: cardName(played.card) },
+              })
+            : cardName(played.card)}
+        />
         <figcaption title={players[played.player].nickname}>
           {players[played.player].nickname}
         </figcaption>
@@ -140,7 +159,7 @@
             : 'crew.lastTrick',
         )}
       </p>
-      {@render trickCards(currentCards, true)}
+      {@render trickCards(currentCards, true, winningPlayer)}
       {#if !view.trick.length && view.last_trick}<p class="winner">
           {$t('crew.trickWinner', {
             values: { name: players[view.last_trick.winner].nickname },
@@ -263,7 +282,7 @@
           values: { name: players[view.last_trick.winner].nickname },
         })}
       </p>
-      {@render trickCards(view.last_trick.cards)}
+      {@render trickCards(view.last_trick.cards, false, view.last_trick.winner)}
       <button popovertarget="crew-last-trick" popovertargetaction="hide"
         >{$t('crew.close')}</button
       >
@@ -375,6 +394,11 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .winning :global(.playing-card) {
+    outline: 3px solid var(--arena-primary);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 2px var(--arena-card-face);
   }
   .own-zone {
     min-width: 0;
