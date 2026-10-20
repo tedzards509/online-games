@@ -207,6 +207,7 @@ test('Crew card faces use the specified colors and redundant SVG shapes', async 
     ['Green 4', 'rgb(140, 198, 62)', 'path'],
     ['Pink 7', 'rgb(231, 124, 177)', 'rect'],
     ['Yellow 9', 'rgb(223, 174, 65)', 'path'],
+    ['Black 4', 'rgb(36, 40, 37)', 'path'],
   ]) {
     const face = page.getByRole('button', {
       name: `Select ${name}`,
@@ -222,6 +223,15 @@ test('Crew card faces use the specified colors and redundant SVG shapes', async 
       .locator('svg path')
       .first(),
   ).toHaveAttribute('d', 'M5 5 27 27M27 5 5 27');
+  const jellyfish = page
+    .getByRole('button', { name: 'Select Black 4', exact: true })
+    .locator('svg')
+    .first();
+  await expect(jellyfish.locator('path')).toHaveCount(2);
+  await expect(jellyfish.locator('path').last()).toHaveAttribute(
+    'd',
+    'M8 19c-4 4 4 6 0 10M16 19c-4 4 4 7 0 11M24 19c-4 4 4 6 0 10',
+  );
 });
 
 test('Crew never reuses a stale selection after a hand update or a rematch', async ({

@@ -1,6 +1,6 @@
 import type { Schemas } from '../../lib/types';
 
-/** Printed Crew colors and redundant shapes; black cards are rocket trumps. */
+/** Printed Crew colors and redundant shapes; black trumps use a jellyfish. */
 export const crewColors = {
   blue: '#008bcf',
   green: '#8cc63e',

@@ -89,7 +89,7 @@ communication slot, trick pile, and opponent/info panel. Room metadata uses
 member IDs; game actions and marker arrays use frozen player indices.
 
 - `crew/cards.ts` documents the exact printed colors. SVG circle, triangle,
-  square, diagonal cross, and rocket outlines distinguish suits without relying
+  square, diagonal cross, and jellyfish outlines distinguish suits without relying
   on color. Faces use the printed color; numbers and outlines use contrasting ink.
 - Own cards form a non-overlapping row. Long hands scroll horizontally instead
   of shrinking touch targets. Cards stay selectable outside the viewer's turn
