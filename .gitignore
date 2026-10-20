@@ -5,6 +5,7 @@
 *.db-shm
 *.db-wal
 .env
+/backups/
 /.idea
 /frontend/test-results/
 /frontend/playwright-report/
