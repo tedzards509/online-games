@@ -3,54 +3,88 @@
   import SymbolCard from '../cards/SymbolCard.svelte';
   import type { Schemas } from '../../lib/types';
   import { t } from '../../lib/i18n';
-  import { crewColors } from './cards';
+  import { crewColors, crewInk } from './cards';
 
   let {
     card,
     label,
+    muted = false,
+    selected = false,
     ...shell
   }: Omit<
     ComponentProps<typeof SymbolCard>,
-    'rank' | 'symbol' | 'symbolContent' | 'label' | 'color'
+    'rank' | 'symbol' | 'symbolContent' | 'label' | 'color' | 'background'
   > & {
     card: Schemas['CrewCard'];
     label?: string;
+    muted?: boolean;
   } = $props();
 </script>
 
-<SymbolCard
-  {...shell}
-  rank={card.number}
-  color="var(--arena-text)"
-  label={label ??
-    $t('crew.card', {
-      values: {
-        color: $t(`crew.colors.${card.color}`),
-        number: String(card.number),
-      },
-    })}
->
-  {#snippet symbolContent()}
-    <svg viewBox="0 0 32 32" fill={crewColors[card.color]} aria-hidden="true">
-      {#if card.color === 'blue'}
-        <circle cx="16" cy="16" r="14" />
-      {:else if card.color === 'green'}
-        <path d="M16 2 31 29H1Z" />
-      {:else if card.color === 'pink'}
-        <rect x="3" y="3" width="26" height="26" rx="1" />
-      {:else if card.color === 'yellow'}
-        <path d="M11 1h10v10h10v10H21v10H11V21H1V11h10Z" />
-      {:else}
-        <path
-          d="M16 1c-6 5-8 12-6 21h12c2-9 0-16-6-21ZM9 14l-7 12 8-3Zm14 0 7 12-8-3ZM12 25h8l-4 7Z"
-        />
-        <circle cx="16" cy="12" r="3" fill="var(--arena-card-face)" />
-      {/if}
-    </svg>
-  {/snippet}
-</SymbolCard>
+<span class="crew-card" class:selected data-muted={muted}>
+  <SymbolCard
+    {...shell}
+    rank={card.number}
+    {selected}
+    color={card.color === 'black' && !muted ? '#fff8e7' : crewInk}
+    background={muted
+      ? `color-mix(in srgb, ${crewColors[card.color]} ${card.color === 'black' ? 40 : 55}%, var(--arena-canvas))`
+      : crewColors[card.color]}
+    label={label ??
+      $t('crew.card', {
+        values: {
+          color: $t(`crew.colors.${card.color}`),
+          number: String(card.number),
+        },
+      })}
+  >
+    {#snippet symbolContent()}
+      <svg
+        viewBox="0 0 32 32"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.25"
+        stroke-linejoin="round"
+        stroke-linecap="round"
+        aria-hidden="true"
+      >
+        {#if card.color === 'blue'}
+          <circle cx="16" cy="16" r="14" />
+        {:else if card.color === 'green'}
+          <path d="M16 2 31 29H1Z" />
+        {:else if card.color === 'pink'}
+          <rect x="3" y="3" width="26" height="26" rx="1" />
+        {:else if card.color === 'yellow'}
+          <path d="M5 5 27 27M27 5 5 27" />
+        {:else}
+          <path
+            d="M16 1c-6 5-8 12-6 21h12c2-9 0-16-6-21ZM9 14l-7 12 8-3Zm14 0 7 12-8-3ZM12 25h8l-4 7Z"
+          />
+          <circle cx="16" cy="12" r="3" />
+        {/if}
+      </svg>
+    {/snippet}
+  </SymbolCard>
+</span>
 
 <style>
+  .crew-card {
+    display: inline-flex;
+    flex-shrink: 0;
+    vertical-align: top;
+    border-radius: var(--arena-card-radius);
+  }
+  .crew-card :global(.playing-card) {
+    border-color: #ffffff55;
+    box-shadow: 0 2px 4px #15291d18;
+  }
+  .crew-card.selected :global(.playing-card) {
+    border-color: var(--arena-text);
+    box-shadow: 0 0 0 2px var(--arena-text);
+  }
+  span.crew-card :global(button.playing-card:disabled) {
+    opacity: 1;
+  }
   svg {
     width: 100%;
     height: 100%;

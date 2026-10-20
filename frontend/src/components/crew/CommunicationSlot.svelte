@@ -60,7 +60,8 @@
   }
   .marker {
     position: absolute;
-    right: -0.35rem;
+    left: 50%;
+    transform: translateX(-50%);
     width: 0.875rem;
     height: 0.875rem;
     border: 2px solid var(--arena-card-face);
@@ -69,13 +70,13 @@
     box-shadow: 0 0 0 1px var(--arena-border);
   }
   .marker[data-position='highest'] {
-    top: -0.3rem;
+    top: 8%;
   }
   .marker[data-position='only'] {
     top: calc(50% - 0.4375rem);
   }
   .marker[data-position='lowest'] {
-    bottom: -0.3rem;
+    bottom: 8%;
   }
   .marker.played {
     background: var(--arena-card-red);

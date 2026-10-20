@@ -7,6 +7,7 @@
   import TicTacToe from './TicTacToe.svelte';
   import TheCrew from './TheCrew.svelte';
   import TempelDesSchreckens from './TempelDesSchreckens.svelte';
+  import { t } from '../lib/i18n';
   let {
     room,
     disabled,
@@ -23,7 +24,12 @@
 </script>
 
 {#if room.you == null}
-  <p>You are on the bench</p>
+  <div class:crew-bench={room.config.game === 'the_crew'}>
+    <p>You are on the bench</p>
+    {#if room.config.game === 'the_crew' && room.outcome}<p role="status">
+        {$t(room.outcome.winners.length ? 'crew.won' : 'crew.lost')}
+      </p>{/if}
+  </div>
 {:else if room.view?.game === 'tempel_des_schreckens'}
   <TempelDesSchreckens
     view={room.view.state}
@@ -44,6 +50,7 @@
       {roomInfo}
       {move}
       finished={room.outcome !== null}
+      won={!!room.outcome?.winners.length}
     />
   {/key}
 {:else if room.view?.game === 'mancala'}
@@ -62,3 +69,11 @@
 {:else if room.view?.game === 'tic_tac_toe'}
   <TicTacToe view={room.view.state} {actions} you={room.you} {move} />
 {/if}
+
+<style>
+  .crew-bench {
+    display: grid;
+    place-content: center;
+    text-align: center;
+  }
+</style>

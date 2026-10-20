@@ -12,6 +12,11 @@
   "hiddenCard": "Verdeckte Karte",
   "card": "{suit} {rank}",
   "crew": {
+    "roomControls": "Raumsteuerung",
+    "communicate": "Kommunizieren",
+    "reconnecting": "Verbindung wird wiederhergestellt…",
+    "won": "Gewonnen",
+    "lost": "Verloren",
     "card": "{color} {number}",
     "colors": {
       "blue": "Blau",

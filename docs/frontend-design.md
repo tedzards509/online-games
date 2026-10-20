@@ -47,8 +47,13 @@ this design. Room setup and other game boards retain their own presentation and
 English copy. Do not apply a new theme to existing boards merely because a
 shared component is available.
 
-The Crew places the viewer's selectable fan and controls below a central trick,
-with upright opponent racks and compact face-down fans around the outside.
-Communications and won-trick piles stay beside their owner. The board favors
-readable faces and accessible touch targets over fitting a long hand onto a
-short screen without scrolling. Player details belong in dismissible info panels.
+The Crew fills one viewport with a straight, non-overlapping hand along the
+bottom, a central trick, and compact opponent racks around the outside. Cards have
+saturated color faces, contrasting numbers, and outline shapes. Illegal cards
+use opaque muted colors only on the viewer's turn; card selection is independent
+of permission to submit a move. Communication markers sit inside their cards.
+
+Keep the playing space free of room headings and setup lists. Host room controls
+open opposite settings. Communication, trick history, and player details open
+in dismissible popovers without shifting the hand. Long hands scroll horizontally;
+the page itself does not scroll during play.

@@ -15,7 +15,7 @@ Read `README.md`, `docs/design.md`, and the relevant game's `crates/arena-core/s
 - `frontend/src/lib/connection.svelte.ts`: socket authentication, reconnects, revisions, pending state.
 - `frontend/src/components/`: game-specific boards. `App.svelte` handles entry, room navigation, and room chrome.
 - `frontend/src/components/ui/`, `components/cards/`: shared controls and composable card layers; game boards opt in explicitly.
-- `frontend/src/components/crew/`: The Crew's card faces, fans, communication/trick markers, and public player info; `TheCrew.svelte` owns its table layout and selection controls.
+- `frontend/src/components/crew/`: The Crew's card faces, communication/trick markers, and public player info; `TheCrew.svelte` owns its viewport layout, straight hand row, and selection controls.
 - `frontend/src/design.css`, `lib/i18n.ts`, `lib/locales/`: documented design values, language selection, and independent translation catalogs. See `frontend/README.md` and `docs/frontend-design.md`.
 - `frontend/src/lib/api.generated.ts`: generated from `openapi.json`; do not edit by hand.
 

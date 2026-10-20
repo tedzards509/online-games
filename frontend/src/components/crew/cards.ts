@@ -9,6 +9,9 @@ export const crewColors = {
   black: '#242825',
 } satisfies Record<Schemas['CrewColor'], string>;
 
+/** At least 4.5:1 text contrast on all four printed color faces. */
+export const crewInk = '#0e1e16';
+
 /** Card identity, independent of its changing hand index. */
 export function cardKey(card: Schemas['CrewCard']): string {
   return `${card.color}-${card.number}`;

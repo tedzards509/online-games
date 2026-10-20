@@ -12,6 +12,11 @@
   "hiddenCard": "Face-down card",
   "card": "{rank} of {suit}",
   "crew": {
+    "roomControls": "Room controls",
+    "communicate": "Communicate",
+    "reconnecting": "Reconnecting…",
+    "won": "Won",
+    "lost": "Lost",
     "card": "{color} {number}",
     "colors": {
       "blue": "Blue",

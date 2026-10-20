@@ -375,14 +375,20 @@ test('The Crew: benched host records results independently of player order', asy
       page.getByRole('button', { name: 'Finish: won', exact: true }),
     ).toHaveCount(0);
   }
+  await host
+    .getByRole('button', { name: 'Room controls', exact: true })
+    .click();
   await host.getByRole('button', { name: 'Finish: won', exact: true }).click();
   await expect(
     host.getByText('Dave, Bob, Carol won', { exact: true }),
   ).toBeVisible();
   await host.getByRole('button', { name: 'Play again', exact: true }).click();
   await host.getByRole('button', { name: 'Finish: lost', exact: true }).click();
+  await host.getByRole('button', { name: 'Close', exact: true }).click();
   for (const page of pages)
-    await expect(page.getByText('Lost', { exact: true })).toBeVisible();
+    await expect(
+      page.locator('[role="status"]:visible').filter({ hasText: /^Lost$/ }),
+    ).toBeVisible();
   expect((await snapshot(host)).replays).toHaveLength(2);
   for (const context of contexts) await context.close();
 });

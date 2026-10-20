@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { Schemas, Snapshot } from '../../lib/types';
   import { t } from '../../lib/i18n';
-  import CardFan from './CardFan.svelte';
   import CardBack from '../cards/CardBack.svelte';
   import CommunicationSlot from './CommunicationSlot.svelte';
   import TrickPile from './TrickPile.svelte';
@@ -42,31 +41,28 @@
   aria-label={member.nickname}
   class:next={!finished && !view.awaiting_result && view.next_player === player}
 >
-  <div class="name">
-    <span title={member.nickname}>{member.nickname}</span>
-    <button
-      class="info"
-      popovertarget={`crew-info-${player}`}
-      aria-label={$t('crew.infoAbout', { values: { name: member.nickname } })}
-      ><svg
-        viewBox="0 0 20 20"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.5"
-        aria-hidden="true"
-        ><circle cx="10" cy="10" r="8" /><path d="M10 9v5" /><circle
-          cx="10"
-          cy="6"
-          r="0.6"
-          fill="currentColor"
-        /></svg
-      ></button
-    >
-  </div>
-  <div aria-hidden="true">
-    <CardFan count={view.counts[player]} compact
-      >{#snippet card()}<CardBack />{/snippet}</CardFan
-    >
+  <button
+    class="info"
+    popovertarget={`crew-info-${player}`}
+    aria-label={$t('crew.infoAbout', { values: { name: member.nickname } })}
+    ><span title={member.nickname}>{member.nickname}</span><svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.5"
+      aria-hidden="true"
+      ><circle cx="10" cy="10" r="8" /><path d="M10 9v5" /><circle
+        cx="10"
+        cy="6"
+        r="0.6"
+        fill="currentColor"
+      /></svg
+    ></button
+  >
+  <div class="backs" aria-hidden="true">
+    {#each Array(view.counts[player]) as _}<span class="back"
+        ><CardBack width="var(--crew-back-width, 1.5rem)" /></span
+      >{/each}
   </div>
   <div class="rack">
     <CommunicationSlot
@@ -150,50 +146,49 @@
     min-width: 0;
     text-align: center;
   }
-  .name {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.25rem;
-    font-size: 0.9rem;
-    font-weight: 750;
-  }
-  .name > span {
+  .info > span {
     min-width: 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .next .name > span {
+  .next .info > span {
     text-decoration: underline;
     text-decoration-thickness: 2px;
     text-underline-offset: 0.3rem;
   }
   button.info {
-    display: grid;
-    place-items: center;
-    flex: 0 0 2.75rem;
-    width: 2.75rem;
-    height: 2.75rem;
-    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0 0.25rem;
     border: 0;
     border-radius: 50%;
     background: transparent;
     color: var(--arena-text);
     font-weight: 800;
+    font-size: 0.875rem;
   }
   .info svg {
+    flex-shrink: 0;
     width: 1.125rem;
     height: 1.125rem;
   }
   .rack {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.75rem;
-    margin-top: 0.25rem;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
   }
   .commander {
+    position: absolute;
+    bottom: -0.875rem;
+    left: calc(50% - 0.6875rem);
     width: 1.375rem;
     height: 1.375rem;
     flex-shrink: 0;
@@ -201,15 +196,29 @@
     background: var(--crew-black);
     border: 2px solid var(--arena-card-face);
   }
+  .backs {
+    display: flex;
+    justify-content: center;
+    min-height: calc(var(--crew-back-width, 1.5rem) * 1.4);
+  }
+  .back {
+    width: 3px;
+    flex: 0 0 3px;
+  }
+  .back:last-child {
+    width: var(--crew-back-width, 1.5rem);
+    flex-basis: var(--crew-back-width, 1.5rem);
+  }
   .player-info {
     width: min(24rem, calc(100vw - 2rem));
-    max-height: calc(100svh - 2rem);
+    max-height: calc(100dvh - 2rem);
     padding: var(--arena-space-3);
     border: 1px solid var(--arena-border);
     border-radius: var(--arena-panel-radius);
     background: var(--arena-surface);
     color: var(--arena-text);
     overflow-y: auto;
+    box-shadow: 0 12px 36px #1e553d20;
   }
   h2 {
     margin: 0 0 1rem;

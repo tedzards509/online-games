@@ -83,25 +83,31 @@ announcements. Never place interactive controls inside card content.
 
 ## The Crew table
 
-`components/TheCrew.svelte` owns relative seating, card selection, legal command
+`components/TheCrew.svelte` owns the viewport layout, card selection, legal command
 lookup, and stable visual trick offsets. `components/crew/` supplies its card face,
-fan, communication slot, trick pile, and opponent/info panel. Room metadata uses
+communication slot, trick pile, and opponent/info panel. Room metadata uses
 member IDs; game actions and marker arrays use frozen player indices.
 
 - `crew/cards.ts` documents the exact printed colors. SVG circle, triangle,
-  square, cross, and rocket shapes distinguish suits without relying on color.
-  Face numbers retain a dark, readable ink color.
-- Own fans expose at least 44px of each card. Long hands scroll horizontally
-  instead of shrinking touch targets. Selecting a card never submits a command;
-  play and communication controls use the latest server-provided legal actions.
-- Opponent fans render only public hand counts with shared card backs. Player
+  square, diagonal cross, and rocket outlines distinguish suits without relying
+  on color. Faces use the printed color; numbers and outlines use contrasting ink.
+- Own cards form a non-overlapping row. Long hands scroll horizontally instead
+  of shrinking touch targets. Cards stay selectable outside the viewer's turn
+  and while a command is pending; only command buttons are gated. Illegal plays
+  on the viewer's turn use an opaque muted face, never transparency. Selection
+  survives rejected commands and follows card identity, not its changing index.
+- Opponent back rows render only public hand counts with shared card backs. Player
   info contains public room identity, seat, hand/trick counts, communication, and
   commander/next-player status. It never receives another player's hand.
 - Communication markers show unused/active in green and played in red. Active
-  markers occupy the top, middle, or bottom for highest, only, or lowest.
+  markers sit on the card's horizontal centre at top, middle, or bottom for
+  highest, only, or lowest.
   `communication_played` and `commander` come from every server projection;
   neither marker relies on a browser remembering earlier tricks.
 - Table-specific dimensions live in the board's scoped CSS. Compact rack cards
-  use `--crew-small-card`; central cards use `--crew-trick-card`. Opponents remain
-  upright around the table; on narrow/short screens the table can scroll vertically.
-  Existing room/setup controls remain accessible in a collapsible section.
+  use `--crew-small-card`; central cards use `--crew-trick-card`. The main playing
+  space is exactly one viewport (`100vh`, using `100dvh` on supported browsers).
+  Only the hand and popovers scroll. Communication and last-trick popovers do
+  not resize the table. The host's room-controls button mirrors the settings
+  button; setup, finish, abort/rematch, room code, and replay controls live there.
+  Disconnections remain visible as a compact status notice.

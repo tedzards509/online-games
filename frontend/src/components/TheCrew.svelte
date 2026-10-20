@@ -4,7 +4,6 @@
   import Button from './ui/Button.svelte';
   import CrewCard from './crew/CrewCard.svelte';
   import CrewPlayer from './crew/CrewPlayer.svelte';
-  import CardFan from './crew/CardFan.svelte';
   import CommunicationSlot from './crew/CommunicationSlot.svelte';
   import TrickPile from './crew/TrickPile.svelte';
   import { cardKey, crewColors } from './crew/cards';
@@ -18,6 +17,7 @@
     finished,
     disabled,
     roomInfo,
+    won,
   }: {
     view: Schemas['CrewView'];
     actions: Action[];
@@ -27,6 +27,7 @@
     finished: boolean;
     disabled: boolean;
     roomInfo?: Pick<Snapshot, 'code' | 'host'>;
+    won: boolean;
   } = $props();
 
   let selected = $state<string | null>(null);
@@ -48,25 +49,10 @@
   const communicationAvailable = $derived(
     crewActions.some((action) => action.action.type === 'communicate'),
   );
-
-  // Relative seating runs clockwise from the viewer's left, preserving play order.
-  const positions: Record<number, [number, number][]> = {
-    2: [
-      [22, 5],
-      [78, 5],
-    ],
-    3: [
-      [14, 32],
-      [50, 0],
-      [86, 32],
-    ],
-    4: [
-      [14, 32],
-      [32, 0],
-      [68, 0],
-      [86, 32],
-    ],
-  };
+  const yourTurn = $derived(
+    !finished && !view.awaiting_result && view.next_player === you,
+  );
+  const declarations = ['highest', 'only', 'lowest'] as const;
 
   function cardName(card: Schemas['CrewCard']): string {
     return $t('crew.card', {
@@ -93,15 +79,14 @@
     );
   }
   function submit(action: Action | undefined): void {
-    if (!action || disabled || finished) return;
-    selected = null;
-    move(action);
+    // Retain selection until the authoritative hand changes, including on errors.
+    if (action && !disabled && !finished) move(action);
   }
-  /** Stable visual scatter, unrelated to game randomness or the hidden deal. */
+  /** Stable visual scatter for public trick cards only. */
   function scatter(played: Schemas['CrewPlay']): string {
     const value =
       played.player * 17 + played.card.number * 7 + played.card.color.length;
-    return `translate(${(value % 7) - 3}px, ${(value % 13) - 6}px) rotate(${(value % 11) - 5}deg)`;
+    return `translateY(${(value % 7) - 3}px) rotate(${(value % 9) - 4}deg)`;
   }
 </script>
 
@@ -110,14 +95,12 @@
   style:--crew-black={crewColors.black}
   lang={$locale === 'de-cool' ? 'de' : $locale}
 >
-  <div class="arena">
-    {#each opponents as player, index (player)}
-      <div
-        class="opponent"
-        class:side={positions[opponents.length][index][1] === 32}
-        style:left={`${positions[opponents.length][index][0]}%`}
-        style:--row={`${positions[opponents.length][index][1]}%`}
-      >
+  <div
+    class="arena"
+    data-count={opponents.length}
+    style:--opponents={opponents.length}
+  >
+    {#each opponents as player (player)}<div class="opponent">
         <CrewPlayer
           {player}
           member={players[player]}
@@ -125,8 +108,7 @@
           {roomInfo}
           {finished}
         />
-      </div>
-    {/each}
+      </div>{/each}
 
     <section
       class="trick"
@@ -147,7 +129,9 @@
         {#each currentCards as played (played.player)}
           <figure style:transform={scatter(played)}>
             <CrewCard card={played.card} width="var(--crew-trick-card)" />
-            <figcaption>{players[played.player].nickname}</figcaption>
+            <figcaption title={players[played.player].nickname}>
+              {players[played.player].nickname}
+            </figcaption>
           </figure>
         {/each}
       </div>
@@ -158,151 +142,225 @@
         </p>{/if}
     </section>
   </div>
-
   <div class="own-zone">
-    <div class="own-communication">
-      <CommunicationSlot
-        communication={view.communications[you]}
-        played={view.communication_played[you]}
-        name={players[you].nickname}
-      />
-      {#if view.commander === you}<span
-          class="commander"
-          role="img"
-          aria-label={$t('crew.commander')}
-          title={$t('crew.commander')}
-        ></span>{/if}
-    </div>
-    <div class="own-hand">
-      <p class="status" role="status">
-        {#if finished}{$t('crew.finished')}
-        {:else if view.awaiting_result}{$t('crew.awaitingResult')}
-        {:else}{$t(view.trick.length ? 'crew.playsNext' : 'crew.leads', {
-            values: { name: players[view.next_player].nickname },
-          })}{/if}
-      </p>
-      <section class="hand-scroll" aria-label={$t('crew.yourHand')}>
-        <CardFan count={view.hand.length} selected={selectedIndex}>
-          {#snippet card(index)}
-            <div class="hand-card" class:unplayable={!play(index)}>
-              <CrewCard
-                card={view.hand[index]}
-                label={$t('crew.selectCard', {
-                  values: { card: cardName(view.hand[index]) },
-                })}
-                selected={selectedIndex === index}
-                disabled={disabled || finished}
-                onclick={() =>
-                  (selected =
-                    selectedIndex === index ? null : cardKey(view.hand[index]))}
-              />
-            </div>
-          {/snippet}
-        </CardFan>
-      </section>
-    </div>
-    <div class="own-tricks">
-      <TrickPile count={view.tricks_won[you]} name={players[you].nickname} />
-    </div>
-  </div>
-
-  <div class="controls">
-    <p class="selection">
-      {selectedIndex >= 0
-        ? cardName(view.hand[selectedIndex])
-        : $t('crew.selectPrompt')}
+    <p class="status" role="status">
+      {#if finished}{$t(won ? 'crew.won' : 'crew.lost')}
+      {:else if view.awaiting_result}{$t('crew.awaitingResult')}
+      {:else}{$t(view.trick.length ? 'crew.playsNext' : 'crew.leads', {
+          values: { name: players[view.next_player].nickname },
+        })}{/if}
     </p>
-    <Button
-      disabled={disabled || finished || !play(selectedIndex)}
-      onclick={() => submit(play(selectedIndex))}>{$t('crew.playCard')}</Button
-    >
-    {#if communicationAvailable && !finished}
-      <details class="communicate">
-        <summary>{$t('crew.communicateCard')}</summary>
-        <div class="declarations">
-          {#each ['highest', 'only', 'lowest'] as declaration}
-            <Button
-              variant="secondary"
-              disabled={disabled ||
-                !communicate(declaration as Schemas['CrewDeclaration'])}
+    <div class="own-cards">
+      <div class="own-communication">
+        <CommunicationSlot
+          communication={view.communications[you]}
+          played={view.communication_played[you]}
+          name={players[you].nickname}
+        />
+        {#if view.commander === you}<span
+            class="commander"
+            role="img"
+            aria-label={$t('crew.commander')}
+            title={$t('crew.commander')}
+          ></span>{/if}
+      </div>
+      <section class="hand-scroll" aria-label={$t('crew.yourHand')}>
+        <div class="card-row">
+          {#each view.hand as card, index (cardKey(card))}
+            <CrewCard
+              {card}
+              muted={yourTurn && !play(index)}
+              label={$t('crew.selectCard', {
+                values: { card: cardName(card) },
+              })}
+              selected={selectedIndex === index}
               onclick={() =>
-                submit(communicate(declaration as Schemas['CrewDeclaration']))}
-              >{$t(`crew.declarations.${declaration}`)}</Button
-            >
+                (selected = selectedIndex === index ? null : cardKey(card))}
+            />
           {/each}
         </div>
-      </details>
-    {/if}
-    {#if view.last_trick && view.trick.length}
-      <details class="last-trick">
-        <summary>{$t('crew.lastTrick')}</summary>
-        <p>
-          {$t('crew.trickWinner', {
-            values: { name: players[view.last_trick.winner].nickname },
-          })}
-        </p>
-        {#each view.last_trick.cards as played}<p>
-            {players[played.player].nickname}: {cardName(played.card)}
-          </p>{/each}
-      </details>
-    {/if}
+      </section>
+      <TrickPile count={view.tricks_won[you]} name={players[you].nickname} />
+    </div>
+    <div class="controls">
+      <Button
+        disabled={disabled || finished || !play(selectedIndex)}
+        onclick={() => submit(play(selectedIndex))}
+        >{$t('crew.playCard')}</Button
+      >
+      {#if communicationAvailable && !finished}<Button
+          variant="secondary"
+          popovertarget="crew-communicate"
+          aria-label={$t('crew.communicateCard')}
+          disabled={disabled ||
+            !declarations.some((declaration) => communicate(declaration))}
+          >{$t('crew.communicate')}</Button
+        >{/if}
+      {#if view.last_trick && view.trick.length}<button
+          class="history"
+          popovertarget="crew-last-trick"
+          aria-label={$t('crew.lastTrick')}
+          title={$t('crew.lastTrick')}
+          ><svg
+            viewBox="0 0 24 24"
+            width="20"
+            height="20"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            aria-hidden="true"
+            ><circle cx="12" cy="12" r="9" /><path d="M12 6v6l4 2" /></svg
+          ></button
+        >{/if}
+    </div>
   </div>
+
+  {#if communicationAvailable && !finished}
+    <section
+      class="table-popover"
+      popover
+      id="crew-communicate"
+      aria-label={$t('crew.communicateCard')}
+    >
+      <h2>{$t('crew.communicateCard')}</h2>
+      <p>
+        {selectedIndex >= 0
+          ? cardName(view.hand[selectedIndex])
+          : $t('crew.selectPrompt')}
+      </p>
+      <div class="declarations">
+        {#each declarations as declaration}<Button
+            variant="secondary"
+            disabled={disabled || !communicate(declaration)}
+            onclick={() => submit(communicate(declaration))}
+            >{$t(`crew.declarations.${declaration}`)}</Button
+          >{/each}
+      </div>
+      <button popovertarget="crew-communicate" popovertargetaction="hide"
+        >{$t('crew.close')}</button
+      >
+    </section>
+  {/if}
+  {#if view.last_trick && view.trick.length}
+    <section
+      class="table-popover"
+      popover
+      id="crew-last-trick"
+      aria-label={$t('crew.lastTrick')}
+    >
+      <h2>{$t('crew.lastTrick')}</h2>
+      <p>
+        {$t('crew.trickWinner', {
+          values: { name: players[view.last_trick.winner].nickname },
+        })}
+      </p>
+      {#each view.last_trick.cards as played}<p>
+          {players[played.player].nickname}: {cardName(played.card)}
+        </p>{/each}
+      <button popovertarget="crew-last-trick" popovertargetaction="hide"
+        >{$t('crew.close')}</button
+      >
+    </section>
+  {/if}
 </div>
 
 <style>
   .crew-table {
-    /* Public markers use compact cards; the hand keeps readable, touch-sized faces. */
-    --crew-small-card: clamp(2.25rem, 4vw, 3.25rem);
-    --crew-trick-card: clamp(2.75rem, 5vw, 4.25rem);
+    /* Rows remain inside the viewport; only the hand and popovers can scroll. */
+    --crew-small-card: clamp(2.25rem, 4vw, 2.75rem);
+    --crew-trick-card: clamp(2rem, 5vw, 4rem);
+    --arena-card-width: clamp(3.25rem, 6vw, 5.5rem);
     --arena-card-radius: 0.5rem;
+    min-height: 0;
+    height: 100%;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: 1rem;
+    padding: 5rem max(1rem, env(safe-area-inset-right)) 1rem
+      max(1rem, env(safe-area-inset-left));
     color: var(--arena-text);
     background: var(--arena-canvas);
-    padding: 0.75rem 0 1rem;
   }
   .arena {
-    position: relative;
-    min-height: max(20rem, calc(100svh - 32rem));
+    min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.5rem;
   }
   .opponent {
-    position: absolute;
-    top: var(--row);
-    width: 9rem;
-    transform: translateX(-50%);
+    min-width: 0;
+  }
+  .opponent:first-child {
+    grid-area: 2 / 1;
+  }
+  .arena[data-count='2'] .opponent:first-child {
+    grid-area: 1 / 1 / 2 / 3;
+  }
+  .arena[data-count='2'] .opponent:nth-child(2) {
+    grid-area: 1 / 3 / 2 / 5;
+  }
+  .arena[data-count='3'] .opponent:nth-child(2) {
+    grid-area: 1 / 2 / 2 / 4;
+  }
+  .arena[data-count='3'] .opponent:nth-child(3) {
+    grid-area: 2 / 4;
+  }
+  .arena[data-count='4'] .opponent:nth-child(2) {
+    grid-area: 1 / 2;
+  }
+  .arena[data-count='4'] .opponent:nth-child(3) {
+    grid-area: 1 / 3;
+  }
+  .arena[data-count='4'] .opponent:nth-child(4) {
+    grid-area: 2 / 4;
+  }
+  .arena[data-count='2'] .trick {
+    grid-column: 1 / -1;
   }
   .trick {
-    position: absolute;
-    top: 60%;
-    left: 50%;
-    transform: translateX(-50%);
-    width: max-content;
-    max-width: 100%;
+    grid-area: 2 / 2 / 3 / 4;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     text-align: center;
   }
   .trick-title,
   .winner {
-    margin: 0 0 0.75rem;
+    margin: 0.5rem 0;
     font-size: 0.8rem;
-  }
-  .winner {
-    margin: 0.75rem 0 0;
   }
   .trick-cards {
     display: flex;
     justify-content: center;
-    gap: 0.5rem;
+    gap: 0.75rem;
     padding: 0.25rem;
-    min-height: 6rem;
   }
   figure {
     margin: 0;
     width: var(--crew-trick-card);
   }
   figcaption {
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     margin-top: 0.5rem;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .own-zone {
+    min-width: 0;
+    display: grid;
+    gap: 0.5rem;
+  }
+  .status {
+    text-align: center;
+    margin: 0;
+    font-size: 0.9rem;
+  }
+  .own-cards {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
@@ -312,10 +370,6 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding-left: 1rem;
-  }
-  .own-tricks {
-    padding-right: 1rem;
   }
   .commander {
     width: 1.375rem;
@@ -325,87 +379,128 @@
     background: var(--crew-black);
     border: 2px solid var(--arena-card-face);
   }
-  .own-hand {
-    min-width: 0;
-  }
-  .status {
-    text-align: center;
-    margin: 0;
-    font-size: 0.9rem;
-  }
   .hand-scroll {
+    min-width: 0;
     overflow-x: auto;
-    overflow-y: hidden;
-    padding: 0.5rem 1rem 0;
+    padding: 0.5rem;
   }
-  .hand-card.unplayable {
-    opacity: 0.58;
-  }
-  .controls {
+  .card-row {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    justify-content: center;
-    gap: 0.75rem;
-    padding: 0 0.5rem;
+    gap: 0.5rem;
+    width: max-content;
+    margin: auto;
+    padding-bottom: 0.25rem;
   }
-  .selection {
-    flex-basis: 100%;
-    text-align: center;
-    margin: 0;
-    font-size: 0.85rem;
-    min-height: 1.5em;
-  }
-  summary {
-    min-height: 3rem;
-    padding: 0.75rem;
-    border: 1px solid var(--arena-border);
-    border-radius: var(--arena-control-radius);
-    background: var(--arena-surface);
-  }
-  summary:focus-visible {
-    outline-color: var(--arena-focus);
-  }
+  .controls,
   .declarations {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-top: 0.75rem;
-  }
-  .communicate[open],
-  .last-trick[open] {
-    flex-basis: 100%;
-    text-align: center;
-  }
-  .communicate[open] .declarations {
     justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .controls > button {
+    min-height: var(--arena-control-height);
+    border-radius: var(--arena-control-radius);
+    background: var(--arena-surface);
+    border-color: var(--arena-border);
+  }
+  .controls :global(button) {
+    font-size: 0.875rem;
+    padding: 0.625rem 0.75rem;
+    white-space: nowrap;
+  }
+  .controls > .history {
+    display: grid;
+    place-items: center;
+    width: 3rem;
+    padding: 0.5rem;
+  }
+  .table-popover {
+    width: min(28rem, calc(100vw - 2rem));
+    max-height: calc(100dvh - 2rem);
+    padding: 1.5rem;
+    overflow: auto;
+    border: 1px solid var(--arena-border);
+    border-radius: var(--arena-panel-radius);
+    background: var(--arena-surface);
+    color: var(--arena-text);
+    box-shadow: 0 12px 36px #1e553d20;
+  }
+  .table-popover h2 {
+    margin-top: 0;
+  }
+  .table-popover > button {
+    margin-top: 1rem;
+    min-height: 2.75rem;
+  }
+  .declarations {
+    flex-wrap: wrap;
   }
   @media (max-width: 40rem) {
+    .crew-table {
+      padding: 0.5rem 0.5rem calc(4.5rem + env(safe-area-inset-bottom));
+      gap: 0.5rem;
+    }
     .arena {
-      min-height: 30rem;
+      gap: 0.25rem;
     }
-    .opponent {
-      width: 7.5rem;
+    .own-cards {
+      gap: 0.5rem;
     }
-    .opponent.side {
-      top: 38%;
-    }
-    .trick {
-      top: 72%;
+    .own-communication {
+      flex-direction: column;
+      gap: 0.5rem;
     }
     .trick-cards {
       gap: 0.25rem;
     }
+    .controls {
+      gap: 0.375rem;
+    }
+  }
+  @media (max-height: 500px) and (min-width: 40.01rem) {
+    .crew-table {
+      padding: 0.5rem 5rem;
+      --arena-card-width: 2.75rem;
+      --crew-small-card: 1.5rem;
+      --crew-back-width: 0.75rem;
+      --crew-trick-card: 2rem;
+      gap: 0.25rem;
+    }
+    .arena {
+      grid-template-columns: repeat(var(--opponents), minmax(0, 1fr));
+    }
+    .arena[data-count] .opponent:nth-child(n) {
+      grid-column: auto;
+      grid-row: 1;
+    }
+    .arena[data-count] .trick {
+      grid-column: 1 / -1;
+      grid-row: 2;
+    }
+    .trick-title,
+    .winner {
+      margin: 0.125rem 0;
+    }
     .own-zone {
       gap: 0.25rem;
     }
-    .own-communication {
-      flex-direction: column;
-      padding-left: 0.5rem;
-      gap: 0.5rem;
+    .hand-scroll {
+      padding: 0.375rem;
     }
-    .own-tricks {
-      padding-right: 0.5rem;
+  }
+  @media (max-width: 22.5rem) {
+    .arena {
+      grid-template-columns: repeat(var(--opponents), minmax(0, 1fr));
+    }
+    .arena[data-count] .opponent:nth-child(n) {
+      grid-column: auto;
+      grid-row: 1;
+    }
+    .arena[data-count] .trick {
+      grid-column: 1 / -1;
+      grid-row: 2;
     }
   }
 </style>
