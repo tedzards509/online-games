@@ -48,10 +48,14 @@ English copy. Do not apply a new theme to existing boards merely because a
 shared component is available.
 
 The Crew fills one viewport with a straight, non-overlapping hand along the
-bottom, a central trick, and compact opponent racks around the outside. Cards have
+bottom, a central trick, and opponent racks around the outside. Cards have
 saturated color faces, contrasting numbers, and outline shapes. Illegal cards
 use opaque muted colors only on the viewer's turn; card selection is independent
 of permission to submit a move. Communication markers sit inside their cards.
+Use one comfortable card size in every context, including trick history; let
+rows and the table area scroll rather than reduce legibility. In portrait mobile,
+place the viewer's communication and won tricks above the full-width hand.
+Use a prominent “Your turn” pill for the active viewer, not their own nickname.
 
 Keep the playing space free of room headings and setup lists. Host room controls
 open opposite settings. Communication, trick history, and player details open

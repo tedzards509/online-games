@@ -60,8 +60,7 @@
     ></button
   >
   <div class="backs" aria-hidden="true">
-    {#each Array(view.counts[player]) as _}<span class="back"
-        ><CardBack width="var(--crew-back-width, 1.5rem)" /></span
+    {#each Array(view.counts[player]) as _}<span class="back"><CardBack /></span
       >{/each}
   </div>
   <div class="rack">
@@ -199,15 +198,15 @@
   .backs {
     display: flex;
     justify-content: center;
-    min-height: calc(var(--crew-back-width, 1.5rem) * 1.4);
+    min-height: calc(var(--arena-card-width) * 1.4);
   }
   .back {
     width: 3px;
     flex: 0 0 3px;
   }
   .back:last-child {
-    width: var(--crew-back-width, 1.5rem);
-    flex-basis: var(--crew-back-width, 1.5rem);
+    width: var(--arena-card-width);
+    flex-basis: var(--arena-card-width);
   }
   .player-info {
     width: min(24rem, calc(100vw - 2rem));

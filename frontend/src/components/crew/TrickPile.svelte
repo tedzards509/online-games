@@ -10,14 +10,14 @@
   aria-label={$t('crew.tricksOf', { values: { name, count: String(count) } })}
 >
   <div aria-hidden="true" class="pile-face">
-    {#if count}<CardBack width="var(--crew-small-card)" />{/if}
+    {#if count}<CardBack />{/if}
     <span class="count">{count}</span>
   </div>
 </div>
 
 <style>
   .pile {
-    width: var(--crew-small-card);
+    width: var(--arena-card-width);
   }
   .pile-face {
     position: relative;

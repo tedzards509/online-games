@@ -29,10 +29,7 @@
   data-state={played ? 'played' : communication ? 'communicated' : 'ready'}
 >
   <div class="slot">
-    {#if communication && !played}<CrewCard
-        card={communication.card}
-        width="var(--crew-small-card)"
-      />{/if}
+    {#if communication && !played}<CrewCard card={communication.card} />{/if}
   </div>
   <span
     class="marker"
@@ -47,10 +44,10 @@
 <style>
   .communication {
     position: relative;
-    width: var(--crew-small-card);
+    width: var(--arena-card-width);
   }
   .slot {
-    width: var(--crew-small-card);
+    width: var(--arena-card-width);
     aspect-ratio: 5 / 7;
     border: 1px dashed var(--arena-border);
     border-radius: 0.5rem;

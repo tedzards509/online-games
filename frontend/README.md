@@ -104,10 +104,17 @@ member IDs; game actions and marker arrays use frozen player indices.
   highest, only, or lowest.
   `communication_played` and `commander` come from every server projection;
   neither marker relies on a browser remembering earlier tricks.
-- Table-specific dimensions live in the board's scoped CSS. Compact rack cards
-  use `--crew-small-card`; central cards use `--crew-trick-card`. The main playing
+- Table-specific dimensions live in the board's scoped CSS. `--arena-card-width`
+  is `4.5rem` throughout The Crew (72 × 101px at default text size), including
+  hands, backs, communications, piles, and both trick views. Card rows and the
+  table area scroll when needed; card faces do not shrink to fit.
+  In portrait mobile, the viewer's communication and pile sit above a full-width
+  hand. Desktop and landscape keep them beside the hand. The main playing
   space is exactly one viewport (`100vh`, using `100dvh` on supported browsers).
-  Only the hand and popovers scroll. Communication and last-trick popovers do
+  Communication and last-trick popovers do
   not resize the table. The host's room-controls button mirrors the settings
   button; setup, finish, abort/rematch, room code, and replay controls live there.
   Disconnections remain visible as a compact status notice.
+- The previous-trick popover displays card faces with player captions and the
+  winner. A high-contrast localized turn pill identifies the viewer's actual
+  card-playing turn (`next_player`), not eligibility to communicate.

@@ -12,6 +12,7 @@
   "hiddenCard": "Face-down card",
   "card": "{rank} of {suit}",
   "crew": {
+    "yourTurn": "Your turn",
     "roomControls": "Room controls",
     "communicate": "Communicate",
     "reconnecting": "Reconnecting…",

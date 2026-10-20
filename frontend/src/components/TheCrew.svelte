@@ -90,6 +90,19 @@
   }
 </script>
 
+{#snippet trickCards(cards: Schemas['CrewPlay'][], scattered = false)}
+  <div class="trick-cards" class:history-cards={!scattered}>
+    {#each cards as played (played.player)}
+      <figure style:transform={scattered ? scatter(played) : undefined}>
+        <CrewCard card={played.card} />
+        <figcaption title={players[played.player].nickname}>
+          {players[played.player].nickname}
+        </figcaption>
+      </figure>
+    {/each}
+  </div>
+{/snippet}
+
 <div
   class="crew-table"
   style:--crew-black={crewColors.black}
@@ -100,15 +113,17 @@
     data-count={opponents.length}
     style:--opponents={opponents.length}
   >
-    {#each opponents as player (player)}<div class="opponent">
-        <CrewPlayer
-          {player}
-          member={players[player]}
-          {view}
-          {roomInfo}
-          {finished}
-        />
-      </div>{/each}
+    <div class="opponents">
+      {#each opponents as player (player)}<div class="opponent">
+          <CrewPlayer
+            {player}
+            member={players[player]}
+            {view}
+            {roomInfo}
+            {finished}
+          />
+        </div>{/each}
+    </div>
 
     <section
       class="trick"
@@ -125,16 +140,7 @@
             : 'crew.lastTrick',
         )}
       </p>
-      <div class="trick-cards">
-        {#each currentCards as played (played.player)}
-          <figure style:transform={scatter(played)}>
-            <CrewCard card={played.card} width="var(--crew-trick-card)" />
-            <figcaption title={players[played.player].nickname}>
-              {players[played.player].nickname}
-            </figcaption>
-          </figure>
-        {/each}
-      </div>
+      {@render trickCards(currentCards, true)}
       {#if !view.trick.length && view.last_trick}<p class="winner">
           {$t('crew.trickWinner', {
             values: { name: players[view.last_trick.winner].nickname },
@@ -143,9 +149,10 @@
     </section>
   </div>
   <div class="own-zone">
-    <p class="status" role="status">
+    <p class="status" class:your-turn={yourTurn} role="status">
       {#if finished}{$t(won ? 'crew.won' : 'crew.lost')}
       {:else if view.awaiting_result}{$t('crew.awaitingResult')}
+      {:else if yourTurn}{$t('crew.yourTurn')}
       {:else}{$t(view.trick.length ? 'crew.playsNext' : 'crew.leads', {
           values: { name: players[view.next_player].nickname },
         })}{/if}
@@ -180,7 +187,9 @@
           {/each}
         </div>
       </section>
-      <TrickPile count={view.tricks_won[you]} name={players[you].nickname} />
+      <div class="own-tricks">
+        <TrickPile count={view.tricks_won[you]} name={players[you].nickname} />
+      </div>
     </div>
     <div class="controls">
       <Button
@@ -254,9 +263,7 @@
           values: { name: players[view.last_trick.winner].nickname },
         })}
       </p>
-      {#each view.last_trick.cards as played}<p>
-          {players[played.player].nickname}: {cardName(played.card)}
-        </p>{/each}
+      {@render trickCards(view.last_trick.cards)}
       <button popovertarget="crew-last-trick" popovertargetaction="hide"
         >{$t('crew.close')}</button
       >
@@ -266,11 +273,11 @@
 
 <style>
   .crew-table {
-    /* Rows remain inside the viewport; only the hand and popovers can scroll. */
-    --crew-small-card: clamp(2.25rem, 4vw, 2.75rem);
-    --crew-trick-card: clamp(2rem, 5vw, 4rem);
-    --arena-card-width: clamp(3.25rem, 6vw, 5.5rem);
+    /* One legible 72 × 101px card at default text size, in every context.
+       Tight layouts scroll within the viewport instead of shrinking cards. */
+    --arena-card-width: 4.5rem;
     --arena-card-radius: 0.5rem;
+    min-width: 0;
     min-height: 0;
     height: 100%;
     display: grid;
@@ -282,15 +289,24 @@
     background: var(--arena-canvas);
   }
   .arena {
+    min-width: 0;
     min-height: 0;
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    grid-template-rows: auto minmax(0, 1fr);
+    /* A side player needs two card heights plus their name and rack spacing. */
+    grid-template-rows: auto minmax(
+        calc(var(--arena-card-width) * 2.8 + 4rem),
+        1fr
+      );
     align-items: center;
     gap: 0.5rem;
+    overflow: auto;
+  }
+  .opponents {
+    display: contents;
   }
   .opponent {
-    min-width: 0;
+    min-width: calc(2 * var(--arena-card-width) + 0.5rem);
   }
   .opponent:first-child {
     grid-area: 2 / 1;
@@ -321,7 +337,8 @@
   }
   .trick {
     grid-area: 2 / 2 / 3 / 4;
-    min-height: 0;
+    min-width: 0;
+    min-height: calc(var(--arena-card-width) * 1.4 + 6rem);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -335,13 +352,22 @@
   }
   .trick-cards {
     display: flex;
-    justify-content: center;
+    justify-content: safe center;
     gap: 0.75rem;
-    padding: 0.25rem;
+    padding: 0.5rem;
+    max-width: 100%;
+    overflow-x: auto;
+    flex-shrink: 0;
+  }
+  .history-cards {
+    flex-wrap: wrap;
+    overflow: visible;
+    justify-content: center;
   }
   figure {
     margin: 0;
-    width: var(--crew-trick-card);
+    width: var(--arena-card-width);
+    flex: 0 0 var(--arena-card-width);
   }
   figcaption {
     font-size: 0.75rem;
@@ -359,6 +385,20 @@
     text-align: center;
     margin: 0;
     font-size: 0.9rem;
+    min-height: 2.5rem;
+    display: grid;
+    place-content: center;
+  }
+  .status.your-turn {
+    width: fit-content;
+    margin-inline: auto;
+    padding: 0.5rem 1.25rem;
+    border-radius: 999px;
+    background: var(--arena-primary);
+    color: var(--arena-on-primary);
+    font-size: 1rem;
+    font-weight: 800;
+    box-shadow: 0 2px 0 #1e553d25;
   }
   .own-cards {
     display: grid;
@@ -449,7 +489,6 @@
       gap: 0.5rem;
     }
     .own-communication {
-      flex-direction: column;
       gap: 0.5rem;
     }
     .trick-cards {
@@ -462,10 +501,6 @@
   @media (max-height: 500px) and (min-width: 40.01rem) {
     .crew-table {
       padding: 0.5rem 5rem;
-      --arena-card-width: 2.75rem;
-      --crew-small-card: 1.5rem;
-      --crew-back-width: 0.75rem;
-      --crew-trick-card: 2rem;
       gap: 0.25rem;
     }
     .arena {
@@ -488,6 +523,45 @@
     }
     .hand-scroll {
       padding: 0.375rem;
+    }
+  }
+  @media (max-width: 40rem) and (orientation: portrait) {
+    .arena {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 1rem;
+    }
+    .opponents {
+      display: flex;
+      flex-wrap: nowrap;
+      justify-content: start;
+      min-width: 0;
+      gap: 1rem;
+      overflow-x: auto;
+      flex-shrink: 0;
+      padding-bottom: 1rem;
+    }
+    .opponent {
+      flex: 1 0 calc(2 * var(--arena-card-width) + 0.5rem);
+    }
+    .trick {
+      flex-shrink: 0;
+    }
+    .own-cards {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-areas: 'communication tricks' 'hand hand';
+    }
+    .own-communication {
+      grid-area: communication;
+      justify-content: start;
+    }
+    .own-tricks {
+      grid-area: tricks;
+      justify-self: end;
+    }
+    .hand-scroll {
+      grid-area: hand;
     }
   }
   @media (max-width: 22.5rem) {

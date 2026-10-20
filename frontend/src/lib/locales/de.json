@@ -12,6 +12,7 @@
   "hiddenCard": "Verdeckte Karte",
   "card": "{suit} {rank}",
   "crew": {
+    "yourTurn": "Du bist dran",
     "roomControls": "Raumsteuerung",
     "communicate": "Kommunizieren",
     "reconnecting": "Verbindung wird wiederhergestellt…",

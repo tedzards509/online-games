@@ -404,6 +404,76 @@ test('Crew trick scatter is stable; labels and last trick remain available', asy
   ).toContainText('Erin won the trick');
 });
 
+for (const width of [1280, 390]) {
+  test(`Crew previous-trick viewer shows full-size cards and owners at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 844 });
+    const room = fixture();
+    view(room).last_trick = {
+      winner: 4,
+      cards: room.game!.players.map((_, player) => ({
+        player,
+        card: { color: 'blue', number: player + 1 },
+      })),
+    };
+    view(room).trick = [{ player: 4, card: { color: 'yellow', number: 7 } }];
+    await mock(page, room);
+    const hand = page.getByRole('region', { name: 'Your hand', exact: true });
+    const before = await hand.boundingBox();
+    await page.getByRole('button', { name: 'Last trick', exact: true }).click();
+    const viewer = page.getByRole('region', {
+      name: 'Last trick',
+      exact: true,
+    });
+    await expect(viewer.getByRole('img')).toHaveCount(5);
+    await expect(viewer.locator('figcaption')).toHaveText(
+      room.game!.players.map((player) => player.nickname),
+    );
+    await expect(viewer).toContainText('Erin won the trick');
+    for (const card of await viewer.locator('.playing-card').all())
+      await expect(card).toHaveCSS('width', '72px');
+    expect(await hand.boundingBox()).toEqual(before);
+    await page.keyboard.press('Escape');
+    await expect(viewer).toBeHidden();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollHeight),
+    ).toBe(844);
+  });
+}
+
+test('Crew shows a localized turn pill only for the actual next player', async ({
+  page,
+}) => {
+  const room = fixture();
+  const { publish } = await mock(page, room);
+  const status = page.locator('.crew-table .status');
+  await expect(status).toHaveText('Your turn');
+  await expect(status).toHaveClass(/your-turn/);
+  await expect(status).toHaveCSS('background-color', 'rgb(35, 94, 69)');
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByLabel('Language', { exact: true }).selectOption('de');
+  await page.keyboard.press('Escape');
+  await expect(status).toHaveText('Du bist dran');
+  // Eligibility for communication does not make it this viewer's card-playing turn.
+  view(room).next_player = 1;
+  room.revision++;
+  publish();
+  await expect(status).toHaveText('Bob spielt aus');
+  await expect(status).not.toHaveClass(/your-turn/);
+  view(room).next_player = 0;
+  view(room).trick = [{ player: 4, card: { color: 'blue', number: 9 } }];
+  room.revision++;
+  publish();
+  await expect(status).toHaveText('Du bist dran');
+  await expect(status).toHaveClass(/your-turn/);
+  view(room).awaiting_result = true;
+  view(room).trick = [];
+  room.revision++;
+  publish();
+  await expect(status).not.toHaveClass(/your-turn/);
+});
+
 for (const [width, height, count] of [
   [1280, 900, 5],
   [768, 1024, 4],
@@ -435,6 +505,16 @@ for (const [width, height, count] of [
         { game: 'the_crew', action: { type: 'play', index: 13 } },
       ];
     }
+    view(room).communications[0] = {
+      card: { color: 'pink', number: 3 },
+      declaration: 'only',
+    };
+    view(room).communications[1] = {
+      card: view(room).hand[0],
+      declaration: 'lowest',
+    };
+    view(room).tricks_won[0] = 2;
+    view(room).tricks_won[1] = 1;
     await mock(page, room);
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
@@ -466,29 +546,45 @@ for (const [width, height, count] of [
     const statusBox = (await page
       .locator('.crew-table .status')
       .boundingBox())!;
-    const peerBoxes = await page.locator('.opponent').evaluateAll((peers) =>
-      peers.map((peer) => {
-        const box = peer.getBoundingClientRect();
-        return {
-          left: box.left,
-          right: box.right,
-          top: box.top,
-          bottom: box.bottom,
-        };
-      }),
-    );
-    for (const figure of await page.locator('.trick figure').all()) {
-      const box = (await figure.boundingBox())!;
-      expect(box.y + box.height).toBeLessThan(statusBox.y);
-      for (const peer of peerBoxes) {
-        const overlaps =
-          box.x < peer.right &&
-          box.x + box.width > peer.left &&
-          box.y < peer.bottom &&
-          box.y + box.height > peer.top;
-        expect(overlaps).toBe(false);
-      }
+    const arenaBox = (await page.locator('.arena').boundingBox())!;
+    expect(arenaBox.y + arenaBox.height).toBeLessThanOrEqual(statusBox.y);
+    const sizes = await page
+      .locator('.crew-table .playing-card:visible')
+      .evaluateAll((cards) =>
+        cards.map((card) => {
+          const style = getComputedStyle(card);
+          return {
+            width: parseFloat(style.width),
+            height: parseFloat(style.height),
+          };
+        }),
+      );
+    expect(sizes.length).toBeGreaterThan(view(room).hand.length);
+    for (const size of sizes) {
+      expect(size.width).toBe(72);
+      expect(size.height).toBeCloseTo(72 * 1.4, 1);
     }
+    const handBox = (await hand.boundingBox())!;
+    const communicationBox = (await page
+      .locator('.own-communication')
+      .boundingBox())!;
+    const pileBox = (await page.locator('.own-tricks').boundingBox())!;
+    if (width <= 640 && height > width) {
+      expect(communicationBox.y + communicationBox.height).toBeLessThanOrEqual(
+        handBox.y,
+      );
+      expect(pileBox.y + pileBox.height).toBeLessThanOrEqual(handBox.y);
+      expect(handBox.width).toBe(width - 16);
+    } else {
+      expect(communicationBox.x + communicationBox.width).toBeLessThanOrEqual(
+        handBox.x,
+      );
+      expect(pileBox.x).toBeGreaterThanOrEqual(handBox.x + handBox.width);
+    }
+    const lastTrickCard = page.locator('.trick .playing-card').last();
+    await lastTrickCard.scrollIntoViewIfNeeded();
+    await expect(lastTrickCard).toBeInViewport();
+    expect(await hand.boundingBox()).toEqual(handBox);
     await row.locator('button').last().focus();
     await page.keyboard.press('Space');
     await expect(row.locator('button').last()).toHaveAttribute(
@@ -521,11 +617,12 @@ for (const [width, height, count] of [
       ).toBeVisible();
       await page.keyboard.press('Escape');
     }
-    for (const opponent of await page.locator('.opponent').all()) {
-      const box = (await opponent.boundingBox())!;
-      expect(box.x).toBeGreaterThanOrEqual(0);
-      expect(box.x + box.width).toBeLessThanOrEqual(width);
-    }
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBe(width);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollHeight),
+    ).toBe(height);
   });
 }
 
