@@ -292,11 +292,19 @@ test('Crew markers show unused, communicated, played, commander and trick counts
   for (const slot of [bob, carol]) {
     const box = (await slot.boundingBox())!;
     const marker = (await slot.locator('.marker').boundingBox())!;
+    expect(marker.width).toBeCloseTo(box.width * 0.5, 0);
+    expect(marker.height).toBeCloseTo(marker.width, 0);
     expect(
       Math.abs(marker.x + marker.width / 2 - (box.x + box.width / 2)),
     ).toBeLessThan(1);
     expect(marker.y).toBeGreaterThanOrEqual(box.y);
     expect(marker.y + marker.height).toBeLessThanOrEqual(box.y + box.height);
+    if (slot === carol) {
+      expect(marker.y + marker.height / 2).toBeCloseTo(
+        box.y + box.height / 2,
+        0,
+      );
+    }
   }
   const dave = page.getByRole('group', {
     name: 'Communication · Dave',
@@ -329,6 +337,28 @@ test('Crew markers show unused, communicated, played, commander and trick counts
     page.getByRole('group', { name: 'Communication · Dave', exact: true }),
   ).toHaveAttribute('data-state', 'played');
 });
+
+for (const commander of [0, 1]) {
+  test(`Crew commander plaque scales to the card width for seat ${commander}`, async ({
+    page,
+  }) => {
+    const room = fixture();
+    view(room).commander = commander;
+    await mock(page, room);
+    const plaque = page.getByRole('img', {
+      name: 'Commander · original black-four holder',
+      exact: true,
+    });
+    await expect(plaque).toBeVisible();
+    const plaqueBox = (await plaque.boundingBox())!;
+    const cardBox = (await page
+      .locator('.communication')
+      .first()
+      .boundingBox())!;
+    expect(plaqueBox.width).toBeCloseTo(cardBox.width * 0.75, 0);
+    expect(plaqueBox.height).toBeCloseTo(plaqueBox.width, 0);
+  });
+}
 
 test('Crew info uses member identity rather than seat for room role and shows public data only', async ({
   page,

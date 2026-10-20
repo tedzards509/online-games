@@ -59,8 +59,8 @@
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
-    width: 0.875rem;
-    height: 0.875rem;
+    width: calc(var(--arena-card-width) * 0.5);
+    aspect-ratio: 1;
     border: 2px solid var(--arena-card-face);
     border-radius: 50%;
     background: var(--arena-primary);
@@ -70,7 +70,8 @@
     top: 8%;
   }
   .marker[data-position='only'] {
-    top: calc(50% - 0.4375rem);
+    top: 50%;
+    transform: translate(-50%, -50%);
   }
   .marker[data-position='lowest'] {
     bottom: 8%;

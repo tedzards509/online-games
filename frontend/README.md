@@ -100,7 +100,9 @@ member IDs; game actions and marker arrays use frozen player indices.
   info contains public room identity, seat, hand/trick counts, communication, and
   commander/next-player status. It never receives another player's hand.
 - Communication markers show unused/active in green and played in red. Active
-  markers sit on the card's horizontal centre at top, middle, or bottom for
+  markers have half a card's width as their diameter; commander markers have
+  three quarters of a card's width as their diameter.
+  Communication markers sit on the card's horizontal centre at top, middle, or bottom for
   highest, only, or lowest.
   `communication_played` and `commander` come from every server projection;
   neither marker relies on a browser remembering earlier tricks.

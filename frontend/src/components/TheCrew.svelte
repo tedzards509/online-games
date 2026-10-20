@@ -412,8 +412,8 @@
     gap: 0.75rem;
   }
   .commander {
-    width: 1.375rem;
-    height: 1.375rem;
+    width: calc(var(--arena-card-width) * 0.75);
+    aspect-ratio: 1;
     flex-shrink: 0;
     border-radius: 50%;
     background: var(--crew-black);

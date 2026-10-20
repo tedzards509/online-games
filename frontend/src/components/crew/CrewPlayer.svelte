@@ -187,9 +187,10 @@
   .commander {
     position: absolute;
     bottom: -0.875rem;
-    left: calc(50% - 0.6875rem);
-    width: 1.375rem;
-    height: 1.375rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(var(--arena-card-width) * 0.75);
+    aspect-ratio: 1;
     flex-shrink: 0;
     border-radius: 50%;
     background: var(--crew-black);
