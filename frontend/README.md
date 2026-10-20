@@ -99,6 +99,8 @@ member IDs; game actions and marker arrays use frozen player indices.
 - Opponent back rows render only public hand counts with shared card backs. Player
   info contains public room identity, seat, hand/trick counts, communication, and
   commander/next-player status. It never receives another player's hand.
+  Info buttons fit their name and icon; opponent commander markers occupy a
+  separate row below the communication and won-trick rack.
 - Communication markers show unused/active in green and played in red. Active
   markers have half a card's width as their diameter; commander markers have
   three quarters of a card's width as their diameter.

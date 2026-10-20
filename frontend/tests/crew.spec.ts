@@ -681,6 +681,23 @@ for (const [width, height, count] of [
       exact: true,
     });
     expect((await infoButton.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    const opponent = page.getByRole('region', { name: 'Alice', exact: true });
+    const infoBox = (await infoButton.boundingBox())!;
+    const textBox = (await infoButton.locator('span').boundingBox())!;
+    const iconBox = (await infoButton.locator('svg').boundingBox())!;
+    expect(infoBox.width).toBeLessThan(textBox.width + iconBox.width + 32);
+    await expect(infoButton).not.toHaveCSS('border-radius', '50%');
+    const rackBox = (await opponent.locator('.rack').boundingBox())!;
+    const commanderBox = (await opponent.locator('.commander').boundingBox())!;
+    const opponentBox = (await opponent.boundingBox())!;
+    expect(commanderBox.y).toBeGreaterThan(rackBox.y + rackBox.height);
+    expect(commanderBox.y + commanderBox.height).toBeLessThanOrEqual(
+      opponentBox.y + opponentBox.height,
+    );
+    expect(commanderBox.x + commanderBox.width / 2).toBeCloseTo(
+      rackBox.x + rackBox.width / 2,
+      0,
+    );
     await infoButton.click();
     await expect(
       page.getByRole('region', { name: 'Info about Alice', exact: true }),

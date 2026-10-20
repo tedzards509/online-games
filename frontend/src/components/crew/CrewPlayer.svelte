@@ -69,14 +69,14 @@
       played={view.communication_played[player]}
       name={member.nickname}
     />
-    {#if commander}<span
-        class="commander"
-        role="img"
-        aria-label={$t('crew.commander')}
-        title={$t('crew.commander')}
-      ></span>{/if}
     <TrickPile count={view.tricks_won[player]} name={member.nickname} />
   </div>
+  {#if commander}<span
+      class="commander"
+      role="img"
+      aria-label={$t('crew.commander')}
+      title={$t('crew.commander')}
+    ></span>{/if}
 </section>
 
 <section
@@ -161,11 +161,13 @@
     align-items: center;
     justify-content: center;
     gap: 0.375rem;
-    width: 100%;
+    width: fit-content;
+    max-width: 100%;
+    margin-inline: auto;
     min-height: 2.75rem;
-    padding: 0 0.25rem;
+    padding: 0 0.5rem;
     border: 0;
-    border-radius: 50%;
+    border-radius: var(--arena-control-radius);
     background: transparent;
     color: var(--arena-text);
     font-weight: 800;
@@ -177,7 +179,6 @@
     height: 1.125rem;
   }
   .rack {
-    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -185,10 +186,8 @@
     margin-top: 0.5rem;
   }
   .commander {
-    position: absolute;
-    bottom: -0.875rem;
-    left: 50%;
-    transform: translateX(-50%);
+    display: block;
+    margin: 0.5rem auto 0;
     width: calc(var(--arena-card-width) * 0.75);
     aspect-ratio: 1;
     flex-shrink: 0;
