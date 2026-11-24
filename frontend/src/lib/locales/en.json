@@ -222,7 +222,11 @@
       "guardian": "You are a guardian"
     },
     "yourCounts": "Your card counts",
-    "hidden": "Hidden: {gold} gold · {traps} traps · {empty} empty",
+    "count": "{card}: {count}",
+    "choose": "Open a card from another player",
+    "roundEnd": "Round {round} opened · next round in {seconds} s",
+    "skip": "Skip",
+    "openedBy": "Opened from {name}",
     "waiting": "Waiting for other players",
     "inspect": "Check your card counts, then ready",
     "ready": "Ready",

@@ -222,7 +222,11 @@
       "guardian": "Du bist Wächterin – schütz den Tempel!"
     },
     "yourCounts": "Deine Karten",
-    "hidden": "Auf der Hand: {gold} Gold · {traps} Feuerfallen · {empty} Nieten",
+    "count": "{card}: {count}",
+    "choose": "Schnapp dir eine Karte von jemand anderem",
+    "roundEnd": "Runde {round} ist raus · weiter in {seconds} s",
+    "skip": "Weiter",
+    "openedBy": "Bei {name} aufgemacht",
     "waiting": "Warten auf die anderen …",
     "inspect": "Check deine Karten und sag Bescheid",
     "ready": "Passt",

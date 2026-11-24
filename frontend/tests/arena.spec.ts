@@ -172,6 +172,84 @@ test('guests see the end screen without host commands', async ({ page }) => {
   );
 });
 
+test('Tempel shows the finished round until skipped', async ({ page }) => {
+  const counts = { gold: 0, traps: 0, empty: 0 };
+  const view = (round: number, cards: (string | null)[][]) => ({
+    game: 'tempel_des_schreckens',
+    state: {
+      role: 'adventurer',
+      hand_counts: { gold: 1, traps: 0, empty: 4 },
+      cards,
+      ready: [false, false, false],
+      phase: round === 1 ? 'reveal' : 'inspect',
+      key: round === 1 ? 2 : 1,
+      round,
+      round_reveals: round === 1 ? 2 : 0,
+      revealed:
+        round === 1
+          ? { ...counts, empty: 2 }
+          : { ...counts, empty: 2, traps: 1 },
+      distribution: {
+        adventurers: 2,
+        guardians: 1,
+        cards: { gold: 5, traps: 2, empty: 8 },
+      },
+    },
+  });
+  const room = (round: number, cards: (string | null)[][]) => {
+    const base = fixture();
+    const members = [...base.members, { id: 2, nickname: 'Carol' }];
+    const config = {
+      game: 'tempel_des_schreckens',
+      rules: { initial_key: 0 },
+    } as const;
+    return {
+      ...base,
+      members,
+      config,
+      seating: [0, 1, 2],
+      game: {
+        ...base.game!,
+        config,
+        players: members,
+        turn: { players: [round === 1 ? 2 : 0], number: 0 },
+        view: view(round, cards),
+        legal_actions: [],
+      },
+    } as Snapshot;
+  };
+  const hidden = Array(5).fill(null);
+  let send = (_: Snapshot) => {};
+  await mockMembership(page);
+  await page.routeWebSocket('**/api/rooms/ABC234/ws', (socket) => {
+    send = (snapshot) =>
+      socket.send(JSON.stringify({ type: 'snapshot', room: snapshot }));
+    socket.onMessage(() =>
+      send(
+        room(1, [
+          ['empty', ...hidden.slice(1)],
+          hidden,
+          ['empty', ...hidden.slice(1)],
+        ]),
+      ),
+    );
+  });
+  await page.goto('/room/ABC234');
+  await expect(page.getByText('Round 1 / 4 · 2 / 3 revealed')).toBeVisible();
+  send(room(2, [hidden, hidden, hidden]));
+  await expect(
+    page.getByText(/^Round 1 opened · next round in \d s$/),
+  ).toBeVisible();
+  // The final card is inferred from the revealed counts and the new key holder.
+  await expect(
+    page
+      .getByRole('group', { name: 'Opened from Bob', exact: true })
+      .getByRole('img', { name: 'trap', exact: true }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Skip', exact: true }).click();
+  await expect(page.getByText('Round 2 / 4 · 0 / 3 revealed')).toBeVisible();
+});
+
 test('room and board copy follow the selected language', async ({ page }) => {
   await mockMembership(page);
   await page.addInitScript(() => localStorage.setItem('arena-language', 'de'));
@@ -546,7 +624,7 @@ test('Tempel des Schreckens: configured key, hidden cards, rounds, and reconnect
   for (const page of pages) {
     await expect(
       page.getByRole('button', { name: / card \d+: hidden$/ }),
-    ).toHaveCount(15);
+    ).toHaveCount(10);
     await expect(
       page
         .getByRole('button', { name: / card \d+: hidden$/ })

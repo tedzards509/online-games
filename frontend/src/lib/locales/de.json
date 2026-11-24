@@ -222,7 +222,11 @@
       "guardian": "Du bist Wächterin"
     },
     "yourCounts": "Deine Kartenanzahl",
-    "hidden": "Verdeckt: {gold} Gold · {traps} Feuerfallen · {empty} leer",
+    "count": "{card}: {count}",
+    "choose": "Öffne eine Karte eines anderen Spielers",
+    "roundEnd": "Runde {round} aufgedeckt · nächste Runde in {seconds} s",
+    "skip": "Überspringen",
+    "openedBy": "Bei {name} geöffnet",
     "waiting": "Warte auf die anderen",
     "inspect": "Prüfe deine Karten, dann bestätige",
     "ready": "Bereit",

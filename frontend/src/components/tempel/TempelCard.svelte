@@ -3,30 +3,41 @@
   import CardBack from '../cards/CardBack.svelte';
   import PlayingCard from '../cards/PlayingCard.svelte';
 
-  /** A chamber card: face-down (null) or revealed gold, trap, or empty. */
+  /** A chamber card: face-down (null) or revealed gold, trap, or empty.
+   * Without onclick it is display-only. */
   let {
     card,
     label,
-    disabled,
+    disabled = false,
+    muted = false,
+    width,
     onclick,
   }: {
     card: Schemas['TempelCard'] | null;
     label: string;
-    disabled: boolean;
-    onclick: () => void;
+    disabled?: boolean;
+    muted?: boolean;
+    width?: string;
+    onclick?: () => void;
   } = $props();
 </script>
 
 {#if card === null}
-  <CardBack {label} {disabled} {onclick} />
+  <CardBack {label} {disabled} {width} {onclick} />
 {:else}
   <PlayingCard
     {label}
     {disabled}
+    {muted}
+    {width}
     {onclick}
-    background={card === 'gold' ? 'var(--arena-highlight)' : undefined}
+    background={card === 'gold'
+      ? 'var(--arena-highlight)'
+      : card === 'trap'
+        ? 'var(--arena-card-red)'
+        : 'var(--arena-card-muted)'}
     color={card === 'trap'
-      ? 'var(--arena-card-red)'
+      ? 'var(--arena-card-face)'
       : card === 'empty'
         ? 'var(--arena-on-card-muted)'
         : undefined}
@@ -43,7 +54,16 @@
         />
         <circle cx="16" cy="16" r="5" fill="currentColor" />
       {:else if card === 'trap'}
-        <path d="M3 27 9 9l4 10 3-14 3 14 4-10 6 18Z" fill="currentColor" />
+        <g stroke="var(--arena-ink)" stroke-width="2" stroke-linejoin="round">
+          <path
+            d="M16 3c1.5 5 8.5 8 8.5 16.5a8.5 8.5 0 0 1-17 0c0-4.5 2.5-6.5 3.5-10 2 2.5 2.5 4 2.5 6 1.5-3.5 2.5-7 2.5-12.5Z"
+            fill="currentColor"
+          />
+          <path
+            d="M16 16.5c1 2.5 4 3.5 4 7a4 4 0 0 1-8 0c0-2.5 2.5-3.5 4-7Z"
+            fill="var(--arena-highlight)"
+          />
+        </g>
       {:else}
         <circle
           cx="16"
