@@ -448,7 +448,7 @@ test('Crew highlights the winning card as led-color cards and trumps are played'
   );
 });
 
-test('Crew trick scatter is stable; labels and last trick remain available', async ({
+test('Crew trick cards lie in an orderly row; labels and last trick remain available', async ({
   page,
 }) => {
   const room = fixture();
@@ -463,22 +463,16 @@ test('Crew trick scatter is stable; labels and last trick remain available', asy
     name: 'Current trick',
     exact: true,
   });
-  await expect(trick).toContainText('Dave');
-  await expect(trick).toContainText('Erin');
-  const transforms = await trick
+  await expect(trick.locator('figcaption')).toHaveText(['Dave', 'Erin']);
+  for (const figure of await trick.locator('figure').all())
+    await expect(figure).toHaveCSS('transform', 'none');
+  const [first, second] = await trick
     .locator('figure')
     .evaluateAll((elements) =>
-      elements.map((element) => getComputedStyle(element).transform),
+      elements.map((element) => element.getBoundingClientRect()),
     );
-  room.revision++;
-  publish();
-  expect(
-    await trick
-      .locator('figure')
-      .evaluateAll((elements) =>
-        elements.map((element) => getComputedStyle(element).transform),
-      ),
-  ).toEqual(transforms);
+  expect(second.y).toBeCloseTo(first.y, 1);
+  expect(second.x).toBeGreaterThan(first.x);
   state.last_trick = { cards: [...state.trick], winner: 4 };
   state.trick = [];
   state.tricks_won[4] = 1;
@@ -533,8 +527,8 @@ test('Crew highlights a localized turn status only for the actual next player', 
   const room = fixture();
   const { publish } = await mock(page, room);
   // The dock's region label is translated too, so locate it structurally.
-  const status = page.locator('.crew-table .hint');
-  const bar = page.locator('.crew-table [data-active]');
+  const status = page.locator('.card-table .hint');
+  const bar = page.locator('.card-table [data-active]');
   await expect(status).toHaveText('Your turn');
   await expect(bar).toHaveAttribute('data-active', 'true');
   await expect(bar).toHaveCSS('background-color', 'rgb(255, 216, 98)');
@@ -631,11 +625,11 @@ for (const [width, height, count] of [
       .getByRole('button', { name: 'Play card', exact: true })
       .boundingBox())!;
     expect(playBox.y + playBox.height).toBeLessThanOrEqual(height);
-    const statusBox = (await page.locator('.crew-table .seat').boundingBox())!;
+    const statusBox = (await page.locator('.card-table .seat').boundingBox())!;
     const arenaBox = (await page.locator('.arena').boundingBox())!;
     expect(arenaBox.y + arenaBox.height).toBeLessThanOrEqual(statusBox.y);
     const sizes = await page
-      .locator('.crew-table .playing-card:visible')
+      .locator('.card-table .playing-card:visible')
       .evaluateAll((cards) =>
         cards.map((card) => {
           const style = getComputedStyle(card);
@@ -831,9 +825,9 @@ for (const width of [1280, 390]) {
     await expect(
       page.getByRole('button', { name: 'Abort game', exact: true }),
     ).toBeHidden();
-    const before = await page.locator('.crew-table').boundingBox();
+    const before = await page.locator('.card-table').boundingBox();
     await trigger.click();
-    expect(await page.locator('.crew-table').boundingBox()).toEqual(before);
+    expect(await page.locator('.card-table').boundingBox()).toEqual(before);
     await page
       .getByRole('button', { name: 'Finish: lost', exact: true })
       .click();
@@ -849,7 +843,7 @@ for (const width of [1280, 390]) {
     await results
       .getByRole('button', { name: 'View board', exact: true })
       .click();
-    await expect(page.locator('.crew-table .hint')).toHaveText('Lost');
+    await expect(page.locator('.card-table .hint')).toHaveText('Lost');
     await trigger.click();
     await page.getByRole('button', { name: 'Results', exact: true }).click();
     await results
