@@ -148,6 +148,7 @@
     "stock": "{count} im Stapel",
     "pile": "{count} im Ablagestapel",
     "emptyPile": "Leerer Ablagestapel",
+    "emptyStock": "Leerer Nachziehstapel",
     "chooseFaceUp": "Wähle drei offene Karten",
     "waiting": "Warte auf die anderen",
     "yourHand": "Deine Hand",

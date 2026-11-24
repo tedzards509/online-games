@@ -4,13 +4,11 @@
   import CardBack from './cards/CardBack.svelte';
   import CardSlot from './cards/CardSlot.svelte';
   import StandardPlayingCard from './cards/StandardPlayingCard.svelte';
-  import Board from './table/Board.svelte';
+  import CardTable from './table/CardTable.svelte';
   import Hand from './table/Hand.svelte';
+  import OpponentSeat from './table/OpponentSeat.svelte';
   import Pile from './table/Pile.svelte';
-  import CardRow from './table/CardRow.svelte';
   import PlayerDock from './table/PlayerDock.svelte';
-  import PlayerList from './table/PlayerList.svelte';
-  import TableSurface from './table/TableSurface.svelte';
   import Button from './ui/Button.svelte';
 
   let {
@@ -24,6 +22,12 @@
   let selected = $state<number[]>([]);
   const yourTurn = $derived(active.includes(you));
   const own = $derived(view.players[you]);
+  const opponents = $derived(
+    Array.from(
+      { length: names.length - 1 },
+      (_, offset) => (you + offset + 1) % names.length,
+    ),
+  );
   /** The zone you play from: hand, then face-up cards, then face-down cards. */
   const source = $derived(view.hand.length ? view.hand : own.up);
   const indices = $derived([...selected].sort((a, b) => a - b));
@@ -45,7 +49,7 @@
         ? $t('shithead.chooseFaceUp')
         : $t('shithead.waiting')
       : !yourTurn
-        ? undefined
+        ? $t('common.playerTurn', { values: { name: names[active[0]] } })
         : source.length
           ? $t('shithead.playOrPickUp')
           : $t('shithead.flip'),
@@ -83,35 +87,48 @@
   }
 </script>
 
-{#snippet table(player: number)}
-  {#each view.players[player].up as card}<StandardPlayingCard
-      {card}
-      width="var(--arena-card-width-small)"
-    />{/each}
+{#snippet tableCards(player: number)}
+  {@const seat = view.players[player]}
+  <div
+    class="table-cards"
+    role="group"
+    aria-label={$t('shithead.playerCards', {
+      values: { count: seat.count, down: seat.down },
+    })}
+  >
+    {#each { length: Math.max(seat.up.length, seat.down) }, slot}
+      <div class="stack">
+        {#if slot < seat.down}<CardBack
+            width="var(--arena-card-width-small)"
+          />{/if}
+        {#if slot < seat.up.length}<StandardPlayingCard
+            card={seat.up[slot]}
+            width="var(--arena-card-width-small)"
+          />{/if}
+      </div>
+    {/each}
+  </div>
 {/snippet}
 
-<Board>
-  <PlayerList
-    players={names.map((_, player) => player).filter((p) => p !== you)}
-    {names}
-    {you}
-    {active}
-  >
-    {#snippet details(player)}
-      {$t('shithead.playerCards', {
-        values: {
-          count: view.players[player].count,
-          down: view.players[player].down,
-        },
-      })}
-      {@render table(player)}
-    {/snippet}
-  </PlayerList>
-
-  <TableSurface>
-    <Pile caption={$t('shithead.stock', { values: { count: view.stock } })}
-      ><CardBack /></Pile
+<CardTable {opponents}>
+  {#snippet opponent(player)}
+    <OpponentSeat
+      name={names[player]}
+      colorIndex={player}
+      cards={view.players[player].count}
+      active={active.includes(player)}
     >
+      {#snippet markers()}
+        {@render tableCards(player)}
+      {/snippet}
+    </OpponentSeat>
+  {/snippet}
+  {#snippet center()}
+    <Pile caption={$t('shithead.stock', { values: { count: view.stock } })}>
+      {#if view.stock}<CardBack />{:else}<CardSlot
+          label={$t('shithead.emptyStock')}
+        />{/if}
+    </Pile>
     <Pile caption={$t('shithead.pile', { values: { count: view.pile } })}>
       {#if view.recent.length}
         <div class="fan">
@@ -133,69 +150,108 @@
         <StandardPlayingCard card={view.failed_blind.card} />
       </Pile>
     {/if}
-  </TableSurface>
-
-  <PlayerDock name={names[you]} colorIndex={you} attention={yourTurn} {hint}>
-    {#snippet details()}
-      {#if source.length && own.down}{$t('shithead.faceDownCount', {
-          values: { count: own.down },
-        })}{/if}
-    {/snippet}
-    {#snippet hand()}
-      {#if view.hand.length && own.up.length}
-        <CardRow label={$t('shithead.yourFaceUp')}>{@render table(you)}</CardRow
-        >
-      {/if}
-      {#if source.length}
-        <Hand
-          label={view.hand.length
-            ? $t('shithead.yourHand')
-            : $t('shithead.yourFaceUp')}
-          items={source}
-          order={byRank}
-        >
-          {#snippet card(card, index)}
-            <StandardPlayingCard
-              {card}
-              selected={selected.includes(index)}
-              disabled={!usable(index)}
-              muted={yourTurn && !usable(index)}
-              onclick={() => toggle(index)}
-            />
-          {/snippet}
-        </Hand>
-      {:else if own.down}
-        <Hand
-          label={$t('shithead.yourFaceDown')}
-          items={Array.from({ length: own.down }, (_, index) => index)}
-        >
-          {#snippet card(index)}
-            {@const action = blind(index)}
-            <CardBack
-              disabled={!action}
-              label={$t('shithead.faceDownCard', {
-                values: { number: index + 1 },
-              })}
-              onclick={() => action && move(action)}
-            />
-          {/snippet}
-        </Hand>
-      {/if}
-    {/snippet}
-    {#snippet controls()}
-      {#if pickup}<Button variant="secondary" onclick={() => move(pickup)}
-          >{$t('shithead.pickUp')}</Button
-        >{/if}
-      {#if source.length}<Button
-          disabled={!playable}
-          onclick={() => playable && move(playable)}
-          >{view.setup ? $t('shithead.setFaceUp') : $t('shithead.play')}</Button
-        >{/if}
-    {/snippet}
-  </PlayerDock>
-</Board>
+  {/snippet}
+  {#snippet dock()}
+    <PlayerDock name={names[you]} colorIndex={you} attention={yourTurn} {hint}>
+      {#snippet details()}
+        {#if !view.hand.length && own.up.length && own.down}{$t(
+            'shithead.faceDownCount',
+            {
+              values: { count: own.down },
+            },
+          )}{/if}
+      {/snippet}
+      {#snippet hand()}
+        <!-- Your table cards sit beside the hand while you still hold one. -->
+        <div class="own">
+          {#if view.hand.length}{@render tableCards(you)}{/if}
+          {#if source.length}
+            <Hand
+              label={view.hand.length
+                ? $t('shithead.yourHand')
+                : $t('shithead.yourFaceUp')}
+              items={source}
+              order={byRank}
+            >
+              {#snippet card(card, index)}
+                <StandardPlayingCard
+                  {card}
+                  selected={selected.includes(index)}
+                  disabled={!usable(index)}
+                  muted={yourTurn && !usable(index)}
+                  onclick={() => toggle(index)}
+                />
+              {/snippet}
+            </Hand>
+          {:else if own.down}
+            <Hand
+              label={$t('shithead.yourFaceDown')}
+              items={Array.from({ length: own.down }, (_, index) => index)}
+            >
+              {#snippet card(index)}
+                {@const action = blind(index)}
+                <CardBack
+                  disabled={!action}
+                  label={$t('shithead.faceDownCard', {
+                    values: { number: index + 1 },
+                  })}
+                  onclick={() => action && move(action)}
+                />
+              {/snippet}
+            </Hand>
+          {/if}
+        </div>
+      {/snippet}
+      {#snippet controls()}
+        {#if pickup}<Button variant="secondary" onclick={() => move(pickup)}
+            >{$t('shithead.pickUp')}</Button
+          >{/if}
+        {#if source.length}<Button
+            disabled={!playable}
+            onclick={() => playable && move(playable)}
+            >{view.setup
+              ? $t('shithead.setFaceUp')
+              : $t('shithead.play')}</Button
+          >{/if}
+      {/snippet}
+    </PlayerDock>
+  {/snippet}
+</CardTable>
 
 <style>
+  /* Face-up cards lie on the face-down ones, offset so both stay visible. */
+  .table-cards {
+    display: flex;
+    justify-content: center;
+    gap: 0.25rem;
+  }
+  /* Narrow opponent seats: each stack covers the right of the one before,
+     keeping the face-up index readable. */
+  @media (max-width: 40rem) {
+    .table-cards > .stack + .stack {
+      margin-left: -1rem;
+    }
+  }
+  .own {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: var(--arena-space-1) var(--arena-space-3);
+    min-width: 0;
+  }
+  .own > :global(:last-child) {
+    min-width: 0;
+  }
+  .stack {
+    display: grid;
+  }
+  .stack > :global(*) {
+    grid-area: 1 / 1;
+  }
+  .stack > :global(* + *) {
+    margin-top: calc(var(--arena-card-width-small) * 0.45);
+  }
   /* Older pile cards peek out to the left; the top card is fully visible. */
   .fan {
     display: flex;

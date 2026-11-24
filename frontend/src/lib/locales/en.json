@@ -148,6 +148,7 @@
     "stock": "{count} in stock",
     "pile": "{count} in pile",
     "emptyPile": "Empty pile",
+    "emptyStock": "Empty stock",
     "chooseFaceUp": "Choose three face-up cards",
     "waiting": "Waiting for other players",
     "yourHand": "Your hand",
