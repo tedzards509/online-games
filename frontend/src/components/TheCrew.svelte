@@ -6,6 +6,8 @@
   import CrewPlayer from './crew/CrewPlayer.svelte';
   import CommunicationSlot from './crew/CommunicationSlot.svelte';
   import TrickPile from './crew/TrickPile.svelte';
+  import Hand from './table/Hand.svelte';
+  import PlayerDock from './table/PlayerDock.svelte';
   import { cardKey, crewColors, trickLeader } from './crew/cards';
 
   let {
@@ -165,65 +167,60 @@
         </p>{/if}
     </section>
   </div>
-  <div class="own-zone">
-    <p class="status" class:your-turn={yourTurn} role="status">
-      {#if finished}{$t(won ? 'common.won' : 'common.lost')}
-      {:else if view.awaiting_result}{$t('crew.awaitingResult')}
-      {:else if yourTurn}{$t('common.yourTurn')}
-      {:else}{$t(view.trick.length ? 'crew.playsNext' : 'crew.leads', {
-          values: { name: players[view.next_player].nickname },
-        })}{/if}
-    </p>
-    <div class="own-cards">
-      <div class="own-communication">
-        <CommunicationSlot
-          communication={view.communications[you]}
-          played={view.communication_played[you]}
-          name={players[you].nickname}
-        />
-        {#if view.commander === you}<span
-            class="commander"
-            role="img"
-            aria-label={$t('crew.commander')}
-            title={$t('crew.commander')}
-          ></span>{/if}
-      </div>
-      <section class="hand-scroll" aria-label={$t('crew.yourHand')}>
-        <div class="card-row">
-          {#each view.hand as card, index (cardKey(card))}
-            <CrewCard
-              {card}
-              muted={yourTurn && !play(index)}
-              label={$t('crew.selectCard', {
-                values: { card: cardName(card) },
-              })}
-              selected={selectedIndex === index}
-              onclick={() =>
-                (selected = selectedIndex === index ? null : cardKey(card))}
-            />
-          {/each}
+  <PlayerDock
+    name={players[you].nickname}
+    colorIndex={you}
+    attention={yourTurn}
+    hint={finished
+      ? $t(won ? 'common.won' : 'common.lost')
+      : view.awaiting_result
+        ? $t('crew.awaitingResult')
+        : yourTurn
+          ? $t('common.yourTurn')
+          : $t(view.trick.length ? 'crew.playsNext' : 'crew.leads', {
+              values: { name: players[view.next_player].nickname },
+            })}
+  >
+    {#snippet hand()}
+      <div class="own-cards">
+        <div class="own-communication">
+          <CommunicationSlot
+            communication={view.communications[you]}
+            played={view.communication_played[you]}
+            name={players[you].nickname}
+          />
+          {#if view.commander === you}<span
+              class="commander"
+              role="img"
+              aria-label={$t('crew.commander')}
+              title={$t('crew.commander')}
+            ></span>{/if}
         </div>
-      </section>
-      <div class="own-tricks">
-        <TrickPile count={view.tricks_won[you]} name={players[you].nickname} />
+        <div class="own-hand">
+          <Hand label={$t('crew.yourHand')} items={view.hand}>
+            {#snippet card(card, index)}
+              <CrewCard
+                {card}
+                muted={yourTurn && !play(index)}
+                label={$t('crew.selectCard', {
+                  values: { card: cardName(card) },
+                })}
+                selected={selectedIndex === index}
+                onclick={() =>
+                  (selected = selectedIndex === index ? null : cardKey(card))}
+              />
+            {/snippet}
+          </Hand>
+        </div>
+        <div class="own-tricks">
+          <TrickPile
+            count={view.tricks_won[you]}
+            name={players[you].nickname}
+          />
+        </div>
       </div>
-    </div>
-    <div class="controls">
-      <Button
-        size="small"
-        disabled={disabled || finished || !play(selectedIndex)}
-        onclick={() => submit(play(selectedIndex))}
-        >{$t('crew.playCard')}</Button
-      >
-      {#if communicationAvailable && !finished}<Button
-          variant="secondary"
-          size="small"
-          popovertarget="crew-communicate"
-          aria-label={$t('crew.communicateCard')}
-          disabled={disabled ||
-            !declarations.some((declaration) => communicate(declaration))}
-          >{$t('crew.communicate')}</Button
-        >{/if}
+    {/snippet}
+    {#snippet controls()}
       {#if view.last_trick && view.trick.length}<Button
           variant="quiet"
           size="small"
@@ -240,8 +237,23 @@
             ><circle cx="12" cy="12" r="9" /><path d="M12 6v6l4 2" /></svg
           ></Button
         >{/if}
-    </div>
-  </div>
+      {#if communicationAvailable && !finished}<Button
+          variant="secondary"
+          size="small"
+          popovertarget="crew-communicate"
+          aria-label={$t('crew.communicateCard')}
+          disabled={disabled ||
+            !declarations.some((declaration) => communicate(declaration))}
+          >{$t('crew.communicate')}</Button
+        >{/if}
+      <Button
+        size="small"
+        disabled={disabled || finished || !play(selectedIndex)}
+        onclick={() => submit(play(selectedIndex))}
+        >{$t('crew.playCard')}</Button
+      >
+    {/snippet}
+  </PlayerDock>
 
   {#if communicationAvailable && !finished}
     <section
@@ -400,36 +412,14 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .own-zone {
-    min-width: 0;
-    display: grid;
-    gap: 0.5rem;
-  }
-  /* Same strip as the room's game status; highlighted on the viewer's turn. */
-  .status {
-    width: min(100%, 24rem);
-    min-height: 2.75rem;
-    margin: 0 auto;
-    padding: 0.4rem 1rem;
-    display: grid;
-    place-content: center;
-    border: var(--arena-line);
-    border-radius: var(--arena-control-radius);
-    background: var(--arena-surface);
-    text-align: center;
-    font-weight: 700;
-  }
-  .status.your-turn {
-    background: var(--arena-highlight);
-    color: var(--arena-on-highlight);
-    font-size: 1.1rem;
-    font-weight: 800;
-  }
   .own-cards {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 1rem;
+  }
+  .own-hand {
+    min-width: 0;
   }
   .own-communication {
     display: flex;
@@ -444,29 +434,11 @@
     background: var(--crew-black);
     border: var(--arena-line);
   }
-  /* Top padding leaves room for the lifted selected card. */
-  .hand-scroll {
-    min-width: 0;
-    overflow-x: auto;
-    padding: 1rem 0.5rem 0.5rem;
-  }
-  .card-row {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    width: max-content;
-    margin: auto;
-    padding-bottom: 0.25rem;
-  }
-  .controls,
   .declarations {
     display: flex;
     justify-content: center;
     align-items: center;
     gap: 0.5rem;
-  }
-  .controls :global(button) {
-    white-space: nowrap;
   }
   .table-popover {
     width: min(28rem, calc(100vw - 2rem));
@@ -504,9 +476,6 @@
     .trick-cards {
       gap: 0.25rem;
     }
-    .controls {
-      gap: 0.375rem;
-    }
   }
   @media (max-height: 500px) and (min-width: 40.01rem) {
     .crew-table {
@@ -527,12 +496,6 @@
     .trick-title,
     .winner {
       margin: 0.125rem 0;
-    }
-    .own-zone {
-      gap: 0.25rem;
-    }
-    .hand-scroll {
-      padding: 0.375rem;
     }
   }
   @media (max-width: 40rem) and (orientation: portrait) {
@@ -570,7 +533,7 @@
       grid-area: tricks;
       justify-self: end;
     }
-    .hand-scroll {
+    .own-hand {
       grid-area: hand;
     }
   }

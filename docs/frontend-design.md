@@ -83,7 +83,7 @@ legal-action behavior, and responsive card sizing.
 
 ## The Crew
 
-The Crew fills one viewport with a straight, non-overlapping hand along the
+The Crew fills one viewport with the shared player dock and hand along the
 bottom, a central trick, and opponent racks around the outside. Cards have
 saturated color faces, contrasting numbers, and outline shapes. Illegal cards
 use opaque muted colors only on the viewer's turn; card selection is independent
@@ -91,7 +91,7 @@ of permission to submit a move. Communication markers sit inside their cards.
 Use one comfortable card size in every context, including trick history; let
 rows and the table area scroll rather than reduce legibility. In portrait mobile,
 place the viewer's communication and won tricks above the full-width hand.
-Use a prominent “Your turn” status for the active viewer, not their own nickname.
+The dock's attention state and “Your turn” hint mark the active viewer.
 
 Keep the playing space free of room headings and setup lists. Communication,
 trick history, and player details open in dismissible popovers without shifting

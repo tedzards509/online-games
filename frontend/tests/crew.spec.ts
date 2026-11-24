@@ -166,14 +166,14 @@ test('Crew communication allows only server-provided declarations for the select
     .getByRole('button', { name: 'Select Green 4', exact: true })
     .click();
   const handBefore = await page
-    .getByRole('region', { name: 'Your hand', exact: true })
+    .getByRole('group', { name: 'Your hand', exact: true })
     .boundingBox();
   await page
     .getByRole('button', { name: 'Communicate a card', exact: true })
     .click();
   expect(
     await page
-      .getByRole('region', { name: 'Your hand', exact: true })
+      .getByRole('group', { name: 'Your hand', exact: true })
       .boundingBox(),
   ).toEqual(handBefore);
   await expect(
@@ -504,7 +504,7 @@ for (const width of [1280, 390]) {
     };
     view(room).trick = [{ player: 4, card: { color: 'yellow', number: 7 } }];
     await mock(page, room);
-    const hand = page.getByRole('region', { name: 'Your hand', exact: true });
+    const hand = page.getByRole('group', { name: 'Your hand', exact: true });
     const before = await hand.boundingBox();
     await page.getByRole('button', { name: 'Last trick', exact: true }).click();
     const viewer = page.getByRole('region', {
@@ -532,10 +532,12 @@ test('Crew highlights a localized turn status only for the actual next player', 
 }) => {
   const room = fixture();
   const { publish } = await mock(page, room);
-  const status = page.locator('.crew-table .status');
+  // The dock's region label is translated too, so locate it structurally.
+  const status = page.locator('.crew-table .hint');
+  const bar = page.locator('.crew-table [data-active]');
   await expect(status).toHaveText('Your turn');
-  await expect(status).toHaveClass(/your-turn/);
-  await expect(status).toHaveCSS('background-color', 'rgb(255, 216, 98)');
+  await expect(bar).toHaveAttribute('data-active', 'true');
+  await expect(bar).toHaveCSS('background-color', 'rgb(255, 216, 98)');
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByLabel('Language', { exact: true }).selectOption('de');
   await page.keyboard.press('Escape');
@@ -545,18 +547,18 @@ test('Crew highlights a localized turn status only for the actual next player', 
   room.revision++;
   publish();
   await expect(status).toHaveText('Bob spielt aus');
-  await expect(status).not.toHaveClass(/your-turn/);
+  await expect(bar).toHaveAttribute('data-active', 'false');
   view(room).next_player = 0;
   view(room).trick = [{ player: 4, card: { color: 'blue', number: 9 } }];
   room.revision++;
   publish();
   await expect(status).toHaveText('Du bist dran');
-  await expect(status).toHaveClass(/your-turn/);
+  await expect(bar).toHaveAttribute('data-active', 'true');
   view(room).awaiting_result = true;
   view(room).trick = [];
   room.revision++;
   publish();
-  await expect(status).not.toHaveClass(/your-turn/);
+  await expect(bar).toHaveAttribute('data-active', 'false');
 });
 
 for (const [width, height, count] of [
@@ -609,8 +611,8 @@ for (const [width, height, count] of [
     ).toBe(height);
     await expect(page.locator('header, h1:visible')).toHaveCount(0);
     expect((await page.locator('main').boundingBox())!.height).toBe(height);
-    const hand = page.getByRole('region', { name: 'Your hand', exact: true });
-    const row = hand.locator('.card-row');
+    const hand = page.getByRole('group', { name: 'Your hand', exact: true });
+    const row = hand;
     await expect(row.locator('button')).toHaveCount(view(room).hand.length);
     for (const card of await row.locator('button').all())
       await expect(card).toHaveCSS('transform', 'none');
@@ -621,7 +623,8 @@ for (const [width, height, count] of [
       }),
     );
     for (let index = 1; index < boxes.length; index++) {
-      expect(boxes[index].x).toBeGreaterThan(boxes[index - 1].right);
+      // The shared hand may overlap cards, but keeps them in one ordered row.
+      expect(boxes[index].x).toBeGreaterThan(boxes[index - 1].x);
       expect(boxes[index].y).toBeCloseTo(boxes[0].y, 1);
     }
     const playBox = (await page
@@ -629,7 +632,7 @@ for (const [width, height, count] of [
       .boundingBox())!;
     expect(playBox.y + playBox.height).toBeLessThanOrEqual(height);
     const statusBox = (await page
-      .locator('.crew-table .status')
+      .getByRole('region', { name: 'Your seat', exact: true })
       .boundingBox())!;
     const arenaBox = (await page.locator('.arena').boundingBox())!;
     expect(arenaBox.y + arenaBox.height).toBeLessThanOrEqual(statusBox.y);
@@ -649,7 +652,9 @@ for (const [width, height, count] of [
       expect(size.width).toBe(72);
       expect(size.height).toBeCloseTo(72 * 1.4, 1);
     }
-    const handBox = (await hand.boundingBox())!;
+    // The hand's area spans its grid track; the card group inside fits its cards.
+    const handArea = page.locator('.own-hand');
+    const handBox = (await handArea.boundingBox())!;
     const communicationBox = (await page
       .locator('.own-communication')
       .boundingBox())!;
@@ -669,7 +674,7 @@ for (const [width, height, count] of [
     const lastTrickCard = page.locator('.trick .playing-card').last();
     await lastTrickCard.scrollIntoViewIfNeeded();
     await expect(lastTrickCard).toBeInViewport();
-    expect(await hand.boundingBox()).toEqual(handBox);
+    expect(await handArea.boundingBox()).toEqual(handBox);
     await row.locator('button').last().focus();
     await page.keyboard.press('Space');
     await expect(row.locator('button').last()).toHaveAttribute(
@@ -789,9 +794,9 @@ test('Crew cards remain fully colored and selectable outside the viewer turn', a
   ];
   const { moves } = await mock(page, room);
   await expect(
-    page.locator('.hand-scroll .crew-card[data-muted="true"]'),
+    page.locator('.own-hand .crew-card[data-muted="true"]'),
   ).toHaveCount(0);
-  for (const card of await page.locator('.hand-scroll button').all()) {
+  for (const card of await page.locator('.own-hand button').all()) {
     await expect(card).toBeEnabled();
     await expect(card).toHaveCSS('opacity', '1');
   }
@@ -846,9 +851,7 @@ for (const width of [1280, 390]) {
     await results
       .getByRole('button', { name: 'View board', exact: true })
       .click();
-    await expect(page.locator('.crew-table').getByRole('status')).toHaveText(
-      'Lost',
-    );
+    await expect(page.locator('.crew-table .hint')).toHaveText('Lost');
     await trigger.click();
     await page.getByRole('button', { name: 'Results', exact: true }).click();
     await results
