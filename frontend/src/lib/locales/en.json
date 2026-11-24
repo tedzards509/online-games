@@ -148,7 +148,6 @@
     "stock": "{count} in stock",
     "pile": "{count} in pile",
     "emptyPile": "Empty pile",
-    "transparentThree": "3 is transparent",
     "chooseFaceUp": "Choose three face-up cards",
     "waiting": "Waiting for other players",
     "yourHand": "Your hand",
@@ -160,7 +159,11 @@
     "pickUp": "Pick up",
     "rules": {
       "bombs": "Four-card bombs bypass rank restrictions"
-    }
+    },
+    "playOrPickUp": "Play cards of one value or pick up",
+    "flip": "Flip a face-down card",
+    "failedBlind": "{name} flipped this and picked up",
+    "faceDownCount": "{count} face down"
   },
   "crazyEights": {
     "cards_one": "{count} card",

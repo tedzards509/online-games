@@ -148,7 +148,6 @@
     "stock": "{count} im Stapel",
     "pile": "{count} auf dem Haufen",
     "emptyPile": "Haufen leer",
-    "transparentThree": "Die 3 ist Luft",
     "chooseFaceUp": "Schnapp dir drei offene Karten",
     "waiting": "Die anderen trödeln noch",
     "yourHand": "Deine Hand",
@@ -160,7 +159,11 @@
     "pickUp": "Haufen schlucken",
     "rules": {
       "bombs": "Vierer-Bomben pfeifen auf den Rang"
-    }
+    },
+    "playOrPickUp": "Gleiche Werte raus oder Stapel schlucken",
+    "flip": "Dreh eine verdeckte Karte um – viel Glück",
+    "failedBlind": "{name} hat die gezogen und musste alles schlucken",
+    "faceDownCount": "{count} verdeckt"
   },
   "crazyEights": {
     "cards_one": "{count} Karte",

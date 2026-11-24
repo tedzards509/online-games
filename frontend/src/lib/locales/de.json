@@ -148,7 +148,6 @@
     "stock": "{count} im Stapel",
     "pile": "{count} im Ablagestapel",
     "emptyPile": "Leerer Ablagestapel",
-    "transparentThree": "Die 3 ist durchsichtig",
     "chooseFaceUp": "Wähle drei offene Karten",
     "waiting": "Warte auf die anderen",
     "yourHand": "Deine Hand",
@@ -160,7 +159,11 @@
     "pickUp": "Aufnehmen",
     "rules": {
       "bombs": "Vier gleiche Karten als Bombe ignorieren Rangvorgaben"
-    }
+    },
+    "playOrPickUp": "Spiel Karten eines Werts oder nimm auf",
+    "flip": "Decke eine verdeckte Karte auf",
+    "failedBlind": "{name} hat diese aufgedeckt und aufgenommen",
+    "faceDownCount": "{count} verdeckt"
   },
   "crazyEights": {
     "cards_one": "{count} Karte",

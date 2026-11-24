@@ -1,18 +1,16 @@
 <script lang="ts">
   import { t } from '../lib/i18n';
-  import type { BoardProps, Schemas } from '../lib/types';
+  import { byRank, type BoardProps, type Schemas } from '../lib/types';
   import CardBack from './cards/CardBack.svelte';
   import CardSlot from './cards/CardSlot.svelte';
   import StandardPlayingCard from './cards/StandardPlayingCard.svelte';
-  import Actions from './table/Actions.svelte';
-  import CardRow from './table/CardRow.svelte';
-  import Pile from './table/Pile.svelte';
   import Board from './table/Board.svelte';
-  import PlayerBar from './table/PlayerBar.svelte';
+  import Hand from './table/Hand.svelte';
+  import Pile from './table/Pile.svelte';
+  import PlayerDock from './table/PlayerDock.svelte';
   import PlayerList from './table/PlayerList.svelte';
   import TableSurface from './table/TableSurface.svelte';
   import Button from './ui/Button.svelte';
-  import Notice from './ui/Notice.svelte';
 
   let {
     view,
@@ -24,7 +22,9 @@
   }: BoardProps<Schemas['ShitheadView']> = $props();
   let selected = $state<number[]>([]);
   const yourTurn = $derived(active.includes(you));
-  const source = $derived(view.hand.length ? view.hand : view.players[you].up);
+  const own = $derived(view.players[you]);
+  /** The zone you play from: hand, then face-up cards, then face-down cards. */
+  const source = $derived(view.hand.length ? view.hand : own.up);
   const indices = $derived([...selected].sort((a, b) => a - b));
   const playable = $derived(
     actions.find(
@@ -35,15 +35,34 @@
         a.action.indices.every((index, i) => index === indices[i]),
     ),
   );
+  const pickup = $derived(
+    actions.find((a) => a.game === 'shithead' && a.action.type === 'pickup'),
+  );
+  const hint = $derived(
+    view.setup
+      ? actions.length
+        ? $t('shithead.chooseFaceUp')
+        : $t('shithead.waiting')
+      : !yourTurn
+        ? undefined
+        : source.length
+          ? $t('shithead.playOrPickUp')
+          : $t('shithead.flip'),
+  );
   $effect(() => {
     view;
     actions;
     selected = [];
   });
   function toggle(index: number): void {
-    selected = selected.includes(index)
-      ? selected.filter((i) => i !== index)
-      : [...selected, index];
+    if (selected.includes(index)) {
+      selected = selected.filter((i) => i !== index);
+      return;
+    }
+    // Plays share one rank, so a card of another rank starts a new selection.
+    const other =
+      selected.length && source[selected[0]].rank !== source[index].rank;
+    selected = !view.setup && other ? [index] : [...selected, index];
   }
   function usable(index: number): boolean {
     return actions.some(
@@ -53,7 +72,22 @@
         a.action.indices.includes(index),
     );
   }
+  function blind(index: number) {
+    return actions.find(
+      (a) =>
+        a.game === 'shithead' &&
+        a.action.type === 'blind' &&
+        a.action.index === index,
+    );
+  }
 </script>
+
+{#snippet table(player: number)}
+  {#each view.players[player].up as card}<StandardPlayingCard
+      {card}
+      width="var(--arena-card-width-small)"
+    />{/each}
+{/snippet}
 
 <Board>
   <PlayerList
@@ -69,10 +103,7 @@
           down: view.players[player].down,
         },
       })}
-      {#each view.players[player].up as card}<StandardPlayingCard
-          {card}
-          width="var(--arena-card-width-small)"
-        />{/each}
+      {@render table(player)}
     {/snippet}
   </PlayerList>
 
@@ -81,76 +112,91 @@
       ><CardBack /></Pile
     >
     <Pile caption={$t('shithead.pile', { values: { count: view.pile } })}>
-      {#if view.top}<StandardPlayingCard
-          card={view.top}
-          highlighted
-        />{:else}<CardSlot label={$t('shithead.emptyPile')} />{/if}
+      {#if view.recent.length}
+        <div class="fan">
+          {#each view.recent as card, index}
+            <StandardPlayingCard
+              {card}
+              highlighted={index === view.recent.length - 1}
+            />
+          {/each}
+        </div>
+      {:else}<CardSlot label={$t('shithead.emptyPile')} />{/if}
     </Pile>
-    {#if view.top?.rank === 3 && view.effective_top}
-      <Pile caption={$t('shithead.transparentThree')}>
-        <StandardPlayingCard card={view.effective_top} />
+    {#if view.failed_blind}
+      <Pile
+        caption={$t('shithead.failedBlind', {
+          values: { name: names[view.failed_blind.player] },
+        })}
+      >
+        <StandardPlayingCard card={view.failed_blind.card} />
       </Pile>
     {/if}
   </TableSurface>
 
-  {#if view.setup}<Notice
-      >{actions.length
-        ? $t('shithead.chooseFaceUp')
-        : $t('shithead.waiting')}</Notice
-    >{/if}
-
-  <PlayerBar name={names[you]} colorIndex={you} you active={yourTurn}>
-    {#if view.hand.length}
-      {#each view.players[you].up as card}<StandardPlayingCard
-          {card}
-          width="var(--arena-card-width-small)"
-        />{/each}
-    {/if}
-  </PlayerBar>
-  <CardRow
-    label={view.hand.length
-      ? $t('shithead.yourHand')
-      : $t('shithead.yourFaceUp')}
-  >
-    {#each source as card, index}
-      <StandardPlayingCard
-        {card}
-        selected={selected.includes(index)}
-        disabled={!usable(index)}
-        muted={yourTurn && !usable(index)}
-        onclick={() => toggle(index)}
-      />
-    {/each}
-  </CardRow>
-  {#if view.players[you].down}
-    <CardRow label={$t('shithead.yourFaceDown')}>
-      {#each Array(view.players[you].down) as _, index}
-        {@const action = actions.find(
-          (a) =>
-            a.game === 'shithead' &&
-            a.action.type === 'blind' &&
-            a.action.index === index,
-        )}
-        <CardBack
-          disabled={!action}
-          label={$t('shithead.faceDownCard', { values: { number: index + 1 } })}
-          onclick={() => action && move(action)}
-        />
-      {/each}
-    </CardRow>
-  {/if}
-
-  <Actions>
-    {#if source.length}<Button
-        disabled={!playable}
-        onclick={() => playable && move(playable)}
-        >{view.setup ? $t('shithead.setFaceUp') : $t('shithead.play')}</Button
-      >{/if}
-    {#each actions as action}
-      {#if action.game === 'shithead' && action.action.type === 'pickup'}<Button
-          variant="secondary"
-          onclick={() => move(action)}>{$t('shithead.pickUp')}</Button
+  <PlayerDock name={names[you]} colorIndex={you} attention={yourTurn} {hint}>
+    {#snippet details()}
+      {#if view.hand.length}{@render table(you)}{/if}
+      {#if source.length && own.down}{$t('shithead.faceDownCount', {
+          values: { count: own.down },
+        })}{/if}
+    {/snippet}
+    {#snippet hand()}
+      {#if source.length}
+        <Hand
+          label={view.hand.length
+            ? $t('shithead.yourHand')
+            : $t('shithead.yourFaceUp')}
+          items={source}
+          order={byRank}
+        >
+          {#snippet card(card, index)}
+            <StandardPlayingCard
+              {card}
+              selected={selected.includes(index)}
+              disabled={!usable(index)}
+              muted={yourTurn && !usable(index)}
+              onclick={() => toggle(index)}
+            />
+          {/snippet}
+        </Hand>
+      {:else if own.down}
+        <Hand
+          label={$t('shithead.yourFaceDown')}
+          items={Array.from({ length: own.down }, (_, index) => index)}
+        >
+          {#snippet card(index)}
+            {@const action = blind(index)}
+            <CardBack
+              disabled={!action}
+              label={$t('shithead.faceDownCard', {
+                values: { number: index + 1 },
+              })}
+              onclick={() => action && move(action)}
+            />
+          {/snippet}
+        </Hand>
+      {/if}
+    {/snippet}
+    {#snippet controls()}
+      {#if pickup}<Button variant="secondary" onclick={() => move(pickup)}
+          >{$t('shithead.pickUp')}</Button
         >{/if}
-    {/each}
-  </Actions>
+      {#if source.length}<Button
+          disabled={!playable}
+          onclick={() => playable && move(playable)}
+          >{view.setup ? $t('shithead.setFaceUp') : $t('shithead.play')}</Button
+        >{/if}
+    {/snippet}
+  </PlayerDock>
 </Board>
+
+<style>
+  /* Older pile cards peek out to the left; the top card is fully visible. */
+  .fan {
+    display: flex;
+  }
+  .fan > :global(* + *) {
+    margin-left: calc(var(--arena-card-width) * -0.7);
+  }
+</style>
