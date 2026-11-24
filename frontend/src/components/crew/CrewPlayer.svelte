@@ -2,6 +2,8 @@
   import type { Schemas, Snapshot } from '../../lib/types';
   import { t } from '../../lib/i18n';
   import CardBack from '../cards/CardBack.svelte';
+  import Avatar from '../table/Avatar.svelte';
+  import Button from '../ui/Button.svelte';
   import CommunicationSlot from './CommunicationSlot.svelte';
   import TrickPile from './TrickPile.svelte';
 
@@ -41,24 +43,27 @@
   aria-label={member.nickname}
   class:next={!finished && !view.awaiting_result && view.next_player === player}
 >
-  <button
-    class="info"
-    popovertarget={`crew-info-${player}`}
-    aria-label={$t('crew.infoAbout', { values: { name: member.nickname } })}
-    ><span title={member.nickname}>{member.nickname}</span><svg
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="1.5"
-      aria-hidden="true"
-      ><circle cx="10" cy="10" r="8" /><path d="M10 9v5" /><circle
-        cx="10"
-        cy="6"
-        r="0.6"
-        fill="currentColor"
-      /></svg
-    ></button
-  >
+  <div class="identity">
+    <Avatar name={member.nickname} colorIndex={player} />
+    <button
+      class="info"
+      popovertarget={`crew-info-${player}`}
+      aria-label={$t('crew.infoAbout', { values: { name: member.nickname } })}
+      ><span title={member.nickname}>{member.nickname}</span><svg
+        viewBox="0 0 20 20"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        aria-hidden="true"
+        ><circle cx="10" cy="10" r="8" /><path d="M10 9v5" /><circle
+          cx="10"
+          cy="6"
+          r="0.6"
+          fill="currentColor"
+        /></svg
+      ></button
+    >
+  </div>
   <div class="backs" aria-hidden="true">
     {#each Array(view.counts[player]) as _}<span class="back"><CardBack /></span
       >{/each}
@@ -135,8 +140,11 @@
         {$t(view.last_trick?.winner === player ? 'crew.yes' : 'crew.no')}
       </dd>{/if}
   </dl>
-  <button popovertarget={`crew-info-${player}`} popovertargetaction="hide"
-    >{$t('crew.close')}</button
+  <Button
+    variant="quiet"
+    size="small"
+    popovertarget={`crew-info-${player}`}
+    popovertargetaction="hide">{$t('crew.close')}</Button
   >
 </section>
 
@@ -151,27 +159,34 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .next .info > span {
-    text-decoration: underline;
-    text-decoration-thickness: 2px;
-    text-underline-offset: 0.3rem;
-  }
-  button.info {
+  .identity {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.375rem;
-    width: fit-content;
-    max-width: 100%;
-    margin-inline: auto;
+    min-width: 0;
+  }
+  button.info {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    min-width: 0;
     min-height: 2.75rem;
     padding: 0 0.5rem;
-    border: 0;
+    border: var(--arena-line);
+    border-color: transparent;
     border-radius: var(--arena-control-radius);
     background: transparent;
     color: var(--arena-text);
     font-weight: 800;
     font-size: 0.875rem;
+    cursor: pointer;
+  }
+  /* Matches PlayerBar's active highlight. */
+  .next button.info {
+    border-color: var(--arena-ink);
+    background: var(--arena-highlight);
+    color: var(--arena-on-highlight);
   }
   .info svg {
     flex-shrink: 0;
@@ -193,7 +208,7 @@
     flex-shrink: 0;
     border-radius: 50%;
     background: var(--crew-black);
-    border: 2px solid var(--arena-card-face);
+    border: var(--arena-line);
   }
   .backs {
     display: flex;
@@ -212,12 +227,12 @@
     width: min(24rem, calc(100vw - 2rem));
     max-height: calc(100dvh - 2rem);
     padding: var(--arena-space-3);
-    border: 1px solid var(--arena-border);
+    border: var(--arena-line);
     border-radius: var(--arena-panel-radius);
     background: var(--arena-surface);
     color: var(--arena-text);
     overflow-y: auto;
-    box-shadow: 0 12px 36px #1e553d20;
+    box-shadow: var(--arena-overlay);
   }
   h2 {
     margin: 0 0 1rem;
@@ -237,12 +252,7 @@
     margin: 0;
     overflow-wrap: anywhere;
   }
-  .player-info button {
-    min-height: 2.75rem;
-    background: var(--arena-input);
-    border-color: var(--arena-border);
-  }
-  button:focus-visible {
-    outline-color: var(--arena-focus);
+  .player-info dl {
+    margin: 0 0 1rem;
   }
 </style>

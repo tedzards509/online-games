@@ -22,12 +22,14 @@
   .pile-face {
     position: relative;
     aspect-ratio: 5 / 7;
-    border: 1px solid var(--arena-border);
-    border-radius: 0.5rem;
+    border: 2px dashed var(--arena-text-muted);
+    border-radius: var(--arena-card-radius);
   }
+  /* The hard shadow behind the back suggests a stack. */
   .pile-face:has(:global(.playing-card)) {
     border: 0;
-    box-shadow: 3px 3px 0 var(--arena-border);
+    border-radius: var(--arena-card-radius);
+    box-shadow: var(--arena-card-raised);
   }
   .count {
     position: absolute;
@@ -38,7 +40,7 @@
     padding: 0 0.25rem;
     display: grid;
     place-items: center;
-    border: 1px solid var(--arena-border);
+    border: var(--arena-line);
     border-radius: 50%;
     background: var(--arena-surface);
     color: var(--arena-text);

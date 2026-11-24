@@ -130,11 +130,14 @@ member IDs; game actions and marker arrays use frozen player indices.
   hand. Desktop and landscape keep them beside the hand. The main playing
   space is exactly one viewport (`100vh`, using `100dvh` on supported browsers).
   Communication and last-trick popovers do
-  not resize the table. The host's room-controls button mirrors the settings
-  button; setup, finish, abort/rematch, room code, and replay controls live there.
+  not resize the table. The room-controls button mirrors the settings button for
+  every member; finish, abort/rematch, and other host commands live there.
   Disconnections remain visible as a compact status notice.
 - The previous-trick popover displays card faces with player captions and the
   winner. The winning card has a contrasting outline and an accessible label;
   an unfinished trick updates its highlight using led-color and trump rules.
-  A high-contrast localized turn pill identifies the viewer's actual
-  card-playing turn (`next_player`), not eligibility to communicate.
+  A localized status strip, highlighted like `PlayerBar`, identifies the viewer's
+  actual card-playing turn (`next_player`), not eligibility to communicate.
+  Opponents show a shared `Avatar` beside their info button, which takes the
+  same highlight while they play next. The winning trick card uses the shared
+  `highlighted` card state.

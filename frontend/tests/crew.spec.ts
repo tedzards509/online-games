@@ -326,7 +326,7 @@ test('Crew markers show unused, communicated, played, commander and trick counts
   ).toHaveCount(0);
   await expect(dave.locator('.marker')).toHaveCSS(
     'background-color',
-    'rgb(182, 64, 50)',
+    'rgb(200, 67, 45)',
   );
   const erin = page.getByRole('group', {
     name: 'Communication · Erin',
@@ -527,7 +527,7 @@ for (const width of [1280, 390]) {
   });
 }
 
-test('Crew shows a localized turn pill only for the actual next player', async ({
+test('Crew highlights a localized turn status only for the actual next player', async ({
   page,
 }) => {
   const room = fixture();
@@ -535,7 +535,7 @@ test('Crew shows a localized turn pill only for the actual next player', async (
   const status = page.locator('.crew-table .status');
   await expect(status).toHaveText('Your turn');
   await expect(status).toHaveClass(/your-turn/);
-  await expect(status).toHaveCSS('background-color', 'rgb(35, 94, 69)');
+  await expect(status).toHaveCSS('background-color', 'rgb(255, 216, 98)');
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByLabel('Language', { exact: true }).selectOption('de');
   await page.keyboard.press('Escape');
@@ -860,14 +860,19 @@ for (const width of [1280, 390]) {
   });
 }
 
-test('Crew guests have no host controls and disconnected selection cannot submit', async ({
+test('Crew guests have no host commands and disconnected selection cannot submit', async ({
   page,
 }) => {
   const room = fixture();
   const { moves, disconnect } = await mock(page, room);
-  await expect(
-    page.getByRole('button', { name: 'Room controls', exact: true }),
-  ).toHaveCount(0);
+  await page
+    .getByRole('button', { name: 'Room controls', exact: true })
+    .click();
+  for (const name of ['Abort game', 'Finish: won', 'Finish: lost'])
+    await expect(page.getByRole('button', { name, exact: true })).toHaveCount(
+      0,
+    );
+  await page.keyboard.press('Escape');
   await page
     .getByRole('button', { name: 'Select Blue 1', exact: true })
     .click();

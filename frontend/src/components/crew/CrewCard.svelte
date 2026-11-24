@@ -26,7 +26,9 @@
     {...shell}
     rank={card.number}
     {selected}
-    color={card.color === 'black' && !muted ? '#fff8e7' : crewInk}
+    color={card.color === 'black' && !muted
+      ? 'var(--arena-card-face)'
+      : crewInk}
     background={muted
       ? `color-mix(in srgb, ${crewColors[card.color]} ${card.color === 'black' ? 40 : 55}%, var(--arena-canvas))`
       : crewColors[card.color]}
@@ -76,16 +78,9 @@
     vertical-align: top;
     border-radius: var(--arena-card-radius);
   }
-  .crew-card :global(.playing-card) {
-    border-color: #ffffff55;
-    box-shadow: 0 2px 4px #15291d18;
-  }
-  .crew-card.selected :global(.playing-card) {
-    border-color: var(--arena-text);
-    box-shadow: 0 0 0 2px var(--arena-text);
-  }
-  span.crew-card :global(button.playing-card:disabled) {
-    opacity: 1;
+  /* Selection lifts the card but keeps its printed face color. */
+  span.crew-card :global(.playing-card.selected) {
+    background: var(--card-background);
   }
   svg {
     width: 100%;

@@ -105,6 +105,7 @@
       >
         <CrewCard
           card={played.card}
+          highlighted={played.player === winner}
           label={played.player === winner
             ? $t('crew.winningCard', {
                 values: { card: cardName(played.card) },
@@ -209,33 +210,35 @@
     </div>
     <div class="controls">
       <Button
+        size="small"
         disabled={disabled || finished || !play(selectedIndex)}
         onclick={() => submit(play(selectedIndex))}
         >{$t('crew.playCard')}</Button
       >
       {#if communicationAvailable && !finished}<Button
           variant="secondary"
+          size="small"
           popovertarget="crew-communicate"
           aria-label={$t('crew.communicateCard')}
           disabled={disabled ||
             !declarations.some((declaration) => communicate(declaration))}
           >{$t('crew.communicate')}</Button
         >{/if}
-      {#if view.last_trick && view.trick.length}<button
-          class="history"
+      {#if view.last_trick && view.trick.length}<Button
+          variant="quiet"
+          size="small"
+          square
           popovertarget="crew-last-trick"
           aria-label={$t('crew.lastTrick')}
           title={$t('crew.lastTrick')}
           ><svg
             viewBox="0 0 24 24"
-            width="20"
-            height="20"
             fill="none"
             stroke="currentColor"
-            stroke-width="1.7"
+            stroke-width="2"
             aria-hidden="true"
             ><circle cx="12" cy="12" r="9" /><path d="M12 6v6l4 2" /></svg
-          ></button
+          ></Button
         >{/if}
     </div>
   </div>
@@ -261,8 +264,11 @@
             >{$t(`crew.declarations.${declaration}`)}</Button
           >{/each}
       </div>
-      <button popovertarget="crew-communicate" popovertargetaction="hide"
-        >{$t('crew.close')}</button
+      <Button
+        variant="quiet"
+        size="small"
+        popovertarget="crew-communicate"
+        popovertargetaction="hide">{$t('crew.close')}</Button
       >
     </section>
   {/if}
@@ -280,8 +286,11 @@
         })}
       </p>
       {@render trickCards(view.last_trick.cards, false, view.last_trick.winner)}
-      <button popovertarget="crew-last-trick" popovertargetaction="hide"
-        >{$t('crew.close')}</button
+      <Button
+        variant="quiet"
+        size="small"
+        popovertarget="crew-last-trick"
+        popovertargetaction="hide">{$t('crew.close')}</Button
       >
     </section>
   {/if}
@@ -292,7 +301,6 @@
     /* One legible 72 × 101px card at default text size, in every context.
        Tight layouts scroll within the viewport instead of shrinking cards. */
     --arena-card-width: 4.5rem;
-    --arena-card-radius: 0.5rem;
     min-width: 0;
     min-height: 0;
     height: 100%;
@@ -392,34 +400,30 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .winning :global(.playing-card) {
-    outline: 3px solid var(--arena-primary);
-    outline-offset: 2px;
-    box-shadow: 0 0 0 2px var(--arena-card-face);
-  }
   .own-zone {
     min-width: 0;
     display: grid;
     gap: 0.5rem;
   }
+  /* Same strip as the room's game status; highlighted on the viewer's turn. */
   .status {
-    text-align: center;
-    margin: 0;
-    font-size: 0.9rem;
-    min-height: 2.5rem;
+    width: min(100%, 24rem);
+    min-height: 2.75rem;
+    margin: 0 auto;
+    padding: 0.4rem 1rem;
     display: grid;
     place-content: center;
+    border: var(--arena-line);
+    border-radius: var(--arena-control-radius);
+    background: var(--arena-surface);
+    text-align: center;
+    font-weight: 700;
   }
   .status.your-turn {
-    width: fit-content;
-    margin-inline: auto;
-    padding: 0.5rem 1.25rem;
-    border-radius: 999px;
-    background: var(--arena-primary);
-    color: var(--arena-on-primary);
-    font-size: 1rem;
+    background: var(--arena-highlight);
+    color: var(--arena-on-highlight);
+    font-size: 1.1rem;
     font-weight: 800;
-    box-shadow: 0 2px 0 #1e553d25;
   }
   .own-cards {
     display: grid;
@@ -438,12 +442,13 @@
     flex-shrink: 0;
     border-radius: 50%;
     background: var(--crew-black);
-    border: 2px solid var(--arena-card-face);
+    border: var(--arena-line);
   }
+  /* Top padding leaves room for the lifted selected card. */
   .hand-scroll {
     min-width: 0;
     overflow-x: auto;
-    padding: 0.5rem;
+    padding: 1rem 0.5rem 0.5rem;
   }
   .card-row {
     display: flex;
@@ -460,40 +465,24 @@
     align-items: center;
     gap: 0.5rem;
   }
-  .controls > button {
-    min-height: var(--arena-control-height);
-    border-radius: var(--arena-control-radius);
-    background: var(--arena-surface);
-    border-color: var(--arena-border);
-  }
   .controls :global(button) {
-    font-size: 0.875rem;
-    padding: 0.625rem 0.75rem;
     white-space: nowrap;
-  }
-  .controls > .history {
-    display: grid;
-    place-items: center;
-    width: 3rem;
-    padding: 0.5rem;
   }
   .table-popover {
     width: min(28rem, calc(100vw - 2rem));
     max-height: calc(100dvh - 2rem);
     padding: 1.5rem;
     overflow: auto;
-    border: 1px solid var(--arena-border);
+    border: var(--arena-line);
     border-radius: var(--arena-panel-radius);
     background: var(--arena-surface);
     color: var(--arena-text);
-    box-shadow: 0 12px 36px #1e553d20;
+    box-shadow: var(--arena-overlay);
   }
-  .table-popover h2 {
-    margin-top: 0;
-  }
-  .table-popover > button {
-    margin-top: 1rem;
-    min-height: 2.75rem;
+  .table-popover:popover-open {
+    display: grid;
+    justify-items: start;
+    gap: 1rem;
   }
   .declarations {
     flex-wrap: wrap;

@@ -49,8 +49,8 @@
   .slot {
     width: var(--arena-card-width);
     aspect-ratio: 5 / 7;
-    border: 1px dashed var(--arena-border);
-    border-radius: 0.5rem;
+    border: 2px dashed var(--arena-text-muted);
+    border-radius: var(--arena-card-radius);
   }
   .slot:has(:global(.playing-card)) {
     border: 0;
@@ -61,10 +61,9 @@
     transform: translateX(-50%);
     width: calc(var(--arena-card-width) * 0.5);
     aspect-ratio: 1;
-    border: 2px solid var(--arena-card-face);
+    border: var(--arena-line);
     border-radius: 50%;
     background: var(--arena-primary);
-    box-shadow: 0 0 0 1px var(--arena-border);
   }
   .marker[data-position='highest'] {
     top: 8%;
