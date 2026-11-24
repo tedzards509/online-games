@@ -206,7 +206,9 @@
     "grid": "Raster von {name}",
     "cell": "Karte {number}: {value}",
     "removed": "weg",
-    "hidden": "verdeckt"
+    "hidden": "verdeckt",
+    "points_one": "{count} Punkt auf der Uhr",
+    "points_other": "{count} Punkte auf der Uhr"
   },
   "tempel": {
     "revealedPiles": "Was schon offen liegt",

@@ -206,7 +206,9 @@
     "grid": "Raster von {name}",
     "cell": "Karte {number}: {value}",
     "removed": "entfernt",
-    "hidden": "verdeckt"
+    "hidden": "verdeckt",
+    "points_one": "{count} Punkt",
+    "points_other": "{count} Punkte"
   },
   "tempel": {
     "revealedPiles": "Aufgedeckte Karten",

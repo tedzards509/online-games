@@ -206,7 +206,9 @@
     "grid": "{name}'s grid",
     "cell": "Card {number}: {value}",
     "removed": "removed",
-    "hidden": "hidden"
+    "hidden": "hidden",
+    "points_one": "{count} point",
+    "points_other": "{count} points"
   },
   "tempel": {
     "revealedPiles": "Revealed piles",

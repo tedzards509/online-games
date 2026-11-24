@@ -4,13 +4,12 @@
   import CardBack from './cards/CardBack.svelte';
   import CardSlot from './cards/CardSlot.svelte';
   import PlayingCard from './cards/PlayingCard.svelte';
-  import Actions from './table/Actions.svelte';
   import Board from './table/Board.svelte';
   import Pile from './table/Pile.svelte';
   import PlayerBar from './table/PlayerBar.svelte';
+  import PlayerDock from './table/PlayerDock.svelte';
   import TableSurface from './table/TableSurface.svelte';
   import Button from './ui/Button.svelte';
-  import Notice from './ui/Notice.svelte';
 
   let {
     view,
@@ -30,10 +29,14 @@
     return { face: '#c63d29', ink: '#fff' };
   }
 
-  const order = $derived([
-    you,
-    ...names.map((_, i) => i).filter((i) => i !== you),
-  ]);
+  const opponents = $derived(names.map((_, i) => i).filter((i) => i !== you));
+  /** Sum of a player's face-up cards that are still in their grid. */
+  function points(player: number): number {
+    return view.grids[player].reduce(
+      (sum, cell) => sum + (cell.removed ? 0 : (cell.value ?? 0)),
+      0,
+    );
+  }
   function cellAction(player: number, index: number): Action | undefined {
     if (player !== you) return;
     return actions.find(
@@ -57,6 +60,33 @@
   </PlayingCard>
 {/snippet}
 
+{#snippet total(player: number)}
+  {$t('skyjo.points', { values: { count: points(player) } })}
+{/snippet}
+
+{#snippet grid(player: number)}
+  <div class="grid">
+    {#each view.grids[player] as cell, index}
+      {@const action = cellAction(player, index)}
+      {@const label = $t('skyjo.cell', {
+        values: {
+          number: index + 1,
+          value: cell.removed
+            ? $t('skyjo.removed')
+            : (cell.value ?? $t('skyjo.hidden')),
+        },
+      })}
+      {#if cell.removed}
+        <CardSlot {label} outlined={false} />
+      {:else if cell.value == null}
+        <CardBack {label} onclick={action && (() => move(action))} />
+      {:else}
+        {@render face(cell.value, label, action)}
+      {/if}
+    {/each}
+  </div>
+{/snippet}
+
 <Board>
   <TableSurface>
     <Pile caption={$t('skyjo.stock', { values: { count: view.stock } })}
@@ -75,65 +105,58 @@
     {/if}
   </TableSurface>
 
-  {#if actions.length || view.phase === 'setup'}
-    <Notice
-      >{actions.length
-        ? $t(`skyjo.hints.${view.phase}`)
-        : $t('skyjo.waiting')}</Notice
-    >
+  {#if opponents.length}
+    <div class="grids">
+      {#each opponents as player (player)}
+        <section
+          class="player"
+          aria-label={$t('skyjo.grid', { values: { name: names[player] } })}
+        >
+          <PlayerBar
+            name={names[player]}
+            colorIndex={player}
+            active={active.includes(player)}>{@render total(player)}</PlayerBar
+          >
+          {@render grid(player)}
+        </section>
+      {/each}
+    </div>
   {/if}
-  <Actions>
-    {#each actions as action}
-      {#if action.game === 'skyjo' && action.action.type === 'draw'}
-        <Button onclick={() => move(action)}
-          >{action.action.source === 'stock'
-            ? $t('skyjo.draw')
-            : $t('skyjo.takeDiscard')}</Button
-        >
-      {:else if action.game === 'skyjo' && action.action.type === 'discard'}
-        <Button variant="secondary" onclick={() => move(action)}
-          >{$t('skyjo.discardAndReveal')}</Button
-        >
-      {/if}
-    {/each}
-  </Actions>
 
-  <div class="grids">
-    {#each order as player (player)}
-      <section
-        class="player"
-        class:own={player === you}
-        aria-label={$t('skyjo.grid', { values: { name: names[player] } })}
-      >
-        <PlayerBar
-          name={names[player]}
-          colorIndex={player}
-          you={player === you}
-          active={active.includes(player)}
-        />
-        <div class="grid">
-          {#each view.grids[player] as cell, index}
-            {@const action = cellAction(player, index)}
-            {@const label = $t('skyjo.cell', {
-              values: {
-                number: index + 1,
-                value: cell.removed
-                  ? $t('skyjo.removed')
-                  : (cell.value ?? $t('skyjo.hidden')),
-              },
-            })}
-            {#if cell.removed}
-              <CardSlot {label} outlined={false} />
-            {:else if cell.value == null}
-              <CardBack {label} onclick={action && (() => move(action))} />
-            {:else}
-              {@render face(cell.value, label, action)}
-            {/if}
-          {/each}
-        </div>
-      </section>
-    {/each}
-  </div>
+  <section
+    class="player own"
+    aria-label={$t('skyjo.grid', { values: { name: names[you] } })}
+  >
+    {@render grid(you)}
+  </section>
+
+  <PlayerDock
+    name={names[you]}
+    colorIndex={you}
+    attention={actions.length > 0}
+    hint={actions.length
+      ? $t(`skyjo.hints.${view.phase}`)
+      : view.phase === 'setup'
+        ? $t('skyjo.waiting')
+        : undefined}
+  >
+    {#snippet details()}{@render total(you)}{/snippet}
+    {#snippet controls()}
+      {#each actions as action}
+        {#if action.game === 'skyjo' && action.action.type === 'draw'}
+          <Button onclick={() => move(action)}
+            >{action.action.source === 'stock'
+              ? $t('skyjo.draw')
+              : $t('skyjo.takeDiscard')}</Button
+          >
+        {:else if action.game === 'skyjo' && action.action.type === 'discard'}
+          <Button variant="secondary" onclick={() => move(action)}
+            >{$t('skyjo.discardAndReveal')}</Button
+          >
+        {/if}
+      {/each}
+    {/snippet}
+  </PlayerDock>
 </Board>
 
 <style>
@@ -154,7 +177,6 @@
     --arena-card-width: var(--arena-card-width-small);
   }
   .own {
-    flex-basis: 100%;
     justify-items: center;
     --arena-card-width: 4.5rem;
   }
