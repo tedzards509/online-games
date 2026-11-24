@@ -3,7 +3,8 @@
   import type { HTMLButtonAttributes } from 'svelte/elements';
 
   /** Native button with the theme's raised/pressed treatment.
-   * `square` sizes an icon-only button; give it an aria-label. */
+   * `square` sizes an icon-only button; give it an aria-label.
+   * `aria-pressed` makes a toggle that stays pressed in while on. */
   let {
     variant = 'primary',
     size = 'regular',
@@ -80,8 +81,14 @@
     width: 100%;
     height: 100%;
   }
+  button[aria-pressed='true'] {
+    transform: var(--arena-pressed-shift);
+    box-shadow: var(--arena-pressed);
+    background: var(--arena-primary);
+    color: var(--arena-on-primary);
+  }
   @media (hover: hover) {
-    button:hover:not(:disabled) {
+    button:hover:not(:disabled, [aria-pressed='true']) {
       transform: var(--arena-hover-shift);
       box-shadow: var(--arena-raised-hover);
     }

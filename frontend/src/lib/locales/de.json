@@ -83,7 +83,9 @@
     "draw": "Unentschieden",
     "close": "Schließen",
     "players": "Spieler",
-    "you": "du"
+    "you": "du",
+    "yourSeat": "Dein Platz",
+    "sortByValue": "Nach Wert sortieren"
   },
   "gameNames": {
     "tempel_des_schreckens": "Tempel des Schreckens",
@@ -169,6 +171,7 @@
     "aceOrDrawTwo": "Spiel ein Ass oder zieh zwei",
     "drawTwo": "Zwei ziehen",
     "yourHand": "Deine Hand",
+    "playOrDraw": "Spiel eine Karte oder zieh",
     "chooseSuit": "Farbe wählen",
     "chooseSuitOf": "{suit} wählen",
     "drawOrPass": "Ziehen / passen",

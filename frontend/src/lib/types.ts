@@ -29,6 +29,11 @@ export const suits: Record<Suit, string> = {
   spades: '♠',
 };
 
+/** Orders standard cards by rank (2 → ace), then suit, for sorted hands. */
+export function byRank(a: Card, b: Card): number {
+  return a.rank - b.rank || a.suit.localeCompare(b.suit);
+}
+
 /** Props every game board receives from GameBoard. Boards may require more. */
 export type BoardProps<View> = {
   view: View;

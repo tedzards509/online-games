@@ -11,7 +11,7 @@ design tokens:
 
 | Component | Use |
 | --- | --- |
-| `Button` | Native button attributes and children. `variant` `primary` (default), `secondary`, or `quiet`; `size` `small` (44px), `regular`, or `large`; `square` for icon-only buttons with an `aria-label`. Defaults to `type="button"`. |
+| `Button` | Native button attributes and children. `variant` `primary` (default), `secondary`, or `quiet`; `size` `small` (44px), `regular`, or `large`; `square` for icon-only buttons with an `aria-label`. Defaults to `type="button"`. `aria-pressed` makes a toggle that stays pressed in while on. |
 | `TextField` | Native input attributes, bindable `value`, and `label` used as placeholder and accessible name. |
 | `ChoiceGroup` | Radio tiles with a visible legend; the chosen tile stays pressed in. |
 | `Checkbox`, `Select` | Labelled native controls with `onchange(value)`. |
@@ -23,8 +23,29 @@ design tokens:
 `PlayerBar` (avatar, name, public details, `active` highlight, `data-active`),
 `PlayerList` (labelled list of player bars with a details snippet), `Avatar`,
 `TableSurface` (the green playing area), `CardRow` (labelled, horizontally
-scrolling hand), `Pile` (card with caption), `BoardSpace` (square cell or round
-pit, raised while it accepts a move), and `Actions` (command button row). Boards receive `BoardProps` (`lib/types.ts`):
+scrolling card row), `Pile` (card with caption), `BoardSpace` (square cell or round
+pit, raised while it accepts a move), and `Actions` (command button row).
+
+`PlayerDock` is the viewer's seat, rendered last in a board for seated viewers:
+`name`, `colorIndex`, `attention` (must act now; `data-active`), `hint` (short
+prompt), and snippets `hand`, `details`, and `controls` (action buttons, primary
+last). `Hand` is the viewer's hand: `label`, `items`, and a `card(item, index)`
+snippet whose index is the item's position in `items`, whatever the display
+order; an `order` comparison (e.g. `byRank` from `lib/types.ts`) adds a sort
+toggle. Opponents go in a `PlayerList` without the viewer.
+
+```svelte
+<PlayerDock name={names[you]} colorIndex={you} attention={yourTurn} {hint}>
+  {#snippet hand()}
+    <Hand label={$t('…yourHand')} items={view.hand} order={byRank}>
+      {#snippet card(card, index)}<StandardPlayingCard {card} … />{/snippet}
+    </Hand>
+  {/snippet}
+  {#snippet controls()}<Button onclick={…}>{$t('…')}</Button>{/snippet}
+</PlayerDock>
+```
+
+Boards receive `BoardProps` (`lib/types.ts`):
 view, legal actions, names, viewer index, active players, finished flag, and
 `move`.
 

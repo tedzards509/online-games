@@ -1,13 +1,12 @@
 <script lang="ts">
   import { t } from '../lib/i18n';
-  import { suits, type BoardProps, type Schemas } from '../lib/types';
+  import { byRank, suits, type BoardProps, type Schemas } from '../lib/types';
   import CardBack from './cards/CardBack.svelte';
   import StandardPlayingCard from './cards/StandardPlayingCard.svelte';
-  import Actions from './table/Actions.svelte';
-  import CardRow from './table/CardRow.svelte';
-  import Pile from './table/Pile.svelte';
   import Board from './table/Board.svelte';
-  import PlayerBar from './table/PlayerBar.svelte';
+  import Hand from './table/Hand.svelte';
+  import Pile from './table/Pile.svelte';
+  import PlayerDock from './table/PlayerDock.svelte';
   import PlayerList from './table/PlayerList.svelte';
   import TableSurface from './table/TableSurface.svelte';
   import Button from './ui/Button.svelte';
@@ -80,55 +79,75 @@
         : $t('crazyEights.drawTwo')}</Notice
     >{/if}
 
-  <PlayerBar name={names[you]} colorIndex={you} you active={yourTurn} />
-  <CardRow label={$t('crazyEights.yourHand')}>
-    {#each view.hand as card, index}
-      {@const legal = legalPlay(index)}
-      <StandardPlayingCard
-        {card}
-        selected={wild === index}
-        disabled={!legal}
-        muted={yourTurn && !legal}
-        onclick={() => play(index)}
-      />
-    {/each}
-  </CardRow>
-
-  {#if choices.length}
-    <Actions label={$t('crazyEights.chooseSuit')}>
-      {#each choices as choice}
-        {#if choice.game === 'crazy_eights' && choice.action.type === 'play' && choice.action.suit}
-          <Button
-            variant="quiet"
-            aria-label={$t('crazyEights.chooseSuitOf', {
-              values: { suit: $t(`suits.${choice.action.suit}`) },
-            })}
-            onclick={() => {
-              move(choice);
-              wild = null;
-            }}>{suits[choice.action.suit]}</Button
+  <PlayerDock
+    name={names[you]}
+    colorIndex={you}
+    attention={yourTurn}
+    hint={wild !== null
+      ? $t('crazyEights.chooseSuit')
+      : yourTurn
+        ? $t('crazyEights.playOrDraw')
+        : undefined}
+  >
+    {#snippet hand()}
+      <Hand label={$t('crazyEights.yourHand')} items={view.hand} order={byRank}>
+        {#snippet card(card, index)}
+          {@const legal = legalPlay(index)}
+          <StandardPlayingCard
+            {card}
+            selected={wild === index}
+            disabled={!legal}
+            muted={yourTurn && !legal}
+            onclick={() => play(index)}
+          />
+        {/snippet}
+      </Hand>
+    {/snippet}
+    {#snippet controls()}
+      {#if choices.length}
+        <div
+          class="suits"
+          role="group"
+          aria-label={$t('crazyEights.chooseSuit')}
+        >
+          {#each choices as choice}
+            {#if choice.game === 'crazy_eights' && choice.action.type === 'play' && choice.action.suit}
+              <Button
+                variant="quiet"
+                square
+                aria-label={$t('crazyEights.chooseSuitOf', {
+                  values: { suit: $t(`suits.${choice.action.suit}`) },
+                })}
+                onclick={() => {
+                  move(choice);
+                  wild = null;
+                }}>{suits[choice.action.suit]}</Button
+              >
+            {/if}
+          {/each}
+        </div>
+      {/if}
+      {#each actions as action}
+        {#if action.game === 'crazy_eights' && action.action.type === 'draw'}
+          <Button onclick={() => move(action)}
+            >{view.pending_draw
+              ? $t('crazyEights.drawTwo')
+              : view.stock === 0
+                ? $t('crazyEights.drawOrPass')
+                : $t('crazyEights.draw')}</Button
           >
         {/if}
       {/each}
-    </Actions>
-  {/if}
-  <Actions>
-    {#each actions as action}
-      {#if action.game === 'crazy_eights' && action.action.type === 'draw'}
-        <Button variant="secondary" onclick={() => move(action)}
-          >{view.pending_draw
-            ? $t('crazyEights.drawTwo')
-            : view.stock === 0
-              ? $t('crazyEights.drawOrPass')
-              : $t('crazyEights.draw')}</Button
-        >
-      {/if}
-    {/each}
-  </Actions>
+    {/snippet}
+  </PlayerDock>
 </Board>
 
 <style>
   p {
     font-weight: 700;
+  }
+  .suits {
+    display: flex;
+    gap: var(--arena-space-1);
   }
 </style>

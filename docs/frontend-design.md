@@ -54,6 +54,21 @@ fallback. German (cool) is an explicit selection, not a device locale.
   "View board" (or Escape) dismisses it until the next game; the room controls'
   Results button reopens it. Finished-game host commands exist only here.
 
+## Player area
+
+Boards follow one order: opponents (player list), the table, then the viewer's
+dock at the bottom. The dock is the viewer's seat and the one place for their
+controls: their hand above a bar with avatar, name, public details, a short
+hint, and the action buttons, primary last (rightmost; full width on narrow
+screens). It stays at the bottom of the viewport while the board scrolls. When
+the viewer must act, the bar takes the highlight color with a slowly widening,
+fading solid ring, static under reduced motion. Benched viewers have no dock.
+
+The hand is one row: cards overlap once the row would no longer fit, then
+scroll horizontally. A sort toggle shows it by value without changing the
+cards' identity. Boards supply card content only, so the hand's layout can be
+replaced in one component.
+
 ## Playing cards
 
 All cards share a rounded 5:7 shell. Layer symbol/letter cards onto that shell,

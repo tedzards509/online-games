@@ -83,7 +83,9 @@
     "draw": "Draw",
     "close": "Close",
     "players": "Players",
-    "you": "you"
+    "you": "you",
+    "yourSeat": "Your seat",
+    "sortByValue": "Sort by value"
   },
   "gameNames": {
     "tempel_des_schreckens": "Tempel des Schreckens",
@@ -169,6 +171,7 @@
     "aceOrDrawTwo": "Play an ace or draw two",
     "drawTwo": "Draw two",
     "yourHand": "Your hand",
+    "playOrDraw": "Play a card or draw",
     "chooseSuit": "Choose suit",
     "chooseSuitOf": "Choose {suit}",
     "drawOrPass": "Draw / pass",

@@ -83,7 +83,9 @@
     "draw": "Patt",
     "close": "Schließen",
     "players": "Spieler",
-    "you": "du"
+    "you": "du",
+    "yourSeat": "Dein Spot",
+    "sortByValue": "Nach Wert ordnen"
   },
   "gameNames": {
     "tempel_des_schreckens": "Tempel des Schreckens",
@@ -169,6 +171,7 @@
     "aceOrDrawTwo": "Ass raus oder zwei ziehen",
     "drawTwo": "Zwei ziehen",
     "yourHand": "Deine Hand",
+    "playOrDraw": "Hau eine Karte raus oder zieh",
     "chooseSuit": "Farbe ansagen",
     "chooseSuitOf": "{suit} ansagen",
     "drawOrPass": "Ziehen / schieben",
