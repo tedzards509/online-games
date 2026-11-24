@@ -169,6 +169,7 @@
     "cards_one": "{count} Karte",
     "cards_other": "{count} Karten",
     "stock": "{count} im Stapel",
+    "emptyStock": "Leerer Stapel",
     "suit": "Farbe {suit}",
     "reversed": "Richtung umgekehrt",
     "aceOrDrawTwo": "Spiel ein Ass oder zieh zwei",

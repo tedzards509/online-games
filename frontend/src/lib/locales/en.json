@@ -169,6 +169,7 @@
     "cards_one": "{count} card",
     "cards_other": "{count} cards",
     "stock": "{count} in stock",
+    "emptyStock": "Empty stock",
     "suit": "Suit {suit}",
     "reversed": "Reverse direction",
     "aceOrDrawTwo": "Play an ace or draw two",

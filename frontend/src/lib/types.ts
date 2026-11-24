@@ -24,7 +24,7 @@ export const games: GameKind[] = [
 
 /** Boards built on `CardTable`: they fill the viewport and show their turn
  * status in the player dock, so the room shell drops its status strip. */
-export const cardTableGames: GameKind[] = ['the_crew'];
+export const cardTableGames: GameKind[] = ['the_crew', 'crazy_eights'];
 
 export const suits: Record<Suit, string> = {
   clubs: '♣',

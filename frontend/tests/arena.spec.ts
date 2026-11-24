@@ -484,9 +484,7 @@ test('room settings update live; seating, bench, abort, and switching games', as
     .click();
   await expect.poll(async () => (await snapshot(host)).seating).toEqual([0, 1]);
   await host.getByRole('button', { name: 'Start game', exact: true }).click();
-  await expect(
-    host.getByRole('heading', { name: 'Crazy Eights', exact: true }),
-  ).toBeVisible();
+  await expect(host.getByLabel('Your hand', { exact: true })).toBeVisible();
   await expect(host.getByRole('radio')).toHaveCount(0);
   await expect(
     host.getByRole('button', { name: 'Bench Bob', exact: true }),
@@ -702,9 +700,6 @@ for (const [kind, name, board] of [
     await seat(host, 'Bob');
     await seat(host, 'Alice');
     await host.getByRole('button', { name: 'Start game', exact: true }).click();
-    await expect(
-      host.getByRole('heading', { name, exact: true }),
-    ).toBeVisible();
     await expect(host.getByLabel(board, { exact: true })).toBeVisible();
     const saved = await snapshot(host);
     await host.reload();

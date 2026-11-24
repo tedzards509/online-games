@@ -169,6 +169,7 @@
     "cards_one": "{count} Karte",
     "cards_other": "{count} Karten",
     "stock": "{count} im Stapel",
+    "emptyStock": "Stapel ist leer",
     "suit": "Farbe {suit}",
     "reversed": "Andersrum!",
     "aceOrDrawTwo": "Ass raus oder zwei ziehen",
