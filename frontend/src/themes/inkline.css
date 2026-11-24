@@ -56,6 +56,8 @@
   --arena-hover-shift: translate(-1px, -1px);
   --arena-pressed: 0 0 0 var(--arena-ink);
   --arena-pressed-shift: translate(4px, 4px);
+  /* Inset that still covers the resting footprint (shift plus border) while pressed. */
+  --arena-pressed-reach: -8px 0 0 -8px;
   --arena-overlay: 6px 6px 0 var(--arena-ink);
 
   /* Cards */

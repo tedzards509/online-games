@@ -89,6 +89,29 @@ test('multiple eligible players become a single responder', async ({
   ).toHaveCount(0);
 });
 
+test('a pressed control still clicks when released at its resting edge', async ({
+  page,
+}) => {
+  const moves: unknown[] = [];
+  await mockMembership(page);
+  await page.routeWebSocket('**/api/rooms/ABC234/ws', (socket) => {
+    socket.onMessage((data) => {
+      const message = JSON.parse(String(data));
+      if (message.type === 'game') moves.push(message.message);
+      else socket.send(JSON.stringify({ type: 'snapshot', room: fixture() }));
+    });
+  });
+  await page.goto('/room/ABC234');
+  const cell = page.getByRole('button', { name: 'Cell 1: empty', exact: true });
+  const box = (await cell.boundingBox())!;
+  // The top edge strip that the pressed shift moves the cell away from.
+  await page.mouse.move(box.x + box.width / 2, box.y + 2);
+  await page.mouse.down();
+  await page.waitForTimeout(200);
+  await page.mouse.up();
+  await expect.poll(() => moves.length).toBe(1);
+});
+
 test('room and board copy follow the selected language', async ({ page }) => {
   await mockMembership(page);
   await page.addInitScript(() => localStorage.setItem('arena-language', 'de'));

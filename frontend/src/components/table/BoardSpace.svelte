@@ -18,6 +18,7 @@
 </script>
 
 <button
+  class="pressable"
   class:round
   aria-label={label}
   disabled={!move}

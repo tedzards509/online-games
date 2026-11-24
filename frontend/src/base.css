@@ -42,6 +42,16 @@ select {
   font: inherit;
   color: inherit;
 }
+/* A held control shifts onto its shadow; covering its resting footprint keeps a
+   release there inside the control, so the click still fires. */
+.pressable {
+  position: relative;
+}
+.pressable:active::after {
+  content: '';
+  position: absolute;
+  inset: var(--arena-pressed-reach);
+}
 :focus-visible {
   outline: 3px solid var(--arena-focus);
   outline-offset: 3px;

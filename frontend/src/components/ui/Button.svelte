@@ -18,7 +18,12 @@
   } = $props();
 </script>
 
-<button type="button" {...attributes} class="{variant} {size}" class:square>
+<button
+  type="button"
+  {...attributes}
+  class="pressable {variant} {size}"
+  class:square
+>
   {@render children()}
 </button>
 
