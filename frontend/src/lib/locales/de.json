@@ -241,7 +241,8 @@
     "opponentStore": "Gegnerischer Speicher",
     "yourStore": "Dein Speicher",
     "pit_one": "Mulde {pit}: {count} Stein",
-    "pit_other": "Mulde {pit}: {count} Steine"
+    "pit_other": "Mulde {pit}: {count} Steine",
+    "hint": "Wähle eine Mulde"
   },
   "ticTacToe": {
     "board": "Tic-Tac-Toe-Feld",

@@ -241,7 +241,8 @@
     "opponentStore": "Opponent store",
     "yourStore": "Your store",
     "pit_one": "Pit {pit}: {count} stone",
-    "pit_other": "Pit {pit}: {count} stones"
+    "pit_other": "Pit {pit}: {count} stones",
+    "hint": "Choose a pit"
   },
   "ticTacToe": {
     "board": "Tic-Tac-Toe board",

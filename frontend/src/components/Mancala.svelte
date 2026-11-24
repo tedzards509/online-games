@@ -3,6 +3,7 @@
   import type { Action, BoardProps, Schemas } from '../lib/types';
   import Board from './table/Board.svelte';
   import BoardSpace from './table/BoardSpace.svelte';
+  import PlayerDock from './table/PlayerDock.svelte';
   import PlayerList from './table/PlayerList.svelte';
   import TableSurface from './table/TableSurface.svelte';
 
@@ -20,17 +21,24 @@
   const other = $derived(
     you === 0 ? [12, 11, 10, 9, 8, 7] : [5, 4, 3, 2, 1, 0],
   );
+  const yourTurn = $derived(active.includes(you));
   function action(pit: number): Action | undefined {
     return actions.find((a) => a.game === 'mancala' && a.action.pit === pit);
   }
 </script>
 
+{#snippet inStore(player: number)}{$t('mancala.inStore', {
+    values: { count: view.board[stores[player]] },
+  })}{/snippet}
+
 <Board>
-  <PlayerList players={names.map((_, player) => player)} {names} {you} {active}>
-    {#snippet details(player)}{$t('mancala.inStore', {
-        values: { count: view.board[stores[player]] },
-      })}{/snippet}
-  </PlayerList>
+  <PlayerList
+    players={names.map((_, player) => player).filter((p) => p !== you)}
+    {names}
+    {you}
+    {active}
+    details={inStore}
+  />
   <TableSurface>
     <!-- Desktop: opponent row on top, stores at the ends. Narrow screens turn
          the board into two columns so pits keep comfortable touch sizes. -->
@@ -55,6 +63,14 @@
       </div>
     </div>
   </TableSurface>
+  <PlayerDock
+    name={names[you]}
+    colorIndex={you}
+    attention={yourTurn}
+    hint={yourTurn ? $t('mancala.hint') : undefined}
+  >
+    {#snippet details()}{@render inStore(you)}{/snippet}
+  </PlayerDock>
 </Board>
 
 <style>
@@ -79,8 +95,10 @@
     color: var(--arena-text);
     font-weight: 800;
   }
-  /* Two columns: opponent pits descend on the left, own pits on the right,
-     keeping the counter-clockwise sowing loop between the stores. */
+  /* Two columns between the opponent store (top) and yours (bottom): own pits
+     descend on the left and opponent pits ascend on the right, so sowing
+     stays counter-clockwise. rtl puts the first-listed (opponent) column on
+     the right. */
   @media (max-width: 40rem) {
     .mancala {
       grid-template-columns: minmax(0, 14rem);
@@ -91,6 +109,7 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
       grid-template-rows: repeat(6, auto);
       grid-auto-flow: column;
+      direction: rtl;
     }
   }
 </style>

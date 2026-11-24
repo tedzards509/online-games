@@ -241,7 +241,8 @@
     "opponentStore": "Bunker der Gegenseite",
     "yourStore": "Dein Bunker",
     "pit_one": "Mulde {pit}: {count} Stein",
-    "pit_other": "Mulde {pit}: {count} Steine"
+    "pit_other": "Mulde {pit}: {count} Steine",
+    "hint": "Schnapp dir eine Mulde"
   },
   "ticTacToe": {
     "board": "Tic-Tac-Toe-Feld",
