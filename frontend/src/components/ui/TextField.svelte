@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { HTMLInputAttributes } from 'svelte/elements';
 
+  /** Text input whose label is both its placeholder and accessible name. */
   let {
     label,
     value = $bindable(''),
@@ -18,21 +19,15 @@
     width: 100%;
     min-width: 0;
     min-height: var(--arena-control-height);
-    padding: 0.75rem 1rem;
-    border: 1.5px solid var(--arena-border);
+    padding: 0.5rem 1rem;
+    border: var(--arena-line);
     border-radius: var(--arena-control-radius);
     background: var(--arena-input);
-    color: var(--arena-text);
-    font-family: var(--arena-font);
-    font-size: 1rem;
-    line-height: 1.3;
+    font-size: 1.05rem;
+    font-weight: 600;
   }
   input::placeholder {
-    color: var(--arena-placeholder);
+    color: var(--arena-text-muted);
     opacity: 1;
-  }
-  input:focus-visible {
-    outline: 3px solid var(--arena-focus);
-    outline-offset: 3px;
   }
 </style>

@@ -1,16 +1,7 @@
 <script lang="ts">
-  import type { Action, Schemas } from '../lib/types';
-  let {
-    view,
-    actions,
-    you,
-    move,
-  }: {
-    view: Schemas['TicTacToeView'];
-    actions: Action[];
-    you: number;
-    move: (action: Action) => void;
-  } = $props();
+  import type { Action, BoardProps, Schemas } from '../lib/types';
+  let { view, actions, you, move }: BoardProps<Schemas['TicTacToeView']> =
+    $props();
 
   function action(index: number): Action | undefined {
     return actions.find(

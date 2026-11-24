@@ -140,7 +140,7 @@ for (const [name, width, height] of [
     await page.evaluate(() => document.fonts.ready);
     expect(
       await page.evaluate(() =>
-        document.fonts.check('16px "Nunito Sans Variable"'),
+        document.fonts.check('16px "Bricolage Grotesque Variable"'),
       ),
     ).toBe(true);
     expect(external).toEqual([]);

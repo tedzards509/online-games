@@ -1,18 +1,7 @@
 <script lang="ts">
-  import type { Action, Schemas } from '../lib/types';
-  let {
-    view,
-    actions,
-    you,
-    names,
-    move,
-  }: {
-    view: Schemas['SkyjoView'];
-    actions: Action[];
-    you: number;
-    names: string[];
-    move: (action: Action) => void;
-  } = $props();
+  import type { Action, BoardProps, Schemas } from '../lib/types';
+  let { view, actions, you, names, move }: BoardProps<Schemas['SkyjoView']> =
+    $props();
   const order = $derived([
     you,
     ...names.map((_, i) => i).filter((i) => i !== you),

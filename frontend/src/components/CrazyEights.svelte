@@ -1,15 +1,13 @@
 <script lang="ts">
   import PlayingCard from './PlayingCard.svelte';
-  import { suits, type Action, type Schemas } from '../lib/types';
-  let {
-    view,
-    actions,
-    move,
-  }: {
-    view: Schemas['CrazyEightsView'];
-    actions: Action[];
-    move: (action: Action) => void;
-  } = $props();
+  import {
+    suits,
+    type Action,
+    type BoardProps,
+    type Schemas,
+  } from '../lib/types';
+  let { view, actions, move }: BoardProps<Schemas['CrazyEightsView']> =
+    $props();
   let wild = $state<number | null>(null);
   const choices = $derived(
     actions.filter(

@@ -1,0 +1,75 @@
+@import '@fontsource-variable/bricolage-grotesque';
+
+/* Inkline: cream canvas, green table, ink outlines. Only pressable controls cast a
+   hard shadow; pressing moves them onto it, and chosen options stay pressed in.
+   A theme defines every token below; components use no other theme values. */
+:root[data-theme='inkline'] {
+  --inkline-ink: #16271e;
+  --inkline-leaf: #2f8a52;
+  --inkline-mint: #d3ecd8;
+  --inkline-butter: #ffd862;
+  --inkline-tomato: #c8432d;
+
+  /* Type */
+  --arena-font: 'Bricolage Grotesque Variable', sans-serif;
+
+  /* Surfaces and text */
+  --arena-canvas: #f5f1e6;
+  --arena-surface: #fffdf7;
+  --arena-surface-muted: var(--inkline-mint);
+  --arena-input: #fff;
+  --arena-text: var(--inkline-ink);
+  --arena-text-muted: #4a5f52;
+  --arena-primary: var(--inkline-leaf);
+  --arena-on-primary: #fff;
+  --arena-secondary: var(--inkline-butter);
+  --arena-on-secondary: var(--inkline-ink);
+  --arena-disabled: #e6e2d6;
+  --arena-on-disabled: #6f7a72;
+  /* Selection, the active player, and the most recent play. */
+  --arena-highlight: var(--inkline-butter);
+  --arena-on-highlight: var(--inkline-ink);
+  --arena-focus: var(--inkline-tomato);
+  --arena-error: #a3321f;
+  --arena-error-surface: #fde4dc;
+  --arena-table: var(--inkline-leaf);
+  --arena-on-table: #fff;
+  /* Avatar colors, cycled by seat. */
+  --arena-seat-1: var(--inkline-leaf);
+  --arena-seat-2: var(--inkline-butter);
+  --arena-seat-3: #ef7a62;
+  --arena-seat-4: #8ec5ff;
+  --arena-seat-5: #c7a6f0;
+  --arena-seat-6: var(--inkline-mint);
+  --arena-on-seat: var(--inkline-ink);
+
+  /* Lines and shape */
+  --arena-ink: var(--inkline-ink);
+  --arena-line: 2.5px solid var(--arena-ink);
+  --arena-control-radius: 0.75rem;
+  --arena-panel-radius: 1rem;
+  --arena-avatar-radius: 0.55rem;
+
+  /* Depth: raised at rest, shifted onto the shadow when pressed. */
+  --arena-raised: 4px 4px 0 var(--arena-ink);
+  --arena-raised-hover: 5px 5px 0 var(--arena-ink);
+  --arena-hover-shift: translate(-1px, -1px);
+  --arena-pressed: 0 0 0 var(--arena-ink);
+  --arena-pressed-shift: translate(4px, 4px);
+  --arena-overlay: 6px 6px 0 var(--arena-ink);
+
+  /* Cards */
+  --arena-card-radius: 0.7rem;
+  --arena-card-line: var(--arena-line);
+  --arena-card-face: #fffdf7;
+  --arena-card-dark: var(--inkline-ink);
+  --arena-card-red: var(--inkline-tomato);
+  --arena-card-back: var(--inkline-mint)
+    repeating-linear-gradient(45deg, #0000 0 6px, #2f8a5240 6px 12px);
+  --arena-card-muted: #ece8dc;
+  --arena-on-card-muted: #8d998f;
+  --arena-card-selected: #fff4c8;
+  --arena-card-raised: 3px 3px 0 var(--arena-ink);
+  --arena-card-lifted: 5px 8px 0 var(--arena-ink);
+  --arena-card-lift: translateY(-0.75rem);
+}

@@ -5,6 +5,8 @@
   /** The shared 5:7 shell. Content may be any snippet, including SVG or images.
    * Supplying onclick makes a native button; display-only cards are non-focusable.
    * Width is a CSS length; omitted width inherits --arena-card-width.
+   * `muted` shows an opaque, desaturated face (e.g. an illegal play);
+   * `highlighted` marks a card such as the most recent play.
    */
   let {
     label,
@@ -15,6 +17,8 @@
     onclick,
     disabled = false,
     selected,
+    muted = false,
+    highlighted = false,
   }: {
     label: string;
     children: Snippet;
@@ -24,6 +28,8 @@
     onclick?: MouseEventHandler<HTMLButtonElement>;
     disabled?: boolean;
     selected?: boolean;
+    muted?: boolean;
+    highlighted?: boolean;
   } = $props();
 </script>
 
@@ -31,6 +37,8 @@
   this={onclick ? 'button' : 'div'}
   class="playing-card"
   class:selected
+  class:muted
+  class:highlighted
   type={onclick ? 'button' : undefined}
   role={onclick ? undefined : 'img'}
   aria-label={label}
@@ -38,8 +46,8 @@
   disabled={onclick ? disabled : undefined}
   {onclick}
   style:width
-  style:color
-  style:background
+  style:--card-color={color}
+  style:--card-background={background}
 >
   <span class="content" aria-hidden="true">{@render children()}</span>
 </svelte:element>
@@ -54,13 +62,15 @@
     aspect-ratio: 5 / 7;
     padding: 0;
     overflow: hidden;
-    border: 2px solid var(--arena-card-face);
+    border: var(--arena-card-line);
     border-radius: var(--arena-card-radius);
-    background: var(--arena-card-face);
-    color: var(--arena-card-dark);
-    box-shadow: var(--arena-card-shadow);
+    background: var(--card-background, var(--arena-card-face));
+    color: var(--card-color, var(--arena-card-dark));
     font-family: var(--arena-font);
     container-type: inline-size;
+    transition:
+      transform var(--arena-transition),
+      box-shadow var(--arena-transition);
   }
   .content {
     display: grid;
@@ -71,18 +81,28 @@
   button.playing-card {
     cursor: pointer;
   }
-  button.playing-card:hover:not(:disabled) {
-    border-color: var(--arena-border);
+  button.playing-card:not(:disabled) {
+    box-shadow: var(--arena-card-raised);
+  }
+  @media (hover: hover) {
+    button.playing-card:not(:disabled):not(.selected):hover {
+      transform: var(--arena-hover-shift);
+    }
   }
   button.playing-card:disabled {
-    opacity: 0.5;
     cursor: not-allowed;
   }
   .playing-card.selected {
-    border-color: var(--arena-focus);
+    transform: var(--arena-card-lift);
+    background: var(--arena-card-selected);
+    box-shadow: var(--arena-card-lifted);
   }
-  button.playing-card:focus-visible {
-    outline: 3px solid var(--arena-focus);
+  .playing-card.muted {
+    background: var(--arena-card-muted);
+    color: var(--arena-on-card-muted);
+  }
+  .playing-card.highlighted {
+    outline: 3px solid var(--arena-highlight);
     outline-offset: 3px;
   }
 </style>

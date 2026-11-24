@@ -1,19 +1,8 @@
 <script lang="ts">
   import PlayingCard from './PlayingCard.svelte';
-  import type { Action, Schemas } from '../lib/types';
-  let {
-    view,
-    actions,
-    you,
-    names,
-    move,
-  }: {
-    view: Schemas['ShitheadView'];
-    actions: Action[];
-    you: number;
-    names: string[];
-    move: (action: Action) => void;
-  } = $props();
+  import type { Action, BoardProps, Schemas } from '../lib/types';
+  let { view, actions, you, names, move }: BoardProps<Schemas['ShitheadView']> =
+    $props();
   let selected = $state<number[]>([]);
   const source = $derived(view.hand.length ? view.hand : view.players[you].up);
   const indices = $derived([...selected].sort((a, b) => a - b));

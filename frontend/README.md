@@ -6,19 +6,28 @@ Svelte 5 SPA. Run and verification commands are in the [root README](../README.m
 
 ## Shared UI
 
-- `components/ui/Button.svelte`: native button attributes and a children snippet;
-  `variant="primary"` (default) or `"secondary"`. Defaults to `type="button"`;
-  explicitly use `type="submit"` in forms.
-- `components/ui/TextField.svelte`: native input attributes, bindable `value`, and
-  required `label`, used as both placeholder and accessible name.
-- `components/ui/Panel.svelte`: cream container; its parent owns layout.
-- `components/LanguageSettings.svelte`: native popover with Escape/outside-click
-  dismissal and a native language select. Uses a 40rem mobile breakpoint.
+`components/ui/` holds themed controls; each scopes its styles and uses only
+design tokens:
 
-Shared controls use touch-sized heights and visible focus outlines. The landing
-layout changes at 40rem; tablet and desktop widths use two equal panels. Tokens
-are globally available, but shared component styles are scoped. Existing game
-boards do not use these components yet.
+| Component | Use |
+| --- | --- |
+| `Button` | Native button attributes and children. `variant` `primary` (default), `secondary`, or `quiet`; `size` `small` (44px), `regular`, or `large`; `square` for icon-only buttons with an `aria-label`. Defaults to `type="button"`. |
+| `TextField` | Native input attributes, bindable `value`, and `label` used as placeholder and accessible name. |
+| `ChoiceGroup` | Radio tiles with a visible legend; the chosen tile stays pressed in. |
+| `Checkbox`, `Select` | Labelled native controls with `onchange(value)`. |
+| `Panel` | Outlined surface that stacks its children; accepts section attributes. |
+| `Corner`, `Popover` | Corner-fixed trigger placement and the matching dismissible native popover (`start` or `end`). |
+| `Notice` | Inline status, or an alert with `tone="error"`. |
+
+`components/table/` holds shared game widgets: `PlayerBar` (avatar, name, public
+details, `active` highlight), `Avatar`, `TableSurface` (the green playing area),
+`CardRow` (labelled, horizontally scrolling hand), `Pile` (card with caption), and
+`Actions` (command button row). Boards receive `BoardProps` (`lib/types.ts`):
+view, legal actions, names, viewer index, active players, finished flag, and
+`move`.
+
+`components/room/` holds the lobby, room controls popover, game status strip,
+and their parts. Breakpoints use 40rem.
 
 ## Language
 
@@ -38,15 +47,15 @@ preferences are matched in order by base language (`de-AT` → `de`); otherwise
 English is used. An explicit choice is saved under `arena-language` in browser
 storage. German (cool) sets the document's language to `de` for assistive tools.
 Landing errors use translated copy; server diagnostics are not translation keys.
-The Crew board uses the `crew` catalog namespace. Other room/game copy remains
+The Crew board uses the `crew` catalog namespace. Room and other game copy is
 English.
 
 ## Fonts
 
-`main.ts` imports Nunito Sans through `@fontsource-variable/nunito-sans` (OFL-1.1).
-Vite emits local WOFF2 assets; no Google Fonts stylesheet or font request is used.
-`public/fonts/nunito-sans-OFL.txt` distributes its license. Standard suit drawings and the settings icon
-are inline SVG rather than icon fonts.
+Each theme imports its font through Fontsource; Inkline uses Bricolage Grotesque
+(`@fontsource-variable/bricolage-grotesque`, OFL-1.1). Vite emits local WOFF2
+assets; no external font request is used. `public/fonts/` distributes the
+license. Standard suit drawings and icons are inline SVG rather than icon fonts.
 
 ## Playing cards
 
@@ -59,8 +68,9 @@ are inline SVG rather than icon fonts.
 | `StandardPlayingCard` | Uses `SymbolCard`; required typed `card: { rank, suit }`. Derives face letters, suit SVG/color, and translated accessible name. Optional `label` override. |
 | `CardBack` | Uses `PlayingCard`; face-down pattern and translated name. Accepts no face data. |
 
-All layers accept `width` (CSS length), `background`, `onclick`, `disabled`, and
-`selected`; the shell and symbol layer also accept `color`. Standard cards derive
+All layers accept `width` (CSS length), `background`, `onclick`, `disabled`,
+`selected`, `muted` (opaque illegal-play face), and `highlighted` (e.g. the most
+recent play); the shell and symbol layer also accept `color`. Standard cards derive
 their own suit color. `width` defaults to `--arena-card-width`; corners and symbols
 scale with the card using container units. Games choose card width and hand layout.
 Image snippets should constrain their own content to fit the shell.

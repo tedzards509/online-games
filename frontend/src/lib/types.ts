@@ -35,3 +35,18 @@ export function cardLabel(card: Card): string {
     ] ?? card.rank;
   return `${rank}${suits[card.suit]}`;
 }
+
+/** Props every game board receives from GameBoard. Boards may require more. */
+export type BoardProps<View> = {
+  view: View;
+  /** The viewer's legal actions; empty while a command is pending or offline. */
+  actions: Action[];
+  /** Nicknames by player index. */
+  names: string[];
+  /** The viewer's player index. */
+  you: number;
+  /** Player indices that may act now; empty after the game ends. */
+  active: number[];
+  finished: boolean;
+  move: (action: Action) => void;
+};

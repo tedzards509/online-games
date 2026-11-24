@@ -260,16 +260,12 @@ test('room settings update live; seating, bench, abort, and switching games', as
   await expect(
     guest.getByText('Waiting for host to choose a game'),
   ).toBeVisible();
-  await host
-    .getByRole('combobox', { name: 'Game', exact: true })
-    .selectOption('crazy_eights');
+  await host.getByRole('radio', { name: 'Crazy Eights', exact: true }).check();
   await host.getByRole('checkbox', { name: /2: Next/ }).check();
   await expect(guest.getByRole('region', { name: 'Game rules' })).toContainText(
     '2: Next player draws two: On',
   );
-  await expect(
-    guest.getByRole('combobox', { name: 'Game', exact: true }),
-  ).toHaveCount(0);
+  await expect(guest.getByRole('radio')).toHaveCount(0);
   await seat(host, 'Bob');
   await seat(host, 'Alice');
   expect((await snapshot(host)).seating).toEqual([1, 0]);
@@ -281,12 +277,10 @@ test('room settings update live; seating, bench, abort, and switching games', as
   await expect(
     host.getByRole('heading', { name: 'Crazy Eights', exact: true }),
   ).toBeVisible();
-  await expect(
-    host.getByRole('combobox', { name: 'Game', exact: true }),
-  ).toBeDisabled();
+  await expect(host.getByRole('radio')).toHaveCount(0);
   await expect(
     host.getByRole('button', { name: 'Bench Bob', exact: true }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   await join(late, path, 'Carol');
   await expect(
     late.getByText('You are on the bench', { exact: true }),
@@ -294,19 +288,20 @@ test('room settings update live; seating, bench, abort, and switching games', as
   expect((await snapshot(late)).game.view).toBeNull();
   await expect(
     host.getByRole('button', { name: 'Seat Carol', exact: true }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   const saved = await snapshot(guest);
   await guest.reload();
   await expect(guest.getByLabel('Your hand', { exact: true })).toBeVisible();
   expect((await snapshot(guest)).game.you).toBe(saved.game.you);
+  await host
+    .getByRole('button', { name: 'Room controls', exact: true })
+    .click();
   await host.getByRole('button', { name: 'Abort game', exact: true }).click();
   await expect(
     host.getByRole('heading', { name: 'Room', exact: true }),
   ).toBeVisible();
   expect((await snapshot(host)).replays).toEqual([]);
-  await host
-    .getByRole('combobox', { name: 'Game', exact: true })
-    .selectOption('tic_tac_toe');
+  await host.getByRole('radio', { name: 'Tic-Tac-Toe', exact: true }).check();
   await host.getByRole('button', { name: 'Bench Alice', exact: true }).click();
   await expect(
     host.getByRole('button', { name: 'Seat Alice', exact: true }),
@@ -336,6 +331,9 @@ test('room settings update live; seating, bench, abort, and switching games', as
     ).toBeVisible();
   }
   await expect(host.getByText('Bob won', { exact: true })).toBeVisible();
+  await host
+    .getByRole('button', { name: 'Room controls', exact: true })
+    .click();
   await host.getByText('Replays (1)', { exact: true }).click();
   const download = host.waitForEvent('download');
   await host.getByRole('button', { name: /Game 1 · Tic-Tac-Toe/ }).click();
@@ -361,9 +359,7 @@ test('The Crew: benched host records results independently of player order', asy
   const path = await create(host);
   for (const [i, page] of players.entries())
     await join(page, path, ['Bob', 'Carol', 'Dave'][i]);
-  await host
-    .getByRole('combobox', { name: 'Game', exact: true })
-    .selectOption('the_crew');
+  await host.getByRole('radio', { name: 'The Crew', exact: true }).check();
   for (const name of ['Dave', 'Bob', 'Carol']) await seat(host, name);
   await host.getByRole('button', { name: 'Start game', exact: true }).click();
   await expect(
@@ -407,8 +403,8 @@ test('Tempel des Schreckens: configured key, hidden cards, rounds, and reconnect
   await join(guest, path, 'Bob');
   await join(third, path, 'Carol');
   await host
-    .getByRole('combobox', { name: 'Game', exact: true })
-    .selectOption('tempel_des_schreckens');
+    .getByRole('radio', { name: 'Tempel des Schreckens', exact: true })
+    .check();
   for (const name of names) await seat(host, name);
   await host
     .getByRole('combobox', { name: 'Initial key holder', exact: true })
@@ -457,6 +453,9 @@ test('Tempel des Schreckens: configured key, hidden cards, rounds, and reconnect
       .toBe(room.revision + 1);
   }
   expect((await snapshot(host)).game.outcome).not.toBeNull();
+  await host
+    .getByRole('button', { name: 'Room controls', exact: true })
+    .click();
   await host.getByRole('button', { name: 'Play again', exact: true }).click();
   await expect(host.getByText('Key: Bob', { exact: true })).toBeVisible();
   expect(errors).toEqual([]);
@@ -475,9 +474,7 @@ for (const [kind, name, board] of [
     const [host, guest] = await Promise.all(contexts.map((c) => c.newPage()));
     const path = await create(host);
     await join(guest, path, 'Bob');
-    await host
-      .getByRole('combobox', { name: 'Game', exact: true })
-      .selectOption(kind);
+    await host.getByRole('radio', { name, exact: true }).check();
     await seat(host, 'Bob');
     await seat(host, 'Alice');
     await host.getByRole('button', { name: 'Start game', exact: true }).click();

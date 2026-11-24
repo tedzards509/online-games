@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Action, Schemas } from '../lib/types';
+  import type { Action, BoardProps, Schemas } from '../lib/types';
   let {
     view,
     actions,
@@ -7,14 +7,7 @@
     move,
     you,
     finished,
-  }: {
-    view: Schemas['TempelView'];
-    actions: Action[];
-    names: string[];
-    move: (action: Action) => void;
-    you: number;
-    finished: boolean;
-  } = $props();
+  }: BoardProps<Schemas['TempelView']> = $props();
   const available = $derived(
     actions.filter((a) => a.game === 'tempel_des_schreckens'),
   );

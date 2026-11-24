@@ -1,15 +1,24 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  let { children }: { children: Snippet } = $props();
+  import type { HTMLAttributes } from 'svelte/elements';
+
+  /** Outlined surface that stacks its children; the parent owns placement. */
+  let {
+    children,
+    ...attributes
+  }: Omit<HTMLAttributes<HTMLElement>, 'class'> & { children: Snippet } =
+    $props();
 </script>
 
-<div class="panel">{@render children()}</div>
+<section {...attributes} class="panel">{@render children()}</section>
 
 <style>
   .panel {
-    height: 100%;
+    display: grid;
+    gap: var(--arena-space-2);
+    min-width: 0;
     padding: var(--arena-space-3);
-    border: 1px solid var(--arena-border);
+    border: var(--arena-line);
     border-radius: var(--arena-panel-radius);
     background: var(--arena-surface);
   }

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Action, Schemas, Snapshot } from '../lib/types';
+  import type { Action, BoardProps, Schemas, Snapshot } from '../lib/types';
   import { locale, t } from '../lib/i18n';
   import Button from './ui/Button.svelte';
   import CrewCard from './crew/CrewCard.svelte';
@@ -18,13 +18,10 @@
     disabled,
     roomInfo,
     won,
-  }: {
-    view: Schemas['CrewView'];
-    actions: Action[];
+  }: BoardProps<Schemas['CrewView']> & {
+    /** Public member identities by player index. */
     players: Schemas['MemberView'][];
-    you: number;
-    move: (action: Action) => void;
-    finished: boolean;
+    /** Gates commands only; cards stay selectable while pending or offline. */
     disabled: boolean;
     roomInfo?: Pick<Snapshot, 'code' | 'host'>;
     won: boolean;

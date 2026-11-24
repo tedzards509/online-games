@@ -1,16 +1,7 @@
 <script lang="ts">
-  import type { Action, Schemas } from '../lib/types';
-  let {
-    view,
-    actions,
-    you,
-    move,
-  }: {
-    view: Schemas['MancalaView'];
-    actions: Action[];
-    you: number;
-    move: (action: Action) => void;
-  } = $props();
+  import type { Action, BoardProps, Schemas } from '../lib/types';
+  let { view, actions, you, move }: BoardProps<Schemas['MancalaView']> =
+    $props();
   const own = $derived(you === 0 ? [0, 1, 2, 3, 4, 5] : [7, 8, 9, 10, 11, 12]);
   const other = $derived(
     you === 0 ? [12, 11, 10, 9, 8, 7] : [5, 4, 3, 2, 1, 0],

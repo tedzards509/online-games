@@ -23,10 +23,10 @@ test('card layers share their shape, scale content, and expose accessible names'
     expect(box.width / box.height).toBeCloseTo(5 / 7, 2);
   }
   const ace = page.getByRole('img', { name: 'Ace of hearts' });
-  await expect(ace).toHaveCSS('color', 'rgb(182, 64, 50)');
+  await expect(ace).toHaveCSS('color', 'rgb(200, 67, 45)');
   await expect(page.getByRole('img', { name: '10 of spades' })).toHaveCSS(
     'color',
-    'rgb(33, 81, 60)',
+    'rgb(22, 39, 30)',
   );
   const largeSymbol = await ace.locator('.center').boundingBox();
   await ace.evaluate((node) => {
