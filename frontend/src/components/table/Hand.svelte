@@ -98,8 +98,8 @@
       margin-left: calc(var(--arena-card-width) * -0.4);
     }
   }
-  .slot:hover,
-  .slot:focus-within {
+  /* Selected cards always sit above their overlapping neighbours. */
+  .slot:has(:global([aria-pressed='true'])) {
     z-index: 1;
   }
 </style>
