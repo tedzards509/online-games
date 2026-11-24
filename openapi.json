@@ -1949,6 +1949,22 @@
           }
         ]
       },
+      "ShitheadFailedBlind": {
+        "type": "object",
+        "description": "A face-down card that was illegal when played blind; it is public until the next action.",
+        "required": [
+          "player",
+          "card"
+        ],
+        "properties": {
+          "card": {
+            "$ref": "#/components/schemas/Card"
+          },
+          "player": {
+            "$ref": "#/components/schemas/usize"
+          }
+        }
+      },
       "ShitheadGameConfig": {
         "type": "object",
         "description": "Whether four matching cards may bypass the ordinary rank restrictions.",
@@ -1995,7 +2011,8 @@
           "pile",
           "stock",
           "burned",
-          "finished"
+          "finished",
+          "recent"
         ],
         "properties": {
           "burned": {
@@ -2009,6 +2026,16 @@
               },
               {
                 "$ref": "#/components/schemas/Card"
+              }
+            ]
+          },
+          "failed_blind": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ShitheadFailedBlind"
               }
             ]
           },
@@ -2033,6 +2060,13 @@
             "items": {
               "$ref": "#/components/schemas/ShitheadPlayerView"
             }
+          },
+          "recent": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Card"
+            },
+            "description": "Up to the last `RECENT_PILE_CARDS` pile cards in play order, top last."
           },
           "setup": {
             "type": "boolean"

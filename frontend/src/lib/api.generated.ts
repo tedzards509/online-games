@@ -563,6 +563,11 @@ export interface components {
           /** @enum {string} */
           type: 'pickup';
         };
+    /** @description A face-down card that was illegal when played blind; it is public until the next action. */
+    ShitheadFailedBlind: {
+      card: components['schemas']['Card'];
+      player: components['schemas']['usize'];
+    };
     /** @description Whether four matching cards may bypass the ordinary rank restrictions. */
     ShitheadGameConfig: {
       four_card_bombs: boolean;
@@ -575,10 +580,13 @@ export interface components {
     ShitheadView: {
       burned: number;
       effective_top?: null | components['schemas']['Card'];
+      failed_blind?: null | components['schemas']['ShitheadFailedBlind'];
       finished: components['schemas']['usize'][];
       hand: components['schemas']['Card'][];
       pile: number;
       players: components['schemas']['ShitheadPlayerView'][];
+      /** @description Up to the last `RECENT_PILE_CARDS` pile cards in play order, top last. */
+      recent: components['schemas']['Card'][];
       setup: boolean;
       stock: number;
       top?: null | components['schemas']['Card'];

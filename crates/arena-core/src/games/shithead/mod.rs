@@ -12,6 +12,7 @@ const BURN_RANK: u8 = 10;
 const HAND_SIZE: usize = 3;
 const MATCHING_CARDS_TO_BURN: usize = 4;
 const INITIAL_HAND_SIZE: usize = 7;
+const RECENT_PILE_CARDS: usize = 5;
 
 /// Whether four matching cards may bypass the ordinary rank restrictions.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
@@ -370,6 +371,36 @@ mod tests {
     }
 
     #[test]
+    fn views_show_recent_pile_cards_and_a_failed_blind_card_until_the_next_action() {
+        let mut session = playing_session(2);
+        session.state.deck = Deck::new(vec![]);
+        session.state.pile = (3..=9).map(card).collect();
+        assert_eq!(
+            session.state.view(1).recent,
+            (5..=9).map(card).collect::<Vec<_>>()
+        );
+        session.state.players[0] = PlayerCards {
+            hand: vec![],
+            face_up: vec![],
+            face_down: vec![card(4), card(13)],
+        };
+        session.act(0, Action::Blind { index: 0 }).unwrap();
+        let revealed = Some(FailedBlind {
+            player: 0,
+            card: card(4),
+        });
+        for viewer in 0..2 {
+            let view = session.state.view(viewer);
+            assert_eq!(view.failed_blind, revealed);
+            assert!(view.recent.is_empty());
+        }
+        session.state.players[1].hand = vec![card(5)];
+        session.act(1, Action::Play { indices: vec![0] }).unwrap();
+        assert_eq!(session.state.view(0).failed_blind, None);
+        assert_eq!(session.state.view(0).recent, vec![card(5)]);
+    }
+
+    #[test]
     fn successful_blind_play_can_finish_and_no_actions_follow_the_result() {
         let mut session = playing_session(2);
         session.state.deck = Deck::new(vec![]);
@@ -673,6 +704,16 @@ pub struct Shithead {
     finished: Vec<Player>,
     turn: Turn,
     outcome: Option<Outcome>,
+    #[serde(default)]
+    failed_blind: Option<FailedBlind>,
+}
+
+/// A face-down card that was illegal when played blind; it is public until the next action.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, ToSchema)]
+#[schema(as = ShitheadFailedBlind)]
+pub struct FailedBlind {
+    pub player: Player,
+    pub card: Card,
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
@@ -694,6 +735,9 @@ pub struct View {
     pub stock: usize,
     pub burned: usize,
     pub finished: Vec<Player>,
+    /// Up to the last `RECENT_PILE_CARDS` pile cards in play order, top last.
+    pub recent: Vec<Card>,
+    pub failed_blind: Option<FailedBlind>,
 }
 
 impl Shithead {
@@ -846,6 +890,7 @@ impl Game for Shithead {
             finished: vec![],
             turn,
             outcome: None,
+            failed_blind: None,
         })
     }
     fn turn(&self) -> Turn {
@@ -904,11 +949,18 @@ impl Game for Shithead {
             return events;
         }
         let mut extra_turn = false;
+        self.failed_blind = None;
         match action {
             Action::SelectFaceUp { .. } => unreachable!("setup handled above"),
             Action::Pickup => self.players[player].hand.append(&mut self.pile),
             Action::Blind { .. } | Action::Play { .. } => {
                 let played = self.players[player].take_play(action);
+                if matches!(action, Action::Blind { .. }) && !self.playable(played[0]) {
+                    self.failed_blind = Some(FailedBlind {
+                        player,
+                        card: played[0],
+                    });
+                }
                 extra_turn = self.resolve_play(player, played, &mut events);
                 self.refill_hand(player);
                 if self.players[player].is_empty() {
@@ -943,6 +995,8 @@ impl Game for Shithead {
             stock: self.deck.len(),
             burned: self.burned,
             finished: self.finished.clone(),
+            recent: self.pile[self.pile.len().saturating_sub(RECENT_PILE_CARDS)..].to_vec(),
+            failed_blind: self.failed_blind,
         }
     }
 }

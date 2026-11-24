@@ -9,9 +9,10 @@
   a fixed player order throughout the game.
 - State consists of configuration, setup status, each player's three card zones, stock, play pile, burned-card count,
   finishing order, eligible seats, and result.
-- Each player sees their own hand, all face-up cards, hand/face-down counts, pile top/size, effective top beneath
-  transparent threes, stock size, burned count, setup status, and finishing order. Face-down values are hidden even from
-  their owner; other hands and stock order remain private.
+- Each player sees their own hand, all face-up cards, hand/face-down counts, pile top/size, the last five pile cards
+  in play order, effective top beneath transparent threes, stock size, burned count, setup status, and finishing order.
+  Face-down values are hidden even from their owner; other hands and stock order remain private. A face-down card that
+  was illegal when played blind is shown to everyone, with its player, until the next action.
 
 ## Actions and eligibility
 
