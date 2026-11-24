@@ -50,8 +50,9 @@
     height: 100%;
     display: grid;
     grid-template-rows: minmax(0, 1fr) auto;
-    gap: 1rem;
-    padding: 5rem max(1rem, env(safe-area-inset-right)) 1rem
+    gap: 0.5rem;
+    /* Seats across sit in the middle columns, clear of the corner buttons. */
+    padding: 1rem max(1rem, env(safe-area-inset-right)) 1rem
       max(1rem, env(safe-area-inset-left));
     color: var(--arena-text);
     background: var(--arena-canvas);
@@ -61,11 +62,8 @@
     min-height: 0;
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    /* A side player needs two card heights plus their name and rack spacing. */
-    grid-template-rows: auto minmax(
-        calc(var(--arena-card-width) * 2.8 + 4rem),
-        1fr
-      );
+    /* The middle row is at least as tall as the side seats and the center. */
+    grid-template-rows: auto 1fr;
     align-items: center;
     gap: 0.5rem;
     overflow: auto;
@@ -150,28 +148,40 @@
       grid-row: 2;
     }
   }
+  /* Portrait phones: compact opponents in a scrolling row above the center.
+     The column is reversed so that, when the arena must scroll, it starts
+     scrolled to the center rather than to the opponents. */
   @media (max-width: 40rem) and (orientation: portrait) {
     .arena {
       display: flex;
-      flex-direction: column;
+      flex-direction: column-reverse;
       align-items: stretch;
-      gap: 1rem;
+      gap: 0.5rem;
     }
     .opponents {
       display: flex;
       flex-wrap: nowrap;
       justify-content: start;
       min-width: 0;
-      gap: 1rem;
+      gap: 0.25rem;
+      margin-top: auto;
       overflow-x: auto;
       flex-shrink: 0;
-      padding-bottom: 1rem;
     }
     .opponent {
-      flex: 1 0 calc(2 * var(--arena-card-width) + 0.5rem);
+      /* Four seats fit a 390px screen; more scroll sideways. */
+      --arena-card-width: 2.5rem;
+      flex: 1 0 5.5rem;
     }
     .center {
+      order: -1;
       flex-shrink: 0;
+      min-height: 0;
+      /* With the opponents' top margin, spare height centers the column. */
+      margin-bottom: auto;
+    }
+    .center > :global(*) {
+      padding: var(--arena-space-1);
     }
   }
   @media (max-width: 22.5rem) {

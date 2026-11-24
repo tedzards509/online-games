@@ -629,7 +629,7 @@ for (const [width, height, count] of [
     const arenaBox = (await page.locator('.arena').boundingBox())!;
     expect(arenaBox.y + arenaBox.height).toBeLessThanOrEqual(statusBox.y);
     const sizes = await page
-      .locator('.card-table .playing-card:visible')
+      .locator('.card-table :is(.own-hand, .trick) .playing-card:visible')
       .evaluateAll((cards) =>
         cards.map((card) => {
           const style = getComputedStyle(card);
@@ -643,6 +643,20 @@ for (const [width, height, count] of [
     for (const size of sizes) {
       expect(size.width).toBe(72);
       expect(size.height).toBeCloseTo(72 * 1.4, 1);
+    }
+    // Portrait phones compact the opponents' backs so the center keeps room.
+    const backWidth = width <= 640 && height > width ? 40 : 72;
+    await expect(
+      page.locator('.backs .playing-card:visible').first(),
+    ).toHaveCSS('width', `${backWidth}px`);
+    // Where the arena has room for it, the whole trick is in view above the
+    // dock (shorter arenas scroll, starting at the center).
+    const trickBox = (await page.locator('.trick').boundingBox())!;
+    if (arenaBox.height >= trickBox.height) {
+      expect(trickBox.y).toBeGreaterThanOrEqual(arenaBox.y - 1);
+      expect(trickBox.y + trickBox.height).toBeLessThanOrEqual(
+        arenaBox.y + arenaBox.height + 1,
+      );
     }
     // The hand's area spans its grid track; the card group inside fits its cards.
     const handArea = page.locator('.own-hand');

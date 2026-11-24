@@ -167,8 +167,10 @@ member IDs; game actions and marker arrays use frozen player indices.
   `communication_played` and `commander` come from every server projection;
   neither marker relies on a browser remembering earlier tricks.
 - `CardTable` sets `--arena-card-width` to `4.5rem` (72 × 101px at default text
-  size) and lays out the viewport; The Crew uses it (72 × 101px at default text size), including
-  hands, backs, communications, piles, and both trick views. Card rows and the
+  size) and lays out the viewport; The Crew uses it for hands, backs,
+  communications, piles, and both trick views. On portrait phones opponent
+  seats and the viewer's communication and pile shrink to keep the hand and
+  trick at full size. Card rows and the
   table area scroll when needed; card faces do not shrink to fit.
   In portrait mobile, the viewer's communication and pile sit above a full-width
   hand. Desktop and landscape keep them beside the hand. The main playing

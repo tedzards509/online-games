@@ -87,8 +87,11 @@ legal-action behavior, and responsive card sizing.
 Card games with hidden hands share one viewport layout: opponents seated
 around the table (left, across, right) with their name, a stack of card backs
 for their hand size, and their public cards or tokens below; a green center for
-the shared play area; and the player dock along the bottom. In portrait mobile
-the opponents form a scrolling row above the center.
+the shared play area; and the player dock along the bottom. The active
+opponent's avatar and name share the highlight. In portrait mobile the
+opponents form a row of compact seats above the center (four fit a 390px
+screen; more scroll sideways); when the table must scroll, it starts at the
+center.
 
 ## The Crew
 

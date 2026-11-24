@@ -119,7 +119,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
+    gap: calc(var(--arena-card-width) * 0.1);
     flex-basis: 100%;
   }
   .commander {

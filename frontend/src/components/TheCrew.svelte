@@ -396,6 +396,15 @@
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       grid-template-areas: 'communication tricks' 'hand hand';
     }
+    .trick-title,
+    .winner {
+      margin: 0.25rem 0;
+    }
+    /* Markers shrink so the hand and trick keep their full card size. */
+    .own-communication,
+    .own-tricks {
+      --arena-card-width: var(--arena-card-width-small);
+    }
     .own-communication {
       grid-area: communication;
       justify-content: start;

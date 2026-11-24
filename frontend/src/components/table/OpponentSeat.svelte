@@ -84,7 +84,19 @@
     align-items: center;
     justify-content: center;
     gap: 0.375rem;
-    min-width: 0;
+    width: fit-content;
+    max-width: 100%;
+    margin-inline: auto;
+    padding: 0.2rem;
+    border: var(--arena-line);
+    border-color: transparent;
+    border-radius: var(--arena-control-radius);
+  }
+  /* Matches PlayerBar's active highlight, around avatar and name. */
+  .active .identity {
+    border-color: var(--arena-ink);
+    background: var(--arena-highlight);
+    color: var(--arena-on-highlight);
   }
   .name {
     display: flex;
@@ -92,12 +104,11 @@
     gap: 0.375rem;
     min-width: 0;
     min-height: 2.75rem;
-    padding: 0 0.5rem;
-    border: var(--arena-line);
-    border-color: transparent;
+    padding: 0 0.25rem;
+    border: 0;
     border-radius: var(--arena-control-radius);
     background: transparent;
-    color: var(--arena-text);
+    color: inherit;
     font-weight: 800;
     font-size: 0.875rem;
   }
@@ -109,12 +120,6 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-  /* Matches PlayerBar's active highlight. */
-  .active .name {
-    border-color: var(--arena-ink);
-    background: var(--arena-highlight);
-    color: var(--arena-on-highlight);
   }
   .name svg {
     flex-shrink: 0;
@@ -139,8 +144,8 @@
     flex-wrap: wrap;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-    margin-top: 0.5rem;
+    gap: 0.25rem;
+    margin-top: 0.25rem;
   }
   .info {
     width: min(24rem, calc(100vw - 2rem));
@@ -156,5 +161,17 @@
   h2 {
     margin: 0 0 1rem;
     overflow-wrap: anywhere;
+  }
+  /* CardTable's compact portrait seats: the name goes below the avatar so it
+     keeps the seat's full width. */
+  @media (max-width: 40rem) and (orientation: portrait) {
+    .identity {
+      flex-direction: column;
+      gap: 0;
+      padding: 0;
+    }
+    .name {
+      font-size: 0.8rem;
+    }
   }
 </style>

@@ -99,11 +99,11 @@
     {#each { length: Math.max(seat.up.length, seat.down) }, slot}
       <div class="stack">
         {#if slot < seat.down}<CardBack
-            width="var(--arena-card-width-small)"
+            width="var(--shithead-table-card)"
           />{/if}
         {#if slot < seat.up.length}<StandardPlayingCard
             card={seat.up[slot]}
-            width="var(--arena-card-width-small)"
+            width="var(--shithead-table-card)"
           />{/if}
       </div>
     {/each}
@@ -221,16 +221,11 @@
 <style>
   /* Face-up cards lie on the face-down ones, offset so both stay visible. */
   .table-cards {
+    /* Three stacks fit a seat two card widths wide. */
+    --shithead-table-card: calc(var(--arena-card-width) * 0.66);
     display: flex;
     justify-content: center;
-    gap: 0.25rem;
-  }
-  /* Narrow opponent seats: each stack covers the right of the one before,
-     keeping the face-up index readable. */
-  @media (max-width: 40rem) {
-    .table-cards > .stack + .stack {
-      margin-left: -1rem;
-    }
+    gap: calc(var(--arena-card-width) * 0.05);
   }
   .own {
     display: flex;
@@ -250,7 +245,7 @@
     grid-area: 1 / 1;
   }
   .stack > :global(* + *) {
-    margin-top: calc(var(--arena-card-width-small) * 0.45);
+    margin-top: calc(var(--shithead-table-card) * 0.45);
   }
   /* Older pile cards peek out to the left; the top card is fully visible. */
   .fan {
