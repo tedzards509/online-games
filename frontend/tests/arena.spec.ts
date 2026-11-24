@@ -89,6 +89,25 @@ test('multiple eligible players become a single responder', async ({
   ).toHaveCount(0);
 });
 
+test('room and board copy follow the selected language', async ({ page }) => {
+  await mockMembership(page);
+  await page.addInitScript(() => localStorage.setItem('arena-language', 'de'));
+  await page.routeWebSocket('**/api/rooms/ABC234/ws', (socket) => {
+    socket.onMessage(() =>
+      socket.send(JSON.stringify({ type: 'snapshot', room: fixture() })),
+    );
+  });
+  await page.goto('/room/ABC234');
+  await expect(page.getByText('Du bist dran', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Spieler')).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Feld 1: leer', exact: true }),
+  ).toBeEnabled();
+  await expect(
+    page.getByRole('button', { name: 'Raumsteuerung', exact: true }),
+  ).toBeVisible();
+});
+
 test('another member snapshot does not acknowledge a queued move', async ({
   page,
 }) => {
@@ -199,12 +218,12 @@ test('Crazy Eights: choose a suit, draw voluntarily, and resolve draw two', asyn
   await expect(
     page
       .getByLabel('Your hand', { exact: true })
-      .getByRole('button', { name: '8♥', exact: true }),
+      .getByRole('button', { name: '8 of hearts', exact: true }),
   ).toBeEnabled();
   await page.getByRole('button', { name: 'Draw', exact: true }).click();
   await expect.poll(() => moves.length).toBe(1);
   expect(moves[0]).toEqual({ game: 'crazy_eights', action: { type: 'draw' } });
-  await page.getByRole('button', { name: '8♥', exact: true }).click();
+  await page.getByRole('button', { name: '8 of hearts', exact: true }).click();
   await expect(page.getByLabel('Choose suit')).toBeVisible();
   await page
     .getByRole('button', { name: 'Choose spades', exact: true })
@@ -414,7 +433,7 @@ test('Tempel des Schreckens: configured key, hidden cards, rounds, and reconnect
     .getByRole('combobox', { name: 'Initial key holder', exact: true })
     .selectOption({ label: 'Bob' });
   await expect(guest.getByRole('region', { name: 'Game rules' })).toContainText(
-    'Initial key: Player 3',
+    'Initial key holder: Player 3',
   );
   await host.getByRole('button', { name: 'Start game', exact: true }).click();
   await expect(guest.getByText('Key: Bob', { exact: true })).toBeVisible();

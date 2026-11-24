@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
+  import { t } from '../../lib/i18n';
   import Avatar from './Avatar.svelte';
 
   /** A player's identity strip: avatar, name, and optional public details.
@@ -22,7 +23,8 @@
 <div class="player-bar" class:active data-active={active}>
   <Avatar {name} {colorIndex} />
   <span class="name"
-    >{name}{#if you}<span class="you">{' · you'}</span>{/if}</span
+    >{name}{#if you}<span class="you">{` · ${$t('common.you')}`}</span
+      >{/if}</span
   >
   {#if children}<span class="details">{@render children()}</span>{/if}
 </div>

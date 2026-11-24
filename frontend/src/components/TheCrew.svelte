@@ -167,9 +167,9 @@
   </div>
   <div class="own-zone">
     <p class="status" class:your-turn={yourTurn} role="status">
-      {#if finished}{$t(won ? 'crew.won' : 'crew.lost')}
+      {#if finished}{$t(won ? 'common.won' : 'common.lost')}
       {:else if view.awaiting_result}{$t('crew.awaitingResult')}
-      {:else if yourTurn}{$t('crew.yourTurn')}
+      {:else if yourTurn}{$t('common.yourTurn')}
       {:else}{$t(view.trick.length ? 'crew.playsNext' : 'crew.leads', {
           values: { name: players[view.next_player].nickname },
         })}{/if}
@@ -268,7 +268,7 @@
         variant="quiet"
         size="small"
         popovertarget="crew-communicate"
-        popovertargetaction="hide">{$t('crew.close')}</Button
+        popovertargetaction="hide">{$t('common.close')}</Button
       >
     </section>
   {/if}
@@ -290,7 +290,7 @@
         variant="quiet"
         size="small"
         popovertarget="crew-last-trick"
-        popovertargetaction="hide">{$t('crew.close')}</Button
+        popovertargetaction="hide">{$t('common.close')}</Button
       >
     </section>
   {/if}

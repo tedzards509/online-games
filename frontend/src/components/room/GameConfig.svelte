@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '../../lib/i18n';
   import type { Schemas } from '../../lib/types';
   import { crazyEightsRules } from '../../lib/config';
 
@@ -6,24 +7,47 @@
   let { config }: { config: Schemas['Config'] } = $props();
 </script>
 
-<section aria-label="Game rules">
+<section aria-label={$t('room.gameRules')}>
   {#if config.game === 'crazy_eights'}
     <ul>
-      <li>8: Choose suit (always)</li>
-      {#each Object.entries(crazyEightsRules) as [key, label] (key)}
+      <li>{$t('room.rules.crazyEightsEight')}</li>
+      {#each crazyEightsRules as rule (rule)}
         <li>
-          {label}: {config.rules[key as keyof typeof config.rules]
-            ? 'On'
-            : 'Off'}
+          {$t('room.rules.state', {
+            values: {
+              rule: $t(`crazyEights.rules.${rule}`),
+              state: $t(
+                config.rules[rule] ? 'room.rules.on' : 'room.rules.off',
+              ),
+            },
+          })}
         </li>
       {/each}
     </ul>
   {:else if config.game === 'shithead'}
-    <p>Four-card bombs: {config.rules.four_card_bombs ? 'On' : 'Off'}</p>
+    <p>
+      {$t('room.rules.state', {
+        values: {
+          rule: $t('shithead.rules.bombs'),
+          state: $t(
+            config.rules.four_card_bombs ? 'room.rules.on' : 'room.rules.off',
+          ),
+        },
+      })}
+    </p>
   {:else if config.game === 'tempel_des_schreckens'}
-    <p>Initial key: Player {config.rules.initial_key + 1}</p>
+    <p>
+      {$t('room.rules.state', {
+        values: {
+          rule: $t('room.rules.initialKey'),
+          state: $t('room.playerNumber', {
+            values: { number: config.rules.initial_key + 1 },
+          }),
+        },
+      })}
+    </p>
   {:else}
-    <p>Standard rules</p>
+    <p>{$t('room.rules.standard')}</p>
   {/if}
 </section>
 

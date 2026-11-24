@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '../lib/i18n';
   import type { Action, BoardProps, Schemas } from '../lib/types';
   import Board from './table/Board.svelte';
   import BoardSpace from './table/BoardSpace.svelte';
@@ -26,13 +27,15 @@
 
 <Board>
   <PlayerList players={names.map((_, player) => player)} {names} {you} {active}>
-    {#snippet details(player)}{view.board[stores[player]]} in store{/snippet}
+    {#snippet details(player)}{$t('mancala.inStore', {
+        values: { count: view.board[stores[player]] },
+      })}{/snippet}
   </PlayerList>
   <TableSurface>
     <!-- Desktop: opponent row on top, stores at the ends. Narrow screens turn
          the board into two columns so pits keep comfortable touch sizes. -->
-    <div class="mancala" role="group" aria-label="Mancala board">
-      <div class="store" aria-label="Opponent store">
+    <div class="mancala" role="group" aria-label={$t('mancala.board')}>
+      <div class="store" aria-label={$t('mancala.opponentStore')}>
         {view.board[stores[1 - you]]}
       </div>
       <div class="pits">
@@ -40,12 +43,14 @@
           {@const legal = action(pit)}
           <BoardSpace
             round
-            label={`Pit ${pit + 1}: ${view.board[pit]} stones`}
+            label={$t('mancala.pit', {
+              values: { pit: pit + 1, count: view.board[pit] },
+            })}
             move={legal && (() => move(legal))}>{view.board[pit]}</BoardSpace
           >
         {/each}
       </div>
-      <div class="store" aria-label="Your store">
+      <div class="store" aria-label={$t('mancala.yourStore')}>
         {view.board[stores[you]]}
       </div>
     </div>

@@ -1,10 +1,11 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
+  import { t } from '../../lib/i18n';
   import PlayerBar from './PlayerBar.svelte';
 
   /** A labelled list of player bars, with optional public details per player. */
   let {
-    label = 'Players',
+    label,
     players,
     names,
     you,
@@ -21,7 +22,7 @@
   } = $props();
 </script>
 
-<ul aria-label={label}>
+<ul aria-label={label ?? $t('common.players')}>
   {#each players as player (player)}
     <li>
       <PlayerBar

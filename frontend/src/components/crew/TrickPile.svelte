@@ -7,7 +7,7 @@
 <div
   class="pile"
   role="img"
-  aria-label={$t('crew.tricksOf', { values: { name, count: String(count) } })}
+  aria-label={$t('crew.tricksOf', { values: { name, count } })}
 >
   <div aria-hidden="true" class="pile-face">
     {#if count}<CardBack />{/if}

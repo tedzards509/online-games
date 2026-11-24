@@ -12,10 +12,7 @@
   "hiddenCard": "Verdeckte Karte",
   "card": "{suit} {rank}",
   "crew": {
-    "yourTurn": "Du bist dran",
     "communicate": "Kommunizieren",
-    "won": "Gewonnen",
-    "lost": "Verloren",
     "card": "{color} {number}",
     "colors": {
       "blue": "Blau",
@@ -34,7 +31,6 @@
     "communicationReady": "Kommunikation ungenutzt",
     "communicationPlayed": "Kommunizierte Karte gespielt",
     "stillInHand": "Noch auf der Hand",
-    "tricksOf": "{name} · {count} Stiche gewonnen",
     "commander": "Kommandant · ursprünglicher Besitzer der schwarzen Vier",
     "commanderName": "Kommandant",
     "notPlayed": "Keine Karte gespielt",
@@ -50,7 +46,6 @@
     "nextToPlay": "Als Nächstes am Zug",
     "yes": "Ja",
     "no": "Nein",
-    "close": "Schließen",
     "currentTrick": "Aktueller Stich",
     "lastTrick": "Letzter Stich",
     "trickWinner": "{name} hat den Stich gewonnen",
@@ -63,13 +58,183 @@
     "selectCard": "{card} auswählen",
     "selectPrompt": "Wähle eine Karte",
     "playCard": "Karte spielen",
-    "communicateCard": "Eine Karte kommunizieren"
+    "communicateCard": "Eine Karte kommunizieren",
+    "tricksOf_one": "{name} · {count} Stich gewonnen",
+    "tricksOf_other": "{name} · {count} Stiche gewonnen"
   },
-  "ranks": { "11": "Bube", "12": "Dame", "13": "König", "14": "Ass" },
+  "ranks": {
+    "11": "Bube",
+    "12": "Dame",
+    "13": "König",
+    "14": "Ass"
+  },
   "suits": {
     "clubs": "Kreuz",
     "diamonds": "Karo",
     "hearts": "Herz",
     "spades": "Pik"
+  },
+  "common": {
+    "yourTurn": "Du bist dran",
+    "playerTurn": "{name} ist dran",
+    "playerWon": "{name} hat gewonnen",
+    "won": "Gewonnen",
+    "lost": "Verloren",
+    "draw": "Unentschieden",
+    "close": "Schließen",
+    "players": "Spieler",
+    "you": "du"
+  },
+  "gameNames": {
+    "tempel_des_schreckens": "Tempel des Schreckens",
+    "the_crew": "Die Crew",
+    "mancala": "Mancala",
+    "crazy_eights": "Crazy Eights",
+    "shithead": "Shithead",
+    "skyjo": "Skyjo",
+    "tic_tac_toe": "Tic-Tac-Toe"
+  },
+  "room": {
+    "title": "Raum",
+    "gameSetup": "Spielauswahl",
+    "waitingForGame": "Warte, bis der Gastgeber ein Spiel wählt",
+    "members": "Mitglieder",
+    "seats": "Plätze",
+    "seating": "Sitzordnung",
+    "bench": "Bank",
+    "toBench": "Auf die Bank",
+    "benchPlayer": "{name} auf die Bank setzen",
+    "seat": "Hinsetzen",
+    "seatPlayer": "{name} einen Platz geben",
+    "moveUp": "{name} nach oben",
+    "moveDown": "{name} nach unten",
+    "start": "Spiel starten",
+    "host": "Gastgeber",
+    "controls": "Raumsteuerung",
+    "copyCode": "Raumcode kopieren",
+    "copyFailed": "Code konnte nicht kopiert werden",
+    "playAgain": "Nochmal spielen",
+    "returnToSetup": "Zurück zur Spielauswahl",
+    "finishWon": "Beenden: gewonnen",
+    "finishLost": "Beenden: verloren",
+    "abort": "Spiel abbrechen",
+    "replays": "Wiederholungen ({count})",
+    "replay": "Spiel {number} · {game}",
+    "downloadFailed": "Download fehlgeschlagen",
+    "onBench": "Du sitzt auf der Bank",
+    "connecting": "Verbinde…",
+    "reconnecting": "Verbinde erneut…",
+    "game": "Spiel",
+    "gameRules": "Spielregeln",
+    "playerNumber": "Spieler {number}",
+    "rules": {
+      "initialKey": "Startspieler mit Schlüssel",
+      "on": "An",
+      "off": "Aus",
+      "standard": "Standardregeln",
+      "state": "{rule}: {state}",
+      "crazyEightsEight": "8: Farbe wünschen (immer)"
+    }
+  },
+  "shithead": {
+    "playerCards": "{count} auf der Hand · {down} verdeckt",
+    "stock": "{count} im Stapel",
+    "pile": "{count} im Ablagestapel",
+    "emptyPile": "Leerer Ablagestapel",
+    "transparentThree": "Die 3 ist durchsichtig",
+    "chooseFaceUp": "Wähle drei offene Karten",
+    "waiting": "Warte auf die anderen",
+    "yourHand": "Deine Hand",
+    "yourFaceUp": "Deine offenen Karten",
+    "yourFaceDown": "Deine verdeckten Karten",
+    "faceDownCard": "Verdeckte Karte {number}",
+    "setFaceUp": "Offene Karten festlegen",
+    "play": "Ausspielen",
+    "pickUp": "Aufnehmen",
+    "rules": {
+      "bombs": "Vier gleiche Karten als Bombe ignorieren Rangvorgaben"
+    }
+  },
+  "crazyEights": {
+    "cards_one": "{count} Karte",
+    "cards_other": "{count} Karten",
+    "stock": "{count} im Stapel",
+    "suit": "Farbe {suit}",
+    "reversed": "Richtung umgekehrt",
+    "aceOrDrawTwo": "Spiel ein Ass oder zieh zwei",
+    "drawTwo": "Zwei ziehen",
+    "yourHand": "Deine Hand",
+    "chooseSuit": "Farbe wählen",
+    "chooseSuitOf": "{suit} wählen",
+    "drawOrPass": "Ziehen / passen",
+    "draw": "Ziehen",
+    "rules": {
+      "ace_are_you_strong": "A: Bist du stark? – Ass spielen oder zwei ziehen",
+      "jack_skip": "Bube: Nächster Spieler setzt aus",
+      "ten_reverse": "10: Richtungswechsel (bei zwei Spielern: aussetzen)",
+      "two_draw_two": "2: Nächster Spieler zieht zwei"
+    }
+  },
+  "skyjo": {
+    "stock": "{count} im Stapel",
+    "stockPile": "Nachziehstapel",
+    "discard": "Ablage",
+    "discardPile": "Ablagestapel",
+    "drawn": "Gezogen",
+    "drawnCard": "Gezogene Karte",
+    "hints": {
+      "setup": "Decke zwei auf",
+      "draw": "Zieh eine Karte",
+      "place": "Tausche eine Karte",
+      "reveal": "Decke eine Karte auf"
+    },
+    "waiting": "Warte auf die anderen",
+    "draw": "Ziehen",
+    "takeDiscard": "Ablage nehmen",
+    "discardAndReveal": "Ablegen & aufdecken",
+    "grid": "Raster von {name}",
+    "cell": "Karte {number}: {value}",
+    "removed": "entfernt",
+    "hidden": "verdeckt"
+  },
+  "tempel": {
+    "revealedPiles": "Aufgedeckte Karten",
+    "round": "Runde {round} / 4 · {reveals} / {players} aufgedeckt",
+    "revealed": "{gold} / {goldTotal} Goldkammern · {traps} / {trapsTotal} Feuerfallen · {empty} leere Kammern",
+    "roles": "Rollen: {adventurers} Abenteurer · {guardians} Wächterinnen",
+    "keyHolder": "Schlüssel: {name}",
+    "yourRole": "Deine Rolle",
+    "role": {
+      "adventurer": "Du bist Abenteurer",
+      "guardian": "Du bist Wächterin"
+    },
+    "yourCounts": "Deine Kartenanzahl",
+    "hidden": "Verdeckt: {gold} Gold · {traps} Feuerfallen · {empty} leer",
+    "waiting": "Warte auf die anderen",
+    "inspect": "Prüfe deine Karten, dann bestätige",
+    "ready": "Bereit",
+    "key": "Schlüssel",
+    "playerCards": "Karten von {name}",
+    "playerRow": "Reihe von {name}",
+    "cardLabel": "{name}, Karte {index}: {card}",
+    "cards": {
+      "gold": "Goldkammer",
+      "trap": "Feuerfalle",
+      "empty": "leere Kammer",
+      "hidden": "verdeckt"
+    }
+  },
+  "mancala": {
+    "board": "Mancala-Brett",
+    "inStore": "{count} im Speicher",
+    "opponentStore": "Gegnerischer Speicher",
+    "yourStore": "Dein Speicher",
+    "pit_one": "Mulde {pit}: {count} Stein",
+    "pit_other": "Mulde {pit}: {count} Steine"
+  },
+  "ticTacToe": {
+    "board": "Tic-Tac-Toe-Feld",
+    "cell": "Feld {index}: {mark}",
+    "empty": "leer"
   }
 }

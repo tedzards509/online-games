@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '../../lib/i18n';
   import type { RoomConnection } from '../../lib/connection.svelte';
   import type { GameSnapshot, Snapshot } from '../../lib/types';
   import Avatar from '../table/Avatar.svelte';
@@ -38,8 +39,8 @@
     variant="quiet"
     square
     popovertarget="room-controls"
-    aria-label="Room controls"
-    title="Room controls"
+    aria-label={$t('room.controls')}
+    title={$t('room.controls')}
   >
     <svg
       viewBox="0 0 24 24"
@@ -62,7 +63,7 @@
   </Button>
 </Corner>
 
-<Popover id="room-controls" label="Room controls" placement="start">
+<Popover id="room-controls" label={$t('room.controls')} placement="start">
   <div class="menu">
     <div class="heading">
       <RoomCode code={room.code} {onerror} />
@@ -70,7 +71,7 @@
         variant="quiet"
         size="small"
         popovertarget="room-controls"
-        popovertargetaction="hide">Close</Button
+        popovertargetaction="hide">{$t('common.close')}</Button
       >
     </div>
     {#if withStatus}<GameStatus {game} showTurn={false} />{/if}
@@ -78,35 +79,38 @@
       <div class="commands">
         {#if game.outcome}
           <Button {disabled} onclick={() => connection.start()}
-            >Play again</Button
+            >{$t('room.playAgain')}</Button
           >
           <Button
             variant="secondary"
             {disabled}
-            onclick={() => connection.abort()}>Return to setup</Button
+            onclick={() => connection.abort()}
+            >{$t('room.returnToSetup')}</Button
           >
         {:else}
           {#if game.can_finish}
             <Button {disabled} onclick={() => connection.finish(true)}
-              >Finish: won</Button
+              >{$t('room.finishWon')}</Button
             >
             <Button {disabled} onclick={() => connection.finish(false)}
-              >Finish: lost</Button
+              >{$t('room.finishLost')}</Button
             >
           {/if}
           <Button
             variant="secondary"
             {disabled}
-            onclick={() => connection.abort()}>Abort game</Button
+            onclick={() => connection.abort()}>{$t('room.abort')}</Button
           >
         {/if}
       </div>
     {/if}
-    <ul aria-label="Members">
+    <ul aria-label={$t('room.members')}>
       {#each room.members as member (member.id)}
         <li>
           <Avatar name={member.nickname} colorIndex={member.id} />
-          {member.nickname}{member.id === room.you ? ' · you' : ''}
+          {member.nickname}{member.id === room.you
+            ? ` · ${$t('common.you')}`
+            : ''}
           {#if member.id === room.host}<HostMark />{/if}
         </li>
       {/each}

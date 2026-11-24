@@ -48,9 +48,10 @@ their key structures aligned. Do not alias German (cool) to German. Device
 preferences are matched in order by base language (`de-AT` → `de`); otherwise
 English is used. An explicit choice is saved under `arena-language` in browser
 storage. German (cool) sets the document's language to `de` for assistive tools.
-Landing errors use translated copy; server diagnostics are not translation keys.
-The Crew board uses the `crew` catalog namespace. Room and other game copy is
-English.
+All interface copy comes from the catalogs; server diagnostics are not
+translation keys. Shared words live in `common`, room screens in `room`, game
+names in `gameNames`, and each board in its own namespace (`crew`, `tempel`,
+`skyjo`, …). Counts use i18next plural keys (`_one`/`_other`).
 
 ## Fonts
 

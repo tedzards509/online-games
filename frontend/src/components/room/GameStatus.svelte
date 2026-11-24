@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { games, type GameSnapshot } from '../../lib/types';
+  import { t } from '../../lib/i18n';
+  import type { GameSnapshot } from '../../lib/types';
 
   /** Game title with the final result, or whose turn it is when `showTurn`.
    * The strip is highlighted while the viewer may act. */
@@ -13,21 +14,23 @@
       game.turn.players.includes(game.you),
   );
   const message = $derived.by(() => {
+    const list = (players: number[]) =>
+      players.map((player) => names[player]).join(', ');
     if (game.outcome)
       return game.outcome.winners.length
-        ? `${game.outcome.winners.map((player) => names[player]).join(', ')} won`
-        : game.config.game === 'the_crew'
-          ? 'Lost'
-          : 'Draw';
+        ? $t('common.playerWon', {
+            values: { name: list(game.outcome.winners) },
+          })
+        : $t(game.config.game === 'the_crew' ? 'common.lost' : 'common.draw');
     if (!showTurn || !game.turn.players.length) return '';
     return yourTurn
-      ? 'Your turn'
-      : `${game.turn.players.map((player) => names[player]).join(', ')}'s turn`;
+      ? $t('common.yourTurn')
+      : $t('common.playerTurn', { values: { name: list(game.turn.players) } });
   });
 </script>
 
 <div class="game-status" class:your-turn={yourTurn}>
-  <h1>{games[game.config.game]}</h1>
+  <h1>{$t(`gameNames.${game.config.game}`)}</h1>
   {#if message}<p role="status">{message}</p>{/if}
   {#if game.outcome?.scores}<p>
       {game.outcome.scores

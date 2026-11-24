@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '../../lib/i18n';
   import Button from '../ui/Button.svelte';
 
   /** Shows the room code and copies it for sharing. */
@@ -11,12 +12,17 @@
       await navigator.clipboard.writeText(code);
       copied = true;
     } catch {
-      onerror('Could not copy code');
+      onerror($t('room.copyFailed'));
     }
   }
 </script>
 
-<Button variant="quiet" size="small" onclick={copy} aria-label="Copy room code">
+<Button
+  variant="quiet"
+  size="small"
+  onclick={copy}
+  aria-label={$t('room.copyCode')}
+>
   <span class="code">{code}</span>
   <span aria-hidden="true">{copied ? '✓' : '⧉'}</span>
 </Button>

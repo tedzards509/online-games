@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '../lib/i18n';
   import type { Action, BoardProps, Schemas } from '../lib/types';
   import Board from './table/Board.svelte';
   import BoardSpace from './table/BoardSpace.svelte';
@@ -29,12 +30,14 @@
     {/snippet}
   </PlayerList>
   <TableSurface>
-    <div class="cells" role="group" aria-label="Tic-Tac-Toe board">
+    <div class="cells" role="group" aria-label={$t('ticTacToe.board')}>
       {#each view.board as cell, index}
         {@const legal = action(index)}
         {@const mark = cell === null ? '' : marks[cell]}
         <BoardSpace
-          label={`Cell ${index + 1}: ${mark || 'empty'}`}
+          label={$t('ticTacToe.cell', {
+            values: { index: index + 1, mark: mark || $t('ticTacToe.empty') },
+          })}
           move={legal && (() => move(legal))}
         >
           <span class:o={cell === 1}>{mark}</span>

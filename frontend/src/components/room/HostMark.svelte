@@ -1,5 +1,9 @@
 <!-- Crown marking the room host. -->
-<svg viewBox="0 0 24 24" role="img" aria-label="Host">
+<script lang="ts">
+  import { t } from '../../lib/i18n';
+</script>
+
+<svg viewBox="0 0 24 24" role="img" aria-label={$t('room.host')}>
   <path d="M3 7l4.5 4L12 4l4.5 7L21 7l-2 12H5z" />
 </svg>
 

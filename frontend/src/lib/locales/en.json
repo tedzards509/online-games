@@ -12,10 +12,7 @@
   "hiddenCard": "Face-down card",
   "card": "{rank} of {suit}",
   "crew": {
-    "yourTurn": "Your turn",
     "communicate": "Communicate",
-    "won": "Won",
-    "lost": "Lost",
     "card": "{color} {number}",
     "colors": {
       "blue": "Blue",
@@ -34,7 +31,6 @@
     "communicationReady": "Communication unused",
     "communicationPlayed": "Communicated card played",
     "stillInHand": "Still in hand",
-    "tricksOf": "{name} · {count} tricks won",
     "commander": "Commander · original black-four holder",
     "commanderName": "Commander",
     "notPlayed": "No card played",
@@ -50,7 +46,6 @@
     "nextToPlay": "Next to play",
     "yes": "Yes",
     "no": "No",
-    "close": "Close",
     "currentTrick": "Current trick",
     "lastTrick": "Last trick",
     "trickWinner": "{name} won the trick",
@@ -63,13 +58,183 @@
     "selectCard": "Select {card}",
     "selectPrompt": "Select a card",
     "playCard": "Play card",
-    "communicateCard": "Communicate a card"
+    "communicateCard": "Communicate a card",
+    "tricksOf_one": "{name} · {count} trick won",
+    "tricksOf_other": "{name} · {count} tricks won"
   },
-  "ranks": { "11": "Jack", "12": "Queen", "13": "King", "14": "Ace" },
+  "ranks": {
+    "11": "Jack",
+    "12": "Queen",
+    "13": "King",
+    "14": "Ace"
+  },
   "suits": {
     "clubs": "clubs",
     "diamonds": "diamonds",
     "hearts": "hearts",
     "spades": "spades"
+  },
+  "common": {
+    "yourTurn": "Your turn",
+    "playerTurn": "{name}'s turn",
+    "playerWon": "{name} won",
+    "won": "Won",
+    "lost": "Lost",
+    "draw": "Draw",
+    "close": "Close",
+    "players": "Players",
+    "you": "you"
+  },
+  "gameNames": {
+    "tempel_des_schreckens": "Tempel des Schreckens",
+    "the_crew": "The Crew",
+    "mancala": "Mancala",
+    "crazy_eights": "Crazy Eights",
+    "shithead": "Shithead",
+    "skyjo": "Skyjo",
+    "tic_tac_toe": "Tic-Tac-Toe"
+  },
+  "room": {
+    "title": "Room",
+    "gameSetup": "Game setup",
+    "waitingForGame": "Waiting for host to choose a game",
+    "members": "Members",
+    "seats": "Seats",
+    "seating": "Seating",
+    "bench": "Bench",
+    "toBench": "Bench",
+    "benchPlayer": "Bench {name}",
+    "seat": "Seat",
+    "seatPlayer": "Seat {name}",
+    "moveUp": "Move {name} up",
+    "moveDown": "Move {name} down",
+    "start": "Start game",
+    "host": "Host",
+    "controls": "Room controls",
+    "copyCode": "Copy room code",
+    "copyFailed": "Could not copy code",
+    "playAgain": "Play again",
+    "returnToSetup": "Return to setup",
+    "finishWon": "Finish: won",
+    "finishLost": "Finish: lost",
+    "abort": "Abort game",
+    "replays": "Replays ({count})",
+    "replay": "Game {number} · {game}",
+    "downloadFailed": "Download failed",
+    "onBench": "You are on the bench",
+    "connecting": "Connecting…",
+    "reconnecting": "Reconnecting…",
+    "game": "Game",
+    "gameRules": "Game rules",
+    "playerNumber": "Player {number}",
+    "rules": {
+      "initialKey": "Initial key holder",
+      "on": "On",
+      "off": "Off",
+      "standard": "Standard rules",
+      "state": "{rule}: {state}",
+      "crazyEightsEight": "8: Choose suit (always)"
+    }
+  },
+  "shithead": {
+    "playerCards": "{count} in hand · {down} face down",
+    "stock": "{count} in stock",
+    "pile": "{count} in pile",
+    "emptyPile": "Empty pile",
+    "transparentThree": "3 is transparent",
+    "chooseFaceUp": "Choose three face-up cards",
+    "waiting": "Waiting for other players",
+    "yourHand": "Your hand",
+    "yourFaceUp": "Your face-up cards",
+    "yourFaceDown": "Your face-down cards",
+    "faceDownCard": "Face-down card {number}",
+    "setFaceUp": "Set face-up cards",
+    "play": "Play",
+    "pickUp": "Pick up",
+    "rules": {
+      "bombs": "Four-card bombs bypass rank restrictions"
+    }
+  },
+  "crazyEights": {
+    "cards_one": "{count} card",
+    "cards_other": "{count} cards",
+    "stock": "{count} in stock",
+    "suit": "Suit {suit}",
+    "reversed": "Reverse direction",
+    "aceOrDrawTwo": "Play an ace or draw two",
+    "drawTwo": "Draw two",
+    "yourHand": "Your hand",
+    "chooseSuit": "Choose suit",
+    "chooseSuitOf": "Choose {suit}",
+    "drawOrPass": "Draw / pass",
+    "draw": "Draw",
+    "rules": {
+      "ace_are_you_strong": "A: Are you strong — play an ace or draw two",
+      "jack_skip": "J: Skip next player",
+      "ten_reverse": "10: Reverse (skip with two players)",
+      "two_draw_two": "2: Next player draws two"
+    }
+  },
+  "skyjo": {
+    "stock": "{count} in stock",
+    "stockPile": "Stock",
+    "discard": "Discard",
+    "discardPile": "Discard pile",
+    "drawn": "Drawn",
+    "drawnCard": "Drawn card",
+    "hints": {
+      "setup": "Reveal two",
+      "draw": "Draw a card",
+      "place": "Replace a card",
+      "reveal": "Reveal a card"
+    },
+    "waiting": "Waiting for other players",
+    "draw": "Draw",
+    "takeDiscard": "Take discard",
+    "discardAndReveal": "Discard & reveal",
+    "grid": "{name}'s grid",
+    "cell": "Card {number}: {value}",
+    "removed": "removed",
+    "hidden": "hidden"
+  },
+  "tempel": {
+    "revealedPiles": "Revealed piles",
+    "round": "Round {round} / 4 · {reveals} / {players} revealed",
+    "revealed": "{gold} / {goldTotal} gold · {traps} / {trapsTotal} traps · {empty} empty",
+    "roles": "Roles: {adventurers} adventurers · {guardians} guardians",
+    "keyHolder": "Key: {name}",
+    "yourRole": "Your role",
+    "role": {
+      "adventurer": "You are an adventurer",
+      "guardian": "You are a guardian"
+    },
+    "yourCounts": "Your card counts",
+    "hidden": "Hidden: {gold} gold · {traps} traps · {empty} empty",
+    "waiting": "Waiting for other players",
+    "inspect": "Check your card counts, then ready",
+    "ready": "Ready",
+    "key": "Key",
+    "playerCards": "{name}'s cards",
+    "playerRow": "{name}'s row",
+    "cardLabel": "{name} card {index}: {card}",
+    "cards": {
+      "gold": "gold",
+      "trap": "trap",
+      "empty": "empty",
+      "hidden": "hidden"
+    }
+  },
+  "mancala": {
+    "board": "Mancala board",
+    "inStore": "{count} in store",
+    "opponentStore": "Opponent store",
+    "yourStore": "Your store",
+    "pit_one": "Pit {pit}: {count} stone",
+    "pit_other": "Pit {pit}: {count} stones"
+  },
+  "ticTacToe": {
+    "board": "Tic-Tac-Toe board",
+    "cell": "Cell {index}: {mark}",
+    "empty": "empty"
   }
 }

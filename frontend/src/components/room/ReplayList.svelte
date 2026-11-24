@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { games, type Snapshot } from '../../lib/types';
+  import { t } from '../../lib/i18n';
+  import type { Snapshot } from '../../lib/types';
   import Button from '../ui/Button.svelte';
 
   /** Completed games of this room, downloadable by every member. */
@@ -14,14 +15,21 @@
 
 {#if replays.length}
   <details>
-    <summary>Replays ({replays.length})</summary>
+    <summary
+      >{$t('room.replays', { values: { count: replays.length } })}</summary
+    >
     <div class="list">
       {#each replays as archive, index (archive.id)}
         <Button
           variant="quiet"
           size="small"
           onclick={() => download(archive.id)}
-          >Game {index + 1} · {games[archive.config.game]} ↓</Button
+          >{$t('room.replay', {
+            values: {
+              number: index + 1,
+              game: $t(`gameNames.${archive.config.game}`),
+            },
+          })} ↓</Button
         >
       {/each}
     </div>

@@ -103,7 +103,8 @@
     try {
       await downloadReplay(member.code, id, member.token);
     } catch (cause) {
-      error = cause instanceof Error ? cause.message : 'Download failed';
+      error =
+        cause instanceof Error ? cause.message : $t('room.downloadFailed');
     }
   }
   function showError(message: string): void {
@@ -115,7 +116,7 @@
   ><title>{code ? `${code} · ` : ''}Friends' Arena</title></svelte:head
 >
 
-<main class:entry={!member} class:immersive lang={member ? 'en' : undefined}>
+<main class:entry={!member} class:immersive>
   <LanguageSettings />
 
   {#if entryError || error || connection?.error || (member && connection?.status !== 'connected')}
@@ -126,7 +127,7 @@
         >{/if}
       {#if member && connection?.status !== 'connected'}
         <div class="connection-notice">
-          <Notice>{room ? 'Reconnecting…' : 'Connecting…'}</Notice>
+          <Notice>{$t(room ? 'room.reconnecting' : 'room.connecting')}</Notice>
         </div>
       {/if}
     </div>

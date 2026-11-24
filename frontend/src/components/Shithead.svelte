@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { cardLabel, type BoardProps, type Schemas } from '../lib/types';
+  import { t } from '../lib/i18n';
+  import type { BoardProps, Schemas } from '../lib/types';
   import CardBack from './cards/CardBack.svelte';
   import CardSlot from './cards/CardSlot.svelte';
   import StandardPlayingCard from './cards/StandardPlayingCard.svelte';
@@ -62,54 +63,58 @@
     {active}
   >
     {#snippet details(player)}
-      {view.players[player].count} in hand · {view.players[player].down} down
+      {$t('shithead.playerCards', {
+        values: {
+          count: view.players[player].count,
+          down: view.players[player].down,
+        },
+      })}
       {#each view.players[player].up as card}<StandardPlayingCard
           {card}
-          label={cardLabel(card)}
           width="var(--arena-card-width-small)"
         />{/each}
     {/snippet}
   </PlayerList>
 
   <TableSurface>
-    <Pile caption={`${view.stock} in stock`}><CardBack /></Pile>
-    <Pile caption={`${view.pile} in pile`}>
+    <Pile caption={$t('shithead.stock', { values: { count: view.stock } })}
+      ><CardBack /></Pile
+    >
+    <Pile caption={$t('shithead.pile', { values: { count: view.pile } })}>
       {#if view.top}<StandardPlayingCard
           card={view.top}
-          label={cardLabel(view.top)}
           highlighted
-        />{:else}<CardSlot label="Empty pile" />{/if}
+        />{:else}<CardSlot label={$t('shithead.emptyPile')} />{/if}
     </Pile>
     {#if view.top?.rank === 3 && view.effective_top}
-      <Pile caption="3 is transparent">
-        <StandardPlayingCard
-          card={view.effective_top}
-          label={cardLabel(view.effective_top)}
-        />
+      <Pile caption={$t('shithead.transparentThree')}>
+        <StandardPlayingCard card={view.effective_top} />
       </Pile>
     {/if}
   </TableSurface>
 
   {#if view.setup}<Notice
       >{actions.length
-        ? 'Choose three face-up cards'
-        : 'Waiting for other players'}</Notice
+        ? $t('shithead.chooseFaceUp')
+        : $t('shithead.waiting')}</Notice
     >{/if}
 
   <PlayerBar name={names[you]} colorIndex={you} you active={yourTurn}>
     {#if view.hand.length}
       {#each view.players[you].up as card}<StandardPlayingCard
           {card}
-          label={cardLabel(card)}
           width="var(--arena-card-width-small)"
         />{/each}
     {/if}
   </PlayerBar>
-  <CardRow label={view.hand.length ? 'Your hand' : 'Your face-up cards'}>
+  <CardRow
+    label={view.hand.length
+      ? $t('shithead.yourHand')
+      : $t('shithead.yourFaceUp')}
+  >
     {#each source as card, index}
       <StandardPlayingCard
         {card}
-        label={cardLabel(card)}
         selected={selected.includes(index)}
         disabled={!usable(index)}
         muted={yourTurn && !usable(index)}
@@ -118,7 +123,7 @@
     {/each}
   </CardRow>
   {#if view.players[you].down}
-    <CardRow label="Your face-down cards">
+    <CardRow label={$t('shithead.yourFaceDown')}>
       {#each Array(view.players[you].down) as _, index}
         {@const action = actions.find(
           (a) =>
@@ -128,7 +133,7 @@
         )}
         <CardBack
           disabled={!action}
-          label={`Face-down card ${index + 1}`}
+          label={$t('shithead.faceDownCard', { values: { number: index + 1 } })}
           onclick={() => action && move(action)}
         />
       {/each}
@@ -139,16 +144,13 @@
     {#if source.length}<Button
         disabled={!playable}
         onclick={() => playable && move(playable)}
-        >{view.setup ? 'Set face-up cards' : 'Play'}</Button
+        >{view.setup ? $t('shithead.setFaceUp') : $t('shithead.play')}</Button
       >{/if}
     {#each actions as action}
       {#if action.game === 'shithead' && action.action.type === 'pickup'}<Button
           variant="secondary"
-          onclick={() => move(action)}>Pick up</Button
+          onclick={() => move(action)}>{$t('shithead.pickUp')}</Button
         >{/if}
     {/each}
   </Actions>
 </Board>
-
-<style>
-</style>

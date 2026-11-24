@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '../../lib/i18n';
   import { games, type GameKind, type Schemas } from '../../lib/types';
   import { crazyEightsDefaults, crazyEightsRules } from '../../lib/config';
   import Checkbox from '../ui/Checkbox.svelte';
@@ -32,10 +33,10 @@
 </script>
 
 <ChoiceGroup
-  legend="Game"
-  options={Object.entries(games).map(([value, label]) => ({
-    value: value as GameKind,
-    label,
+  legend={$t('room.game')}
+  options={games.map((game) => ({
+    value: game,
+    label: $t(`gameNames.${game}`),
   }))}
   value={config?.game}
   {disabled}
@@ -43,22 +44,22 @@
 />
 {#if config?.game === 'crazy_eights'}
   <fieldset {disabled}>
-    <legend>Game rules</legend>
-    {#each Object.entries(crazyEightsRules) as [key, label] (key)}
+    <legend>{$t('room.gameRules')}</legend>
+    {#each crazyEightsRules as rule (rule)}
       <Checkbox
-        {label}
+        label={$t(`crazyEights.rules.${rule}`)}
         {disabled}
-        checked={config.rules[key as keyof typeof config.rules]}
+        checked={config.rules[rule]}
         onchange={(checked) => {
           if (config?.game === 'crazy_eights')
-            change({ ...config, rules: { ...config.rules, [key]: checked } });
+            change({ ...config, rules: { ...config.rules, [rule]: checked } });
         }}
       />
     {/each}
   </fieldset>
 {:else if config?.game === 'shithead'}
   <Checkbox
-    label="Four-card bombs bypass rank restrictions"
+    label={$t('shithead.rules.bombs')}
     {disabled}
     checked={config.rules.four_card_bombs}
     onchange={(checked) =>
@@ -66,10 +67,13 @@
   />
 {:else if config?.game === 'tempel_des_schreckens'}
   <Select
-    label="Initial key holder"
+    label={$t('room.rules.initialKey')}
     {disabled}
     value={config.rules.initial_key}
-    options={(players.length ? players : ['Player 1']).map((name, index) => ({
+    options={(players.length
+      ? players
+      : [$t('room.playerNumber', { values: { number: 1 } })]
+    ).map((name, index) => ({
       value: index,
       label: name,
     }))}

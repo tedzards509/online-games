@@ -11,15 +11,16 @@ export type Suit = Schemas['Suit'];
 export type ClientMessage = Schemas['ClientMessage'];
 export type ServerMessage = Schemas['ServerMessage'];
 
-export const games: Record<GameKind, string> = {
-  tempel_des_schreckens: 'Tempel des Schreckens',
-  the_crew: 'The Crew',
-  mancala: 'Mancala',
-  crazy_eights: 'Crazy Eights',
-  shithead: 'Shithead',
-  skyjo: 'Skyjo',
-  tic_tac_toe: 'Tic-Tac-Toe',
-};
+/** Selectable games in display order; names are `gameNames.<kind>`. */
+export const games: GameKind[] = [
+  'tempel_des_schreckens',
+  'the_crew',
+  'mancala',
+  'crazy_eights',
+  'shithead',
+  'skyjo',
+  'tic_tac_toe',
+];
 
 export const suits: Record<Suit, string> = {
   clubs: '♣',
@@ -27,14 +28,6 @@ export const suits: Record<Suit, string> = {
   hearts: '♥',
   spades: '♠',
 };
-
-export function cardLabel(card: Card): string {
-  const rank =
-    ({ 11: 'J', 12: 'Q', 13: 'K', 14: 'A' } as Record<number, string>)[
-      card.rank
-    ] ?? card.rank;
-  return `${rank}${suits[card.suit]}`;
-}
 
 /** Props every game board receives from GameBoard. Boards may require more. */
 export type BoardProps<View> = {

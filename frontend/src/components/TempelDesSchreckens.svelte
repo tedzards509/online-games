@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '../lib/i18n';
   import type { Action, BoardProps, Schemas } from '../lib/types';
   import Button from './ui/Button.svelte';
   import Notice from './ui/Notice.svelte';
@@ -33,63 +34,83 @@
 </script>
 
 <Board>
-  <TableSurface aria-label="Revealed piles">
+  <TableSurface aria-label={$t('tempel.revealedPiles')}>
     <div class="summary">
       <p>
-        Round {view.round} / 4 · {view.round_reveals} / {names.length} revealed
+        {$t('tempel.round', {
+          values: {
+            round: view.round,
+            reveals: view.round_reveals,
+            players: names.length,
+          },
+        })}
       </p>
       <p>
-        {view.revealed.gold} / {view.distribution.cards.gold} gold · {view
-          .revealed.traps} / {view.distribution.cards.traps} traps · {view
-          .revealed.empty} empty
+        {$t('tempel.revealed', {
+          values: {
+            gold: view.revealed.gold,
+            goldTotal: view.distribution.cards.gold,
+            traps: view.revealed.traps,
+            trapsTotal: view.distribution.cards.traps,
+            empty: view.revealed.empty,
+          },
+        })}
       </p>
       <p>
-        Roles: {view.distribution.adventurers} adventurers · {view.distribution
-          .guardians} guardians
+        {$t('tempel.roles', {
+          values: {
+            adventurers: view.distribution.adventurers,
+            guardians: view.distribution.guardians,
+          },
+        })}
       </p>
-      <p>Key: {names[view.key]}</p>
+      <p>{$t('tempel.keyHolder', { values: { name: names[view.key] } })}</p>
     </div>
   </TableSurface>
 
   <div class="you">
-    <p aria-label="Your role">
-      You are {view.role === 'adventurer' ? 'an adventurer' : 'a guardian'}
-    </p>
-    <p aria-label="Your card counts">
-      Hidden: {view.hand_counts.gold} gold · {view.hand_counts.traps} traps · {view
-        .hand_counts.empty} empty
+    <p aria-label={$t('tempel.yourRole')}>{$t(`tempel.role.${view.role}`)}</p>
+    <p aria-label={$t('tempel.yourCounts')}>
+      {$t('tempel.hidden', { values: { ...view.hand_counts } })}
     </p>
   </div>
 
   {#if !finished && view.phase === 'inspect'}
     <Notice>
-      {view.ready[you]
-        ? 'Waiting for other players'
-        : 'Check your card counts, then ready'}
+      {$t(view.ready[you] ? 'tempel.waiting' : 'tempel.inspect')}
     </Notice>
   {/if}
   {#if !finished && ready}
-    <Actions><Button onclick={() => move(ready)}>Ready</Button></Actions>
+    <Actions>
+      <Button onclick={() => move(ready)}>{$t('tempel.ready')}</Button>
+    </Actions>
   {/if}
 
   {#each names as name, player (player)}
-    <section aria-label={`${name}'s cards`}>
+    <section aria-label={$t('tempel.playerCards', { values: { name } })}>
       <PlayerBar
         {name}
         colorIndex={player}
         you={player === you}
         active={active.includes(player)}
       >
-        {#if player === view.key}<span>Key</span>{/if}
-        {#if view.phase === 'inspect' && view.ready[player]}<span>Ready</span
+        {#if player === view.key}<span>{$t('tempel.key')}</span>{/if}
+        {#if view.phase === 'inspect' && view.ready[player]}<span
+            >{$t('tempel.ready')}</span
           >{/if}
       </PlayerBar>
-      <CardRow label={`${name}'s row`}>
+      <CardRow label={$t('tempel.playerRow', { values: { name } })}>
         {#each view.cards[player] as card, index (index)}
           {@const action = reveal(player, index)}
           <TempelCard
             {card}
-            label={`${name} card ${index + 1}: ${card ?? 'hidden'}`}
+            label={$t('tempel.cardLabel', {
+              values: {
+                name,
+                index: index + 1,
+                card: $t(`tempel.cards.${card ?? 'hidden'}`),
+              },
+            })}
             disabled={!action}
             onclick={() => action && move(action)}
           />

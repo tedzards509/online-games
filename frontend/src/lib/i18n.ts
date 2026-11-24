@@ -47,8 +47,10 @@ void i18next.init({
 /** Reactive fixed-language translator; Svelte escapes the resulting text. */
 export const t = derived(locale, (language) => {
   const translate = i18next.getFixedT(language);
-  return (key: string, options?: { values: Record<string, string> }): string =>
-    translate(key, options?.values ?? {});
+  return (
+    key: string,
+    options?: { values: Record<string, string | number> },
+  ): string => translate(key, options?.values ?? {});
 });
 locale.subscribe((language) => {
   document.documentElement.lang = language === 'de-cool' ? 'de' : language;

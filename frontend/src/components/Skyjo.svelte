@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '../lib/i18n';
   import type { Action, BoardProps, Schemas } from '../lib/types';
   import CardBack from './cards/CardBack.svelte';
   import CardSlot from './cards/CardSlot.svelte';
@@ -42,15 +43,6 @@
         a.action.index === index,
     );
   }
-  const hint = $derived(
-    view.phase === 'setup'
-      ? 'Reveal two'
-      : view.phase === 'place'
-        ? 'Replace a card'
-        : view.phase === 'reveal'
-          ? 'Reveal a card'
-          : 'Draw a card',
-  );
 </script>
 
 {#snippet face(value: number, label: string, action?: Action)}
@@ -67,30 +59,40 @@
 
 <Board>
   <TableSurface>
-    <Pile caption={`${view.stock} in stock`}><CardBack label="Stock" /></Pile>
-    <Pile caption="Discard">
+    <Pile caption={$t('skyjo.stock', { values: { count: view.stock } })}
+      ><CardBack label={$t('skyjo.stockPile')} /></Pile
+    >
+    <Pile caption={$t('skyjo.discard')}>
       {#if view.top != null}{@render face(
           view.top,
-          'Discard pile',
-        )}{:else}<CardSlot label="Discard pile" />{/if}
+          $t('skyjo.discardPile'),
+        )}{:else}<CardSlot label={$t('skyjo.discardPile')} />{/if}
     </Pile>
     {#if view.pending != null}
-      <Pile caption="Drawn">{@render face(view.pending, 'Drawn card')}</Pile>
+      <Pile caption={$t('skyjo.drawn')}
+        >{@render face(view.pending, $t('skyjo.drawnCard'))}</Pile
+      >
     {/if}
   </TableSurface>
 
   {#if actions.length || view.phase === 'setup'}
-    <Notice>{actions.length ? hint : 'Waiting for other players'}</Notice>
+    <Notice
+      >{actions.length
+        ? $t(`skyjo.hints.${view.phase}`)
+        : $t('skyjo.waiting')}</Notice
+    >
   {/if}
   <Actions>
     {#each actions as action}
       {#if action.game === 'skyjo' && action.action.type === 'draw'}
         <Button onclick={() => move(action)}
-          >{action.action.source === 'stock' ? 'Draw' : 'Take discard'}</Button
+          >{action.action.source === 'stock'
+            ? $t('skyjo.draw')
+            : $t('skyjo.takeDiscard')}</Button
         >
       {:else if action.game === 'skyjo' && action.action.type === 'discard'}
         <Button variant="secondary" onclick={() => move(action)}
-          >Discard & reveal</Button
+          >{$t('skyjo.discardAndReveal')}</Button
         >
       {/if}
     {/each}
@@ -101,7 +103,7 @@
       <section
         class="player"
         class:own={player === you}
-        aria-label={`${names[player]}'s grid`}
+        aria-label={$t('skyjo.grid', { values: { name: names[player] } })}
       >
         <PlayerBar
           name={names[player]}
@@ -112,7 +114,14 @@
         <div class="grid">
           {#each view.grids[player] as cell, index}
             {@const action = cellAction(player, index)}
-            {@const label = `Card ${index + 1}: ${cell.removed ? 'removed' : (cell.value ?? 'hidden')}`}
+            {@const label = $t('skyjo.cell', {
+              values: {
+                number: index + 1,
+                value: cell.removed
+                  ? $t('skyjo.removed')
+                  : (cell.value ?? $t('skyjo.hidden')),
+              },
+            })}
             {#if cell.removed}
               <CardSlot {label} outlined={false} />
             {:else if cell.value == null}

@@ -144,7 +144,7 @@
     variant="quiet"
     size="small"
     popovertarget={`crew-info-${player}`}
-    popovertargetaction="hide">{$t('crew.close')}</Button
+    popovertargetaction="hide">{$t('common.close')}</Button
   >
 </section>
 

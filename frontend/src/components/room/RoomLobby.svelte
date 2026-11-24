@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { RoomConnection } from '../../lib/connection.svelte';
-  import { games, type Snapshot } from '../../lib/types';
+  import { t } from '../../lib/i18n';
+  import type { Snapshot } from '../../lib/types';
   import Avatar from '../table/Avatar.svelte';
   import PlayerBar from '../table/PlayerBar.svelte';
   import Button from '../ui/Button.svelte';
@@ -49,12 +50,12 @@
 </script>
 
 <header>
-  <h1>Room</h1>
+  <h1>{$t('room.title')}</h1>
   <RoomCode code={room.code} {onerror} />
 </header>
 
 <div class="lobby">
-  <Panel aria-label="Game setup">
+  <Panel aria-label={$t('room.gameSetup')}>
     {#if host}
       <RoomSettings
         config={room.config}
@@ -63,16 +64,16 @@
         change={(config) => connection.configure(config)}
       />
     {:else if room.config}
-      <h2>{games[room.config.game]}</h2>
+      <h2>{$t(`gameNames.${room.config.game}`)}</h2>
       <GameConfig config={room.config} />
     {:else}
-      <p>Waiting for host to choose a game</p>
+      <p>{$t('room.waitingForGame')}</p>
     {/if}
   </Panel>
 
-  <Panel aria-label="Members">
-    <h2>Seats</h2>
-    <ol aria-label="Seating">
+  <Panel aria-label={$t('room.members')}>
+    <h2>{$t('room.seats')}</h2>
+    <ol aria-label={$t('room.seating')}>
       {#each room.seating as id, index (id)}
         {@const name = room.members[id].nickname}
         <li>
@@ -84,7 +85,7 @@
                   variant="quiet"
                   size="small"
                   square
-                  aria-label={`Move ${name} up`}
+                  aria-label={$t('room.moveUp', { values: { name } })}
                   disabled={disabled || index === 0}
                   onclick={() => move(index, -1)}>↑</Button
                 >
@@ -92,18 +93,18 @@
                   variant="quiet"
                   size="small"
                   square
-                  aria-label={`Move ${name} down`}
+                  aria-label={$t('room.moveDown', { values: { name } })}
                   disabled={disabled || index === room.seating.length - 1}
                   onclick={() => move(index, 1)}>↓</Button
                 >
                 <Button
                   variant="quiet"
                   size="small"
-                  aria-label={`Bench ${name}`}
+                  aria-label={$t('room.benchPlayer', { values: { name } })}
                   {disabled}
                   onclick={() =>
                     connection.seat(room.seating.filter((m) => m !== id))}
-                  >Bench</Button
+                  >{$t('room.toBench')}</Button
                 >
               </span>
             {/if}
@@ -111,13 +112,15 @@
         </li>
       {/each}
     </ol>
-    <h2>Bench</h2>
-    <ul aria-label="Bench">
+    <h2>{$t('room.bench')}</h2>
+    <ul aria-label={$t('room.bench')}>
       {#each bench as member (member.id)}
         <li>
           <Avatar name={member.nickname} colorIndex={member.id} />
           <span class="name"
-            >{member.nickname}{member.id === room.you ? ' · you' : ''}</span
+            >{member.nickname}{member.id === room.you
+              ? ` · ${$t('common.you')}`
+              : ''}</span
           >
           {#if member.id === room.host}<HostMark />{/if}
           {#if host}
@@ -125,10 +128,12 @@
               <Button
                 variant="quiet"
                 size="small"
-                aria-label={`Seat ${member.nickname}`}
+                aria-label={$t('room.seatPlayer', {
+                  values: { name: member.nickname },
+                })}
                 {disabled}
                 onclick={() => connection.seat([...room.seating, member.id])}
-                >Seat</Button
+                >{$t('room.seat')}</Button
               >
             </span>
           {/if}
@@ -141,7 +146,7 @@
         disabled={disabled ||
           !room.config ||
           room.seating.length < minimumPlayers}
-        onclick={() => connection.start()}>Start game</Button
+        onclick={() => connection.start()}>{$t('room.start')}</Button
       >
     {/if}
   </Panel>

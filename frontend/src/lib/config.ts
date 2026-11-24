@@ -7,12 +7,7 @@ export const crazyEightsDefaults: Schemas['CrazyEightsGameConfig'] = {
   two_draw_two: false,
 };
 
-export const crazyEightsRules: Record<
-  keyof Schemas['CrazyEightsGameConfig'],
-  string
-> = {
-  ace_are_you_strong: 'A: Are you strong — play an ace or draw two',
-  jack_skip: 'J: Skip next player',
-  ten_reverse: '10: Reverse (skip with two players)',
-  two_draw_two: '2: Next player draws two',
-};
+/** Optional Crazy Eights rules; labels are `crazyEights.rules.<rule>`. */
+export const crazyEightsRules = Object.keys(crazyEightsDefaults) as Array<
+  keyof Schemas['CrazyEightsGameConfig']
+>;

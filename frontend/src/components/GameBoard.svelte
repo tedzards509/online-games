@@ -26,9 +26,9 @@
 
 {#if room.you == null}
   <div class="bench">
-    <Notice>You are on the bench</Notice>
+    <Notice>{$t('room.onBench')}</Notice>
     {#if room.config.game === 'the_crew' && room.outcome}<p role="status">
-        {$t(room.outcome.winners.length ? 'crew.won' : 'crew.lost')}
+        {$t(room.outcome.winners.length ? 'common.won' : 'common.lost')}
       </p>{/if}
   </div>
 {:else}
