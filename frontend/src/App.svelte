@@ -9,7 +9,7 @@
     saveMembership,
   } from './lib/api';
   import { RoomConnection } from './lib/connection.svelte';
-  import type { Membership } from './lib/types';
+  import { cardTableGames, type Membership } from './lib/types';
   import GameBoard from './components/GameBoard.svelte';
   import LandingPage from './components/LandingPage.svelte';
   import LanguageSettings from './components/LanguageSettings.svelte';
@@ -39,8 +39,9 @@
   let entryError = $state<string | null>(null);
   const room = $derived(connection?.room);
   const game = $derived(room?.game);
-  /** Boards that own the whole viewport and show their own turn status. */
-  const immersive = $derived(game?.config.game === 'the_crew');
+  const immersive = $derived(
+    !!game && cardTableGames.includes(game.config.game),
+  );
   /** The game whose end screen the viewer dismissed; a new game shows it again. */
   let resultsHidden = $state<string | null>(null);
   const disabled = $derived(

@@ -45,6 +45,27 @@ toggle. Opponents go in a `PlayerList` without the viewer.
 </PlayerDock>
 ```
 
+`CardTable` is the root of a card game board listed in `cardTableGames`
+(`lib/types.ts`; the room shell then fills the viewport and drops its status
+strip). It seats `opponents` (player indices in seat order after the viewer)
+around a green center and keeps the dock at the bottom, all as snippets.
+`OpponentSeat` renders one opponent: `name`, `colorIndex`, `cards` (hand size as
+a stack of backs), `active`, and snippets `markers` (public cards or tokens
+below the stack) and `info` (public details; the name then opens a popover).
+
+```svelte
+<CardTable {opponents}>
+  {#snippet opponent(player)}
+    <OpponentSeat name={names[player]} colorIndex={player}
+      cards={view.players[player].count} active={active.includes(player)}>
+      {#snippet markers()}…face-up cards…{/snippet}
+    </OpponentSeat>
+  {/snippet}
+  {#snippet center()}…pile, stock…{/snippet}
+  {#snippet dock()}<PlayerDock …>…</PlayerDock>{/snippet}
+</CardTable>
+```
+
 Boards receive `BoardProps` (`lib/types.ts`):
 view, legal actions, names, viewer index, active players, finished flag, and
 `move`.
@@ -119,9 +140,10 @@ announcements. Never place interactive controls inside card content.
 
 ## The Crew table
 
-`components/TheCrew.svelte` owns the viewport layout, card selection, legal command
-lookup, and stable visual trick offsets. `components/crew/` supplies its card face,
-communication slot, trick pile, and opponent/info panel. Room metadata uses
+`components/TheCrew.svelte` renders a `CardTable` and owns card selection, legal
+command lookup, and the trick, an orderly row of cards captioned with their
+players. `components/crew/` supplies its card face, communication slot, trick
+pile, and `CrewPlayer` (an `OpponentSeat` with Crew markers and info). Room metadata uses
 member IDs; game actions and marker arrays use frozen player indices.
 
 - `crew/cards.ts` documents the exact printed colors. SVG circle, triangle,
@@ -144,8 +166,8 @@ member IDs; game actions and marker arrays use frozen player indices.
   highest, only, or lowest.
   `communication_played` and `commander` come from every server projection;
   neither marker relies on a browser remembering earlier tricks.
-- Table-specific dimensions live in the board's scoped CSS. `--arena-card-width`
-  is `4.5rem` throughout The Crew (72 × 101px at default text size), including
+- `CardTable` sets `--arena-card-width` to `4.5rem` (72 × 101px at default text
+  size) and lays out the viewport; The Crew uses it (72 × 101px at default text size), including
   hands, backs, communications, piles, and both trick views. Card rows and the
   table area scroll when needed; card faces do not shrink to fit.
   In portrait mobile, the viewer's communication and pile sit above a full-width

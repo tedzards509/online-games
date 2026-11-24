@@ -46,8 +46,8 @@ fallback. German (cool) is an explicit selection, not a device locale.
 - Game: a status strip with the game name and whose turn it is (highlighted on
   the viewer's turn) or the result, then the board. Room code, members, replays,
   and the host's running-game commands (abort, finish) live in the room
-  controls popover. Immersive boards (The Crew) fill the viewport and show their
-  own status; the popover then repeats the result.
+  controls popover. Card table boards (`cardTableGames`) fill the viewport and
+  show their status in the player dock; the popover then repeats the status.
 - End screen: a modal that opens when a game has an outcome, for every member
   including the bench. It shows the result and each player with winner mark and
   score; the host chooses play again or back to game selection, others wait.
@@ -82,10 +82,18 @@ visible meaning; a selectable button can expose its selected state. Enabled card
 buttons are raised; a selected card lifts. Games own their hand/table layouts,
 legal-action behavior, and responsive card sizing.
 
+## Card table
+
+Card games with hidden hands share one viewport layout: opponents seated
+around the table (left, across, right) with their name, a stack of card backs
+for their hand size, and their public cards or tokens below; a green center for
+the shared play area; and the player dock along the bottom. In portrait mobile
+the opponents form a scrolling row above the center.
+
 ## The Crew
 
-The Crew fills one viewport with the shared player dock and hand along the
-bottom, a central trick, and opponent racks around the outside. Cards have
+The Crew uses the card table: the current trick lies in an orderly row in the
+green center, each card captioned with its player. Cards have
 saturated color faces, contrasting numbers, and outline shapes. Illegal cards
 use opaque muted colors only on the viewer's turn; card selection is independent
 of permission to submit a move. Communication markers sit inside their cards.

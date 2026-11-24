@@ -14,9 +14,9 @@ Read `README.md`, `docs/design.md`, and the relevant game's `crates/arena-core/s
 - `crates/arena-server/src/store.rs`, `schema.sql`: SQLite persistence and direct schema initialization.
 - `frontend/src/lib/connection.svelte.ts`: socket authentication, reconnects, revisions, pending state.
 - `frontend/src/components/`: game-specific boards. `App.svelte` handles entry, room navigation, and room chrome.
-- `frontend/src/components/ui/`, `components/table/`, `components/cards/`: themed controls, shared game widgets (player bars, table surface, card rows, piles, actions), and composable card layers. Boards receive `BoardProps` from `GameBoard.svelte`.
+- `frontend/src/components/ui/`, `components/table/`, `components/cards/`: themed controls, shared game widgets (card table and opponent seats, player dock and hand, player bars, table surface, card rows, piles), and composable card layers. Boards receive `BoardProps` from `GameBoard.svelte`.
 - `frontend/src/components/room/`: lobby, room controls popover, and game status strip.
-- `frontend/src/components/crew/`: The Crew's card faces, communication/trick markers, and public player info; `TheCrew.svelte` owns its viewport layout and selection controls, using the shared dock and hand.
+- `frontend/src/components/crew/`: The Crew's card faces, communication/trick markers, and public player info; `TheCrew.svelte` owns its selection controls and trick, using the shared card table, dock and hand.
 - `frontend/src/style.ts`, `design.css`, `themes/`, `base.css`: global styles; a theme defines every token documented in `themes/inkline.css`. `lib/i18n.ts`, `lib/locales/`: language selection and independent translation catalogs. See `frontend/README.md` and `docs/frontend-design.md`.
 - `frontend/src/lib/api.generated.ts`: generated from `openapi.json`; do not edit by hand.
 
