@@ -631,9 +631,7 @@ for (const [width, height, count] of [
       .getByRole('button', { name: 'Play card', exact: true })
       .boundingBox())!;
     expect(playBox.y + playBox.height).toBeLessThanOrEqual(height);
-    const statusBox = (await page
-      .getByRole('region', { name: 'Your seat', exact: true })
-      .boundingBox())!;
+    const statusBox = (await page.locator('.crew-table .seat').boundingBox())!;
     const arenaBox = (await page.locator('.arena').boundingBox())!;
     expect(arenaBox.y + arenaBox.height).toBeLessThanOrEqual(statusBox.y);
     const sizes = await page

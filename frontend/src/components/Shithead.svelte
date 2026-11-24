@@ -7,6 +7,7 @@
   import Board from './table/Board.svelte';
   import Hand from './table/Hand.svelte';
   import Pile from './table/Pile.svelte';
+  import CardRow from './table/CardRow.svelte';
   import PlayerDock from './table/PlayerDock.svelte';
   import PlayerList from './table/PlayerList.svelte';
   import TableSurface from './table/TableSurface.svelte';
@@ -136,12 +137,15 @@
 
   <PlayerDock name={names[you]} colorIndex={you} attention={yourTurn} {hint}>
     {#snippet details()}
-      {#if view.hand.length}{@render table(you)}{/if}
       {#if source.length && own.down}{$t('shithead.faceDownCount', {
           values: { count: own.down },
         })}{/if}
     {/snippet}
     {#snippet hand()}
+      {#if view.hand.length && own.up.length}
+        <CardRow label={$t('shithead.yourFaceUp')}>{@render table(you)}</CardRow
+        >
+      {/if}
       {#if source.length}
         <Hand
           label={view.hand.length

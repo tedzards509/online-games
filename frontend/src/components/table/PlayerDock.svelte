@@ -3,7 +3,8 @@
   import { t } from '../../lib/i18n';
   import Avatar from './Avatar.svelte';
 
-  /** The viewer's seat, kept at the bottom of the screen: an optional hand
+  /** The viewer's seat, kept at the bottom of the screen (on narrow screens
+   * only its bar sticks; the hand stays in the board's flow): an optional hand
    * above a bar with identity, public details, a short hint, and the action
    * buttons (`controls`; put the primary action last). `attention` marks that
    * the viewer must act now (also exposed as data-active). Render it last in a
@@ -117,18 +118,26 @@
     margin-left: auto;
   }
   @media (max-width: 40rem) {
-    /* Clears the corner buttons that sit at the bottom on narrow screens. */
+    /* A sticky hand would cover most of a narrow screen: the hand stays in the
+       board's flow and only the bar sticks, above the bottom corner buttons. */
     .dock {
+      display: contents;
+    }
+    .bar {
+      position: sticky;
       bottom: calc(var(--arena-control-height) + var(--arena-space-2));
+      z-index: 1;
+      gap: var(--arena-space-1) var(--arena-space-2);
+      padding: 0.5rem 0.6rem;
     }
     .hint {
-      flex-basis: 100%;
+      flex-basis: 8rem;
     }
     .hint:empty {
       display: none;
     }
     .controls {
-      flex-basis: 100%;
+      flex-grow: 1;
     }
     .controls > :global(*) {
       flex: 1 1 auto;

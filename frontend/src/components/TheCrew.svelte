@@ -167,93 +167,96 @@
         </p>{/if}
     </section>
   </div>
-  <PlayerDock
-    name={players[you].nickname}
-    colorIndex={you}
-    attention={yourTurn}
-    hint={finished
-      ? $t(won ? 'common.won' : 'common.lost')
-      : view.awaiting_result
-        ? $t('crew.awaitingResult')
-        : yourTurn
-          ? $t('common.yourTurn')
-          : $t(view.trick.length ? 'crew.playsNext' : 'crew.leads', {
-              values: { name: players[view.next_player].nickname },
-            })}
-  >
-    {#snippet hand()}
-      <div class="own-cards">
-        <div class="own-communication">
-          <CommunicationSlot
-            communication={view.communications[you]}
-            played={view.communication_played[you]}
-            name={players[you].nickname}
-          />
-          {#if view.commander === you}<span
-              class="commander"
-              role="img"
-              aria-label={$t('crew.commander')}
-              title={$t('crew.commander')}
-            ></span>{/if}
+  <!-- The table fits the viewport, so the whole dock stays one grid row. -->
+  <div class="seat">
+    <PlayerDock
+      name={players[you].nickname}
+      colorIndex={you}
+      attention={yourTurn}
+      hint={finished
+        ? $t(won ? 'common.won' : 'common.lost')
+        : view.awaiting_result
+          ? $t('crew.awaitingResult')
+          : yourTurn
+            ? $t('common.yourTurn')
+            : $t(view.trick.length ? 'crew.playsNext' : 'crew.leads', {
+                values: { name: players[view.next_player].nickname },
+              })}
+    >
+      {#snippet hand()}
+        <div class="own-cards">
+          <div class="own-communication">
+            <CommunicationSlot
+              communication={view.communications[you]}
+              played={view.communication_played[you]}
+              name={players[you].nickname}
+            />
+            {#if view.commander === you}<span
+                class="commander"
+                role="img"
+                aria-label={$t('crew.commander')}
+                title={$t('crew.commander')}
+              ></span>{/if}
+          </div>
+          <div class="own-hand">
+            <Hand label={$t('crew.yourHand')} items={view.hand}>
+              {#snippet card(card, index)}
+                <CrewCard
+                  {card}
+                  muted={yourTurn && !play(index)}
+                  label={$t('crew.selectCard', {
+                    values: { card: cardName(card) },
+                  })}
+                  selected={selectedIndex === index}
+                  onclick={() =>
+                    (selected = selectedIndex === index ? null : cardKey(card))}
+                />
+              {/snippet}
+            </Hand>
+          </div>
+          <div class="own-tricks">
+            <TrickPile
+              count={view.tricks_won[you]}
+              name={players[you].nickname}
+            />
+          </div>
         </div>
-        <div class="own-hand">
-          <Hand label={$t('crew.yourHand')} items={view.hand}>
-            {#snippet card(card, index)}
-              <CrewCard
-                {card}
-                muted={yourTurn && !play(index)}
-                label={$t('crew.selectCard', {
-                  values: { card: cardName(card) },
-                })}
-                selected={selectedIndex === index}
-                onclick={() =>
-                  (selected = selectedIndex === index ? null : cardKey(card))}
-              />
-            {/snippet}
-          </Hand>
-        </div>
-        <div class="own-tricks">
-          <TrickPile
-            count={view.tricks_won[you]}
-            name={players[you].nickname}
-          />
-        </div>
-      </div>
-    {/snippet}
-    {#snippet controls()}
-      {#if view.last_trick && view.trick.length}<Button
-          variant="quiet"
+      {/snippet}
+      {#snippet controls()}
+        {#if view.last_trick && view.trick.length}<Button
+            variant="quiet"
+            size="small"
+            square
+            popovertarget="crew-last-trick"
+            aria-label={$t('crew.lastTrick')}
+            title={$t('crew.lastTrick')}
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              aria-hidden="true"
+              ><circle cx="12" cy="12" r="9" /><path d="M12 6v6l4 2" /></svg
+            ></Button
+          >{/if}
+        {#if communicationAvailable && !finished}<Button
+            variant="secondary"
+            size="small"
+            popovertarget="crew-communicate"
+            aria-label={$t('crew.communicateCard')}
+            disabled={disabled ||
+              !declarations.some((declaration) => communicate(declaration))}
+            >{$t('crew.communicate')}</Button
+          >{/if}
+        <Button
           size="small"
-          square
-          popovertarget="crew-last-trick"
-          aria-label={$t('crew.lastTrick')}
-          title={$t('crew.lastTrick')}
-          ><svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            aria-hidden="true"
-            ><circle cx="12" cy="12" r="9" /><path d="M12 6v6l4 2" /></svg
-          ></Button
-        >{/if}
-      {#if communicationAvailable && !finished}<Button
-          variant="secondary"
-          size="small"
-          popovertarget="crew-communicate"
-          aria-label={$t('crew.communicateCard')}
-          disabled={disabled ||
-            !declarations.some((declaration) => communicate(declaration))}
-          >{$t('crew.communicate')}</Button
-        >{/if}
-      <Button
-        size="small"
-        disabled={disabled || finished || !play(selectedIndex)}
-        onclick={() => submit(play(selectedIndex))}
-        >{$t('crew.playCard')}</Button
-      >
-    {/snippet}
-  </PlayerDock>
+          disabled={disabled || finished || !play(selectedIndex)}
+          onclick={() => submit(play(selectedIndex))}
+          >{$t('crew.playCard')}</Button
+        >
+      {/snippet}
+    </PlayerDock>
+  </div>
 
   {#if communicationAvailable && !finished}
     <section
@@ -417,6 +420,11 @@
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 1rem;
+  }
+  .seat {
+    display: grid;
+    gap: var(--arena-space-1);
+    min-width: 0;
   }
   .own-hand {
     min-width: 0;

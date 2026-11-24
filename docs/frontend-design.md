@@ -59,8 +59,9 @@ fallback. German (cool) is an explicit selection, not a device locale.
 Boards follow one order: opponents (player list), the table, then the viewer's
 dock at the bottom. The dock is the viewer's seat and the one place for their
 controls: their hand above a bar with avatar, name, public details, a short
-hint, and the action buttons, primary last (rightmost; full width on narrow
-screens). It stays at the bottom of the viewport while the board scrolls. When
+hint, and the action buttons, primary last (rightmost). It stays at the bottom
+of the viewport while the board scrolls; on narrow screens only the bar does,
+so the hand never covers the table. When
 the viewer must act, the bar takes the highlight color with a slowly widening,
 fading solid ring, static under reduced motion. Benched viewers have no dock.
 
