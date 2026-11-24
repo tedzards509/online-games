@@ -842,13 +842,17 @@ for (const width of [1280, 390]) {
     room.game!.legal_actions = [];
     room.revision++;
     publish(true);
-    await page.getByRole('button', { name: 'Close', exact: true }).click();
+    const results = page.getByRole('dialog', { name: 'Lost' });
+    await results
+      .getByRole('button', { name: 'View board', exact: true })
+      .click();
     await expect(page.locator('.crew-table').getByRole('status')).toHaveText(
       'Lost',
     );
     await trigger.click();
-    await page
-      .getByRole('button', { name: 'Return to setup', exact: true })
+    await page.getByRole('button', { name: 'Results', exact: true }).click();
+    await results
+      .getByRole('button', { name: 'Back to game selection', exact: true })
       .click();
     await expect.poll(() => commands.at(-1)?.type).toEqual('abort');
     room.game = null;

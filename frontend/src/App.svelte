@@ -13,6 +13,7 @@
   import GameBoard from './components/GameBoard.svelte';
   import LandingPage from './components/LandingPage.svelte';
   import LanguageSettings from './components/LanguageSettings.svelte';
+  import GameOver from './components/room/GameOver.svelte';
   import GameStatus from './components/room/GameStatus.svelte';
   import RoomLobby from './components/room/RoomLobby.svelte';
   import RoomMenu from './components/room/RoomMenu.svelte';
@@ -40,6 +41,8 @@
   const game = $derived(room?.game);
   /** Boards that own the whole viewport and show their own turn status. */
   const immersive = $derived(game?.config.game === 'the_crew');
+  /** The game whose end screen the viewer dismissed; a new game shows it again. */
+  let resultsHidden = $state<string | null>(null);
   const disabled = $derived(
     !!connection?.pending || connection?.status !== 'connected',
   );
@@ -152,7 +155,18 @@
       withStatus={immersive}
       {download}
       onerror={showError}
+      onresults={() => (resultsHidden = null)}
     />
+    {#if game.outcome && resultsHidden !== game.id}
+      <GameOver
+        {game}
+        outcome={game.outcome}
+        host={room.you === room.host}
+        connection={connection!}
+        {disabled}
+        onclose={() => (resultsHidden = game.id)}
+      />
+    {/if}
     {#if !immersive}<header><GameStatus {game} /></header>{/if}
     <GameBoard
       room={game}

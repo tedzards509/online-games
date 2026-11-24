@@ -22,6 +22,7 @@
     withStatus,
     download,
     onerror,
+    onresults,
   }: {
     room: Snapshot;
     game: GameSnapshot;
@@ -30,6 +31,8 @@
     withStatus: boolean;
     download: (id: string) => void;
     onerror: (message: string) => void;
+    /** Reopens the end screen, which holds the host's commands once a game ends. */
+    onresults: () => void;
   } = $props();
   const host = $derived(room.you === room.host);
 </script>
@@ -75,33 +78,25 @@
       >
     </div>
     {#if withStatus}<GameStatus {game} showTurn={false} />{/if}
-    {#if host}
+    {#if game.outcome}
       <div class="commands">
-        {#if game.outcome}
-          <Button {disabled} onclick={() => connection.start()}
-            >{$t('room.playAgain')}</Button
+        <Button onclick={onresults}>{$t('room.results')}</Button>
+      </div>
+    {:else if host}
+      <div class="commands">
+        {#if game.can_finish}
+          <Button {disabled} onclick={() => connection.finish(true)}
+            >{$t('room.finishWon')}</Button
           >
-          <Button
-            variant="secondary"
-            {disabled}
-            onclick={() => connection.abort()}
-            >{$t('room.returnToSetup')}</Button
-          >
-        {:else}
-          {#if game.can_finish}
-            <Button {disabled} onclick={() => connection.finish(true)}
-              >{$t('room.finishWon')}</Button
-            >
-            <Button {disabled} onclick={() => connection.finish(false)}
-              >{$t('room.finishLost')}</Button
-            >
-          {/if}
-          <Button
-            variant="secondary"
-            {disabled}
-            onclick={() => connection.abort()}>{$t('room.abort')}</Button
+          <Button {disabled} onclick={() => connection.finish(false)}
+            >{$t('room.finishLost')}</Button
           >
         {/if}
+        <Button
+          variant="secondary"
+          {disabled}
+          onclick={() => connection.abort()}>{$t('room.abort')}</Button
+        >
       </div>
     {/if}
     <ul aria-label={$t('room.members')}>

@@ -45,9 +45,14 @@ fallback. German (cool) is an explicit selection, not a device locale.
   host's start button. Other members see the same setup read-only.
 - Game: a status strip with the game name and whose turn it is (highlighted on
   the viewer's turn) or the result, then the board. Room code, members, replays,
-  and host commands (abort, finish, play again, return to setup) live in the room
+  and the host's running-game commands (abort, finish) live in the room
   controls popover. Immersive boards (The Crew) fill the viewport and show their
   own status; the popover then repeats the result.
+- End screen: a modal that opens when a game has an outcome, for every member
+  including the bench. It shows the result and each player with winner mark and
+  score; the host chooses play again or back to game selection, others wait.
+  "View board" (or Escape) dismisses it until the next game; the room controls'
+  Results button reopens it. Finished-game host commands exist only here.
 
 ## Playing cards
 

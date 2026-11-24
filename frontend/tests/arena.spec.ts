@@ -112,6 +112,66 @@ test('a pressed control still clicks when released at its resting edge', async (
   await expect.poll(() => moves.length).toBe(1);
 });
 
+test('the end screen shows results and gives only the host the next step', async ({
+  page,
+}) => {
+  const room = fixture({
+    outcome: { winners: [0], scores: [3, 1] },
+    turn: { players: [], number: 5 },
+    legal_actions: [],
+  });
+  const commands: { type: string }[] = [];
+  await mockMembership(page);
+  await page.routeWebSocket('**/api/rooms/ABC234/ws', (socket) => {
+    socket.onMessage((data) => {
+      const message = JSON.parse(String(data));
+      if (message.type === 'authenticate')
+        socket.send(JSON.stringify({ type: 'snapshot', room }));
+      else commands.push(message);
+    });
+  });
+  await page.goto('/room/ABC234');
+  const results = page.getByRole('dialog', { name: 'Alice won' });
+  await expect(results.getByRole('listitem')).toHaveText([
+    /Alice · you\s*Winner\s*Score: 3/,
+    /Bob\s*Score: 1/,
+  ]);
+  await results
+    .getByRole('button', { name: 'View board', exact: true })
+    .click();
+  await expect(results).toBeHidden();
+  await page
+    .getByRole('button', { name: 'Room controls', exact: true })
+    .click();
+  await page.getByRole('button', { name: 'Results', exact: true }).click();
+  await results
+    .getByRole('button', { name: 'Play again', exact: true })
+    .click();
+  await expect.poll(() => commands.at(-1)?.type).toBe('start');
+});
+
+test('guests see the end screen without host commands', async ({ page }) => {
+  const room = fixture({ outcome: { winners: [], scores: null }, you: 1 });
+  room.you = 1;
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      'arena:ABC234',
+      JSON.stringify({ code: 'ABC234', member: 1, token: 'guest' }),
+    ),
+  );
+  await page.routeWebSocket('**/api/rooms/ABC234/ws', (socket) => {
+    socket.onMessage(() =>
+      socket.send(JSON.stringify({ type: 'snapshot', room })),
+    );
+  });
+  await page.goto('/room/ABC234');
+  const results = page.getByRole('dialog', { name: 'Draw' });
+  await expect(results.getByText('Waiting for the host')).toBeVisible();
+  await expect(results.getByRole('button', { name: 'Play again' })).toHaveCount(
+    0,
+  );
+});
+
 test('room and board copy follow the selected language', async ({ page }) => {
   await mockMembership(page);
   await page.addInitScript(() => localStorage.setItem('arena-language', 'de'));
@@ -376,7 +436,10 @@ test('room settings update live; seating, bench, abort, and switching games', as
       }),
     ).toBeVisible();
   }
-  await expect(host.getByText('Bob won', { exact: true })).toBeVisible();
+  await expect(
+    host.getByRole('heading', { name: 'Bob won', exact: true }),
+  ).toBeVisible();
+  await host.getByRole('button', { name: 'View board', exact: true }).click();
   await host
     .getByRole('button', { name: 'Room controls', exact: true })
     .click();
@@ -387,6 +450,7 @@ test('room settings update live; seating, bench, abort, and switching games', as
     await readFile((await (await download).path())!, 'utf8'),
   );
   expect(replay.game).toBe('tic_tac_toe');
+  await host.getByRole('button', { name: 'Results', exact: true }).click();
   await host.getByRole('button', { name: 'Play again', exact: true }).click();
   await expect(
     guest.getByRole('button', { name: 'Cell 1: empty', exact: true }),
@@ -422,11 +486,18 @@ test('The Crew: benched host records results independently of player order', asy
     .click();
   await host.getByRole('button', { name: 'Finish: won', exact: true }).click();
   await expect(
-    host.getByText('Dave, Bob, Carol won', { exact: true }),
+    host.getByRole('heading', { name: 'Dave, Bob, Carol won', exact: true }),
   ).toBeVisible();
   await host.getByRole('button', { name: 'Play again', exact: true }).click();
+  await host
+    .getByRole('button', { name: 'Room controls', exact: true })
+    .click();
   await host.getByRole('button', { name: 'Finish: lost', exact: true }).click();
-  await host.getByRole('button', { name: 'Close', exact: true }).click();
+  for (const page of pages)
+    await expect(
+      page.getByRole('heading', { name: 'Lost', exact: true }),
+    ).toBeVisible();
+  await host.getByRole('button', { name: 'View board', exact: true }).click();
   for (const page of pages)
     await expect(
       page.locator('[role="status"]:visible').filter({ hasText: /^Lost$/ }),
@@ -499,9 +570,6 @@ test('Tempel des Schreckens: configured key, hidden cards, rounds, and reconnect
       .toBe(room.revision + 1);
   }
   expect((await snapshot(host)).game.outcome).not.toBeNull();
-  await host
-    .getByRole('button', { name: 'Room controls', exact: true })
-    .click();
   await host.getByRole('button', { name: 'Play again', exact: true }).click();
   await expect(host.getByText('Key: Bob', { exact: true })).toBeVisible();
   expect(errors).toEqual([]);
