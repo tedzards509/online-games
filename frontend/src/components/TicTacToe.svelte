@@ -3,6 +3,7 @@
   import type { Action, BoardProps, Schemas } from '../lib/types';
   import Board from './table/Board.svelte';
   import BoardSpace from './table/BoardSpace.svelte';
+  import PlayerDock from './table/PlayerDock.svelte';
   import PlayerList from './table/PlayerList.svelte';
   import TableSurface from './table/TableSurface.svelte';
 
@@ -15,6 +16,7 @@
     move,
   }: BoardProps<Schemas['TicTacToeView']> = $props();
   const marks = ['X', 'O'];
+  const yourTurn = $derived(active.includes(you));
 
   function action(index: number): Action | undefined {
     return actions.find(
@@ -23,12 +25,18 @@
   }
 </script>
 
+{#snippet mark(player: number)}
+  <span class="mark" class:o={player === 1}>{marks[player]}</span>
+{/snippet}
+
 <Board>
-  <PlayerList players={names.map((_, player) => player)} {names} {you} {active}>
-    {#snippet details(player)}
-      <span class="mark" class:o={player === 1}>{marks[player]}</span>
-    {/snippet}
-  </PlayerList>
+  <PlayerList
+    players={names.map((_, player) => player).filter((p) => p !== you)}
+    {names}
+    {you}
+    {active}
+    details={mark}
+  />
   <TableSurface>
     <div class="cells" role="group" aria-label={$t('ticTacToe.board')}>
       {#each view.board as cell, index}
@@ -45,6 +53,14 @@
       {/each}
     </div>
   </TableSurface>
+  <PlayerDock
+    name={names[you]}
+    colorIndex={you}
+    attention={yourTurn}
+    hint={yourTurn ? $t('ticTacToe.hint') : undefined}
+  >
+    {#snippet details()}{@render mark(you)}{/snippet}
+  </PlayerDock>
 </Board>
 
 <style>

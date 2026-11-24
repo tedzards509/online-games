@@ -74,16 +74,16 @@ test('multiple eligible players become a single responder', async ({
   });
   await page.goto('/room/ABC234');
   await expect(page.getByText('Your turn', { exact: true })).toBeVisible();
-  await expect(
-    page.getByLabel('Players').locator('[data-active="true"]'),
-  ).toHaveCount(2);
+  const seat = page.getByLabel('Your seat').locator('[data-active]');
+  const opponents = page.getByLabel('Players').locator('[data-active="true"]');
+  await expect(seat).toHaveAttribute('data-active', 'true');
+  await expect(opponents).toHaveCount(1);
   await page
     .getByRole('button', { name: 'Cell 1: empty', exact: true })
     .click();
   await expect(page.getByText("Bob's turn", { exact: true })).toBeVisible();
-  await expect(
-    page.getByLabel('Players').locator('[data-active="true"]'),
-  ).toHaveCount(1);
+  await expect(seat).toHaveAttribute('data-active', 'false');
+  await expect(opponents).toHaveCount(1);
   await expect(
     page.getByLabel('Tic-Tac-Toe board').locator('button:enabled'),
   ).toHaveCount(0);

@@ -249,6 +249,7 @@
   "ticTacToe": {
     "board": "Tic-Tac-Toe-Feld",
     "cell": "Feld {index}: {mark}",
-    "empty": "frei"
+    "empty": "frei",
+    "hint": "Hau dein Zeichen rein"
   }
 }

@@ -249,6 +249,7 @@
   "ticTacToe": {
     "board": "Tic-Tac-Toe board",
     "cell": "Cell {index}: {mark}",
-    "empty": "empty"
+    "empty": "empty",
+    "hint": "Place your mark"
   }
 }
