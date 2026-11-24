@@ -1,14 +1,32 @@
 <script lang="ts">
-  import PlayingCard from './PlayingCard.svelte';
   import {
+    cardLabel,
     suits,
-    type Action,
     type BoardProps,
     type Schemas,
   } from '../lib/types';
-  let { view, actions, move }: BoardProps<Schemas['CrazyEightsView']> =
-    $props();
+  import CardBack from './cards/CardBack.svelte';
+  import StandardPlayingCard from './cards/StandardPlayingCard.svelte';
+  import Actions from './table/Actions.svelte';
+  import CardRow from './table/CardRow.svelte';
+  import Pile from './table/Pile.svelte';
+  import Board from './table/Board.svelte';
+  import PlayerBar from './table/PlayerBar.svelte';
+  import PlayerList from './table/PlayerList.svelte';
+  import TableSurface from './table/TableSurface.svelte';
+  import Button from './ui/Button.svelte';
+  import Notice from './ui/Notice.svelte';
+
+  let {
+    view,
+    actions,
+    names,
+    you,
+    active,
+    move,
+  }: BoardProps<Schemas['CrazyEightsView']> = $props();
   let wild = $state<number | null>(null);
+  const yourTurn = $derived(active.includes(you));
   const choices = $derived(
     actions.filter(
       (a) =>
@@ -20,68 +38,98 @@
   $effect(() => {
     if (!choices.length) wild = null;
   });
-  function play(index: number): void {
-    const legal = actions.find(
+  function legalPlay(index: number) {
+    return actions.find(
       (a) =>
         a.game === 'crazy_eights' &&
         a.action.type === 'play' &&
         a.action.index === index,
     );
+  }
+  function play(index: number): void {
+    const legal = legalPlay(index);
     if (!legal || legal.game !== 'crazy_eights') return;
     if (legal.action.type === 'play' && legal.action.suit) wild = index;
     else move(legal);
   }
 </script>
 
-<div class="table-center">
-  <PlayingCard card={view.top} disabled />
-  <span aria-label={`Current suit: ${view.suit}`}>{suits[view.suit]}</span>
-  <span class="muted">{view.stock} in stock</span>
-  {#if view.reversed}<span>Reverse direction</span>{/if}
-  {#if view.pending_draw}<span
+<Board>
+  <PlayerList
+    players={names.map((_, player) => player).filter((p) => p !== you)}
+    {names}
+    {you}
+    {active}
+  >
+    {#snippet details(player)}{view.counts[player]} cards{/snippet}
+  </PlayerList>
+
+  <TableSurface>
+    <Pile caption={`${view.stock} in stock`}><CardBack /></Pile>
+    <Pile caption={`Suit ${suits[view.suit]}`}>
+      <StandardPlayingCard
+        card={view.top}
+        label={cardLabel(view.top)}
+        highlighted
+      />
+    </Pile>
+    {#if view.reversed}<p>Reverse direction</p>{/if}
+  </TableSurface>
+
+  {#if view.pending_draw}<Notice
       >{view.pending_draw === 'ace'
         ? 'Play an ace or draw two'
-        : 'Draw two'}</span
+        : 'Draw two'}</Notice
     >{/if}
-</div>
-<div class="hand" aria-label="Your hand">
-  {#each view.hand as card, index}
-    <PlayingCard
-      {card}
-      selected={wild === index}
-      disabled={!actions.some(
-        (a) =>
-          a.game === 'crazy_eights' &&
-          a.action.type === 'play' &&
-          a.action.index === index,
-      )}
-      onclick={() => play(index)}
-    />
-  {/each}
-</div>
-{#if choices.length}
-  <div class="actions" aria-label="Choose suit">
-    {#each choices as choice}
-      {#if choice.game === 'crazy_eights' && choice.action.type === 'play' && choice.action.suit}
-        <button
-          aria-label={`Choose ${choice.action.suit}`}
-          onclick={() => {
-            move(choice);
-            wild = null;
-          }}>{suits[choice.action.suit]}</button
+
+  <PlayerBar name={names[you]} colorIndex={you} you active={yourTurn} />
+  <CardRow label="Your hand">
+    {#each view.hand as card, index}
+      {@const legal = legalPlay(index)}
+      <StandardPlayingCard
+        {card}
+        label={cardLabel(card)}
+        selected={wild === index}
+        disabled={!legal}
+        muted={yourTurn && !legal}
+        onclick={() => play(index)}
+      />
+    {/each}
+  </CardRow>
+
+  {#if choices.length}
+    <Actions label="Choose suit">
+      {#each choices as choice}
+        {#if choice.game === 'crazy_eights' && choice.action.type === 'play' && choice.action.suit}
+          <Button
+            variant="quiet"
+            aria-label={`Choose ${choice.action.suit}`}
+            onclick={() => {
+              move(choice);
+              wild = null;
+            }}>{suits[choice.action.suit]}</Button
+          >
+        {/if}
+      {/each}
+    </Actions>
+  {/if}
+  <Actions>
+    {#each actions as action}
+      {#if action.game === 'crazy_eights' && action.action.type === 'draw'}
+        <Button variant="secondary" onclick={() => move(action)}
+          >{view.pending_draw
+            ? 'Draw two'
+            : view.stock === 0
+              ? 'Draw / pass'
+              : 'Draw'}</Button
         >
       {/if}
     {/each}
-  </div>
-{/if}
-{#each actions as action}
-  {#if action.game === 'crazy_eights' && action.action.type === 'draw'}
-    <button onclick={() => move(action)}
-      >{view.pending_draw
-        ? 'Draw two'
-        : view.stock === 0
-          ? 'Draw / pass'
-          : 'Draw'}</button
-    >
-  {/if}
-{/each}
+  </Actions>
+</Board>
+
+<style>
+  p {
+    font-weight: 700;
+  }
+</style>
