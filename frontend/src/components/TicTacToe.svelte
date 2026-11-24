@@ -1,7 +1,19 @@
 <script lang="ts">
   import type { Action, BoardProps, Schemas } from '../lib/types';
-  let { view, actions, you, move }: BoardProps<Schemas['TicTacToeView']> =
-    $props();
+  import Board from './table/Board.svelte';
+  import BoardSpace from './table/BoardSpace.svelte';
+  import PlayerList from './table/PlayerList.svelte';
+  import TableSurface from './table/TableSurface.svelte';
+
+  let {
+    view,
+    actions,
+    names,
+    you,
+    active,
+    move,
+  }: BoardProps<Schemas['TicTacToeView']> = $props();
+  const marks = ['X', 'O'];
 
   function action(index: number): Action | undefined {
     return actions.find(
@@ -10,33 +22,41 @@
   }
 </script>
 
-<p class="muted">You: {you === 0 ? 'X' : 'O'}</p>
-<div class="board" aria-label="Tic-Tac-Toe board">
-  {#each view.board as cell, index}
-    {@const legal = action(index)}
-    {@const mark = cell === null ? '' : cell === 0 ? 'X' : 'O'}
-    <button
-      disabled={!legal}
-      aria-label={`Cell ${index + 1}: ${mark || 'empty'}`}
-      onclick={() => legal && move(legal)}>{mark}</button
-    >
-  {/each}
-</div>
+<Board>
+  <PlayerList players={names.map((_, player) => player)} {names} {you} {active}>
+    {#snippet details(player)}
+      <span class="mark" class:o={player === 1}>{marks[player]}</span>
+    {/snippet}
+  </PlayerList>
+  <TableSurface>
+    <div class="cells" role="group" aria-label="Tic-Tac-Toe board">
+      {#each view.board as cell, index}
+        {@const legal = action(index)}
+        {@const mark = cell === null ? '' : marks[cell]}
+        <BoardSpace
+          label={`Cell ${index + 1}: ${mark || 'empty'}`}
+          move={legal && (() => move(legal))}
+        >
+          <span class:o={cell === 1}>{mark}</span>
+        </BoardSpace>
+      {/each}
+    </div>
+  </TableSurface>
+</Board>
 
 <style>
-  .board {
+  .mark {
+    font-size: 1.2rem;
+    font-weight: 800;
+  }
+  .cells {
     display: grid;
-    grid-template-columns: repeat(3, 72px);
-    gap: 6px;
-    width: max-content;
-    margin: 24px auto;
+    grid-template-columns: repeat(3, 5rem);
+    gap: 0.75rem;
+    font-size: 2.5rem;
+    color: var(--arena-card-dark);
   }
-  .board button {
-    height: 72px;
-    padding: 0;
-    font-size: 2rem;
-  }
-  .board button:disabled {
-    opacity: 1;
+  .o {
+    color: var(--arena-card-red);
   }
 </style>
