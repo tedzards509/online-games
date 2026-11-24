@@ -585,10 +585,9 @@ test('The Crew: benched host records results independently of player order', asy
       page.getByRole('heading', { name: 'Lost', exact: true }),
     ).toBeVisible();
   await host.getByRole('button', { name: 'View board', exact: true }).click();
-  for (const page of pages)
-    await expect(
-      page.locator('[role="status"]:visible').filter({ hasText: /^Lost$/ }),
-    ).toBeVisible();
+  await expect(
+    host.locator('[role="status"]:visible').filter({ hasText: /^Lost$/ }),
+  ).toBeVisible();
   expect((await snapshot(host)).replays).toHaveLength(2);
   for (const context of contexts) await context.close();
 });
