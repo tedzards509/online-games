@@ -212,9 +212,6 @@
   },
   "tempel": {
     "revealedPiles": "Revealed piles",
-    "round": "Round {round} / 4 · {reveals} / {players} revealed",
-    "revealed": "{gold} / {goldTotal} gold · {traps} / {trapsTotal} traps · {empty} empty",
-    "roles": "Roles: {adventurers} adventurers · {guardians} guardians",
     "keyHolder": "Key: {name}",
     "yourRole": "Your role",
     "role": {
@@ -224,13 +221,10 @@
     "yourCounts": "Your card counts",
     "count": "{card}: {count}",
     "choose": "Open a card from another player",
-    "roundEnd": "Round {round} opened · next round in {seconds} s",
-    "skip": "Skip",
     "openedBy": "Opened from {name}",
     "waiting": "Waiting for other players",
     "inspect": "Check your card counts, then ready",
     "ready": "Ready",
-    "key": "Key",
     "playerCards": "{name}'s cards",
     "playerRow": "{name}'s row",
     "cardLabel": "{name} card {index}: {card}",
@@ -239,7 +233,11 @@
       "trap": "trap",
       "empty": "empty",
       "hidden": "hidden"
-    }
+    },
+    "lastRound": "Round {round}",
+    "roundOf": "Round {round} of {rounds}",
+    "found": "{card}: {count} of {total} found",
+    "opened": "{count} of {total} opened this round"
   },
   "mancala": {
     "board": "Mancala board",

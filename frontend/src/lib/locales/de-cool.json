@@ -212,9 +212,6 @@
   },
   "tempel": {
     "revealedPiles": "Was schon offen liegt",
-    "round": "Runde {round} / 4 · {reveals} / {players} umgedreht",
-    "revealed": "{gold} / {goldTotal} Gold · {traps} / {trapsTotal} Feuerfallen · {empty} Nieten",
-    "roles": "Im Spiel: {adventurers} Abenteurer · {guardians} Wächterinnen",
     "keyHolder": "Schlüssel hat: {name}",
     "yourRole": "Deine Rolle",
     "role": {
@@ -224,13 +221,10 @@
     "yourCounts": "Deine Karten",
     "count": "{card}: {count}",
     "choose": "Schnapp dir eine Karte von jemand anderem",
-    "roundEnd": "Runde {round} ist raus · weiter in {seconds} s",
-    "skip": "Weiter",
     "openedBy": "Bei {name} aufgemacht",
     "waiting": "Warten auf die anderen …",
     "inspect": "Check deine Karten und sag Bescheid",
     "ready": "Passt",
-    "key": "Schlüssel",
     "playerCards": "Karten von {name}",
     "playerRow": "Reihe von {name}",
     "cardLabel": "{name}, Karte {index}: {card}",
@@ -239,7 +233,11 @@
       "trap": "Feuerfalle",
       "empty": "Niete",
       "hidden": "verdeckt"
-    }
+    },
+    "lastRound": "Runde {round}",
+    "roundOf": "Runde {round} von {rounds}",
+    "found": "{card}: {count} von {total} abgegriffen",
+    "opened": "{count} von {total} diese Runde aufgemacht"
   },
   "mancala": {
     "board": "Mancala-Brett",

@@ -15,7 +15,7 @@
 
   let { view, actions, names, move, you, active, finished }: BoardProps<View> =
     $props();
-  const revealSeconds = 5;
+  const rounds = 4;
   /** Counts fields paired with the card each one counts. */
   const kinds = [
     ['gold', 'gold'],
@@ -61,24 +61,16 @@
   }
 
   let roundEnd = $state<{ round: number; cards: Card[][] } | null>(null);
-  let seconds = $state(0);
   let previous: View | undefined;
   $effect(() => {
     const cards = previous && finishedRound(previous, view);
-    if (cards) {
-      roundEnd = { round: previous!.round, cards };
-      seconds = revealSeconds;
-    }
+    if (cards) roundEnd = { round: previous!.round, cards };
     previous = view;
   });
-  $effect(() => {
-    if (!roundEnd) return;
-    const timer = setInterval(() => {
-      seconds -= 1;
-      if (seconds <= 0) roundEnd = null;
-    }, 1000);
-    return () => clearInterval(timer);
-  });
+  /** The finished round stays visible until the viewer is ready for the next. */
+  const summary = $derived(
+    roundEnd && view.phase === 'inspect' && !view.ready[you] ? roundEnd : null,
+  );
 
   function cardName(card: Card | null): string {
     return $t(`tempel.cards.${card ?? 'hidden'}`);
@@ -91,20 +83,37 @@
   });
 </script>
 
+{#snippet keyMark(player: number)}
+  {#if player === view.key}
+    <svg
+      class="key"
+      viewBox="0 0 24 24"
+      role="img"
+      aria-label={$t('tempel.keyHolder', { values: { name: names[player] } })}
+    >
+      <circle cx="8" cy="12" r="4.5" />
+      <path d="M12.5 12H21m-3 0v3.5M15 12v2.5" />
+    </svg>
+  {/if}
+{/snippet}
+
+{#snippet pips(filled: number, total: number, label: string)}
+  <span class="pips" role="img" aria-label={label}>
+    {#each { length: total }, index}<span class:filled={index < filled}
+      ></span>{/each}
+  </span>
+{/snippet}
+
 <Board>
   <TableSurface aria-label={$t('tempel.revealedPiles')}>
-    {#if roundEnd}
+    {#if summary}
       <div class="summary">
-        <p role="status">
-          {$t('tempel.roundEnd', {
-            values: { round: roundEnd.round, seconds },
-          })}
-        </p>
+        <h2>{$t('tempel.lastRound', { values: { round: summary.round } })}</h2>
         <div class="opened">
           {#each names as name, player (player)}
             <CardRow label={$t('tempel.openedBy', { values: { name } })}>
               <span class="owner">{name}</span>
-              {#each roundEnd.cards[player] as card, index (index)}
+              {#each summary.cards[player] as card, index (index)}
                 <TempelCard
                   {card}
                   label={cardName(card)}
@@ -114,43 +123,46 @@
             </CardRow>
           {/each}
         </div>
-        <Button
-          variant="secondary"
-          size="small"
-          onclick={() => (roundEnd = null)}>{$t('tempel.skip')}</Button
-        >
       </div>
     {:else}
       <div class="summary">
-        <p>
-          {$t('tempel.round', {
-            values: {
-              round: view.round,
-              reveals: view.round_reveals,
-              players: names.length,
-            },
-          })}
-        </p>
-        <p>
-          {$t('tempel.revealed', {
-            values: {
-              gold: view.revealed.gold,
-              goldTotal: view.distribution.cards.gold,
-              traps: view.revealed.traps,
-              trapsTotal: view.distribution.cards.traps,
-              empty: view.revealed.empty,
-            },
-          })}
-        </p>
-        <p>
-          {$t('tempel.roles', {
-            values: {
-              adventurers: view.distribution.adventurers,
-              guardians: view.distribution.guardians,
-            },
-          })}
-        </p>
-        <p>{$t('tempel.keyHolder', { values: { name: names[view.key] } })}</p>
+        {@render pips(
+          view.round,
+          rounds,
+          $t('tempel.roundOf', { values: { round: view.round, rounds } }),
+        )}
+        <div class="found">
+          {#each kinds as [count, card] (card)}
+            {@const total =
+              card === 'empty' ? null : view.distribution.cards[count]}
+            <Pile
+              caption={total === null
+                ? `${view.revealed[count]}`
+                : `${view.revealed[count]} / ${total}`}
+            >
+              <TempelCard
+                {card}
+                label={$t(total === null ? 'tempel.count' : 'tempel.found', {
+                  values: {
+                    card: cardName(card),
+                    count: view.revealed[count],
+                    total: total ?? 0,
+                  },
+                })}
+                width="var(--arena-card-width-small)"
+              />
+            </Pile>
+          {/each}
+        </div>
+        {#if view.phase === 'reveal'}
+          {@render pips(
+            view.round_reveals,
+            names.length,
+            $t('tempel.opened', {
+              values: { count: view.round_reveals, total: names.length },
+            }),
+          )}
+        {/if}
       </div>
     {/if}
   </TableSurface>
@@ -159,7 +171,7 @@
     {@const name = names[player]}
     <section aria-label={$t('tempel.playerCards', { values: { name } })}>
       <PlayerBar {name} colorIndex={player} active={active.includes(player)}>
-        {#if player === view.key}<span>{$t('tempel.key')}</span>{/if}
+        {@render keyMark(player)}
         {#if view.phase === 'inspect' && view.ready[player]}<span
             >{$t('tempel.ready')}</span
           >{/if}
@@ -185,25 +197,45 @@
       <span aria-label={$t('tempel.yourRole')}
         >{$t(`tempel.role.${view.role}`)}</span
       >
-      {#if you === view.key}<span>{$t('tempel.key')}</span>{/if}
+      {@render keyMark(you)}
     {/snippet}
     {#snippet hand()}
-      <CardRow label={$t('tempel.yourCounts')}>
-        {#each kinds as [count, card] (card)}
-          <Pile caption={`×${view.hand_counts[count]}`}>
+      <div class="own">
+        <CardRow
+          label={$t('tempel.playerRow', { values: { name: names[you] } })}
+        >
+          {#each view.cards[you] as card, index (index)}
             <TempelCard
               {card}
-              label={$t('tempel.count', {
+              label={$t('tempel.cardLabel', {
                 values: {
+                  name: names[you],
+                  index: index + 1,
                   card: cardName(card),
-                  count: view.hand_counts[count],
                 },
               })}
-              muted={view.hand_counts[count] === 0}
+              width="var(--arena-card-width-small)"
             />
-          </Pile>
-        {/each}
-      </CardRow>
+          {/each}
+        </CardRow>
+        <CardRow label={$t('tempel.yourCounts')}>
+          {#each kinds as [count, card] (card)}
+            <Pile caption={`×${view.hand_counts[count]}`}>
+              <TempelCard
+                {card}
+                label={$t('tempel.count', {
+                  values: {
+                    card: cardName(card),
+                    count: view.hand_counts[count],
+                  },
+                })}
+                muted={view.hand_counts[count] === 0}
+                width="var(--arena-card-width-small)"
+              />
+            </Pile>
+          {/each}
+        </CardRow>
+      </div>
     {/snippet}
     {#snippet controls()}
       {#if ready}
@@ -229,8 +261,36 @@
   .summary {
     display: grid;
     justify-items: center;
-    gap: var(--arena-space-1);
+    gap: var(--arena-space-2);
     font-weight: 700;
     text-align: center;
+  }
+  .found,
+  .own {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: end;
+    gap: var(--arena-space-1) var(--arena-space-3);
+  }
+  .pips {
+    display: flex;
+    gap: 0.4rem;
+  }
+  .pips > span {
+    width: 0.75rem;
+    aspect-ratio: 1;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+  }
+  .pips > .filled {
+    background: currentColor;
+  }
+  .key {
+    width: 1.4rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.5;
+    stroke-linecap: round;
   }
 </style>

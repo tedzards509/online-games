@@ -212,9 +212,6 @@
   },
   "tempel": {
     "revealedPiles": "Aufgedeckte Karten",
-    "round": "Runde {round} / 4 · {reveals} / {players} aufgedeckt",
-    "revealed": "{gold} / {goldTotal} Goldkammern · {traps} / {trapsTotal} Feuerfallen · {empty} leere Kammern",
-    "roles": "Rollen: {adventurers} Abenteurer · {guardians} Wächterinnen",
     "keyHolder": "Schlüssel: {name}",
     "yourRole": "Deine Rolle",
     "role": {
@@ -224,13 +221,10 @@
     "yourCounts": "Deine Kartenanzahl",
     "count": "{card}: {count}",
     "choose": "Öffne eine Karte eines anderen Spielers",
-    "roundEnd": "Runde {round} aufgedeckt · nächste Runde in {seconds} s",
-    "skip": "Überspringen",
     "openedBy": "Bei {name} geöffnet",
     "waiting": "Warte auf die anderen",
     "inspect": "Prüfe deine Karten, dann bestätige",
     "ready": "Bereit",
-    "key": "Schlüssel",
     "playerCards": "Karten von {name}",
     "playerRow": "Reihe von {name}",
     "cardLabel": "{name}, Karte {index}: {card}",
@@ -239,7 +233,11 @@
       "trap": "Feuerfalle",
       "empty": "leere Kammer",
       "hidden": "verdeckt"
-    }
+    },
+    "lastRound": "Runde {round}",
+    "roundOf": "Runde {round} von {rounds}",
+    "found": "{card}: {count} von {total} gefunden",
+    "opened": "{count} von {total} in dieser Runde geöffnet"
   },
   "mancala": {
     "board": "Mancala-Brett",

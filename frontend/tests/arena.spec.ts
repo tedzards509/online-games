@@ -172,15 +172,21 @@ test('guests see the end screen without host commands', async ({ page }) => {
   );
 });
 
-test('Tempel shows the finished round until skipped', async ({ page }) => {
+test('Tempel shows the finished round until the viewer is ready', async ({
+  page,
+}) => {
   const counts = { gold: 0, traps: 0, empty: 0 };
-  const view = (round: number, cards: (string | null)[][]) => ({
+  const view = (
+    round: number,
+    cards: (string | null)[][],
+    ready = [false, false, false],
+  ) => ({
     game: 'tempel_des_schreckens',
     state: {
       role: 'adventurer',
       hand_counts: { gold: 1, traps: 0, empty: 4 },
       cards,
-      ready: [false, false, false],
+      ready,
       phase: round === 1 ? 'reveal' : 'inspect',
       key: round === 1 ? 2 : 1,
       round,
@@ -196,7 +202,11 @@ test('Tempel shows the finished round until skipped', async ({ page }) => {
       },
     },
   });
-  const room = (round: number, cards: (string | null)[][]) => {
+  const room = (
+    round: number,
+    cards: (string | null)[][],
+    ready?: boolean[],
+  ) => {
     const base = fixture();
     const members = [...base.members, { id: 2, nickname: 'Carol' }];
     const config = {
@@ -213,7 +223,7 @@ test('Tempel shows the finished round until skipped', async ({ page }) => {
         config,
         players: members,
         turn: { players: [round === 1 ? 2 : 0], number: 0 },
-        view: view(round, cards),
+        view: view(round, cards, ready),
         legal_actions: [],
       },
     } as Snapshot;
@@ -235,10 +245,15 @@ test('Tempel shows the finished round until skipped', async ({ page }) => {
     );
   });
   await page.goto('/room/ABC234');
-  await expect(page.getByText('Round 1 / 4 · 2 / 3 revealed')).toBeVisible();
+  await expect(
+    page.getByRole('img', { name: 'Round 1 of 4', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('img', { name: '2 of 3 opened this round', exact: true }),
+  ).toBeVisible();
   send(room(2, [hidden, hidden, hidden]));
   await expect(
-    page.getByText(/^Round 1 opened · next round in \d s$/),
+    page.getByRole('heading', { name: 'Round 1', exact: true }),
   ).toBeVisible();
   // The final card is inferred from the revealed counts and the new key holder.
   await expect(
@@ -246,8 +261,11 @@ test('Tempel shows the finished round until skipped', async ({ page }) => {
       .getByRole('group', { name: 'Opened from Bob', exact: true })
       .getByRole('img', { name: 'trap', exact: true }),
   ).toBeVisible();
-  await page.getByRole('button', { name: 'Skip', exact: true }).click();
-  await expect(page.getByText('Round 2 / 4 · 0 / 3 revealed')).toBeVisible();
+  send(room(2, [hidden, hidden, hidden], [true, false, false]));
+  await expect(
+    page.getByRole('img', { name: 'Round 2 of 4', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Round 1' })).toHaveCount(0);
 });
 
 test('room and board copy follow the selected language', async ({ page }) => {
@@ -616,7 +634,9 @@ test('Tempel des Schreckens: configured key, hidden cards, rounds, and reconnect
     'Initial key holder: Player 3',
   );
   await host.getByRole('button', { name: 'Start game', exact: true }).click();
-  await expect(guest.getByText('Key: Bob', { exact: true })).toBeVisible();
+  await expect(
+    guest.getByRole('img', { name: 'Key: Bob', exact: true }),
+  ).toBeVisible();
   const role = (await snapshot(guest)).game.view.state.role;
   await guest.reload();
   await expect(guest.getByLabel('Your role')).toContainText(role);
@@ -634,7 +654,9 @@ test('Tempel des Schreckens: configured key, hidden cards, rounds, and reconnect
   await guest
     .getByRole('button', { name: 'Alice card 1: hidden', exact: true })
     .click();
-  await expect(host.getByText('Key: Alice', { exact: true })).toBeVisible();
+  await expect(
+    host.getByRole('img', { name: 'Key: Alice', exact: true }),
+  ).toBeVisible();
   const playerPages = [third, host, guest];
   for (let step = 0; step < 30; step++) {
     const room = await snapshot(host);
@@ -657,7 +679,9 @@ test('Tempel des Schreckens: configured key, hidden cards, rounds, and reconnect
   }
   expect((await snapshot(host)).game.outcome).not.toBeNull();
   await host.getByRole('button', { name: 'Play again', exact: true }).click();
-  await expect(host.getByText('Key: Bob', { exact: true })).toBeVisible();
+  await expect(
+    host.getByRole('img', { name: 'Key: Bob', exact: true }),
+  ).toBeVisible();
   expect(errors).toEqual([]);
   for (const context of contexts) await context.close();
 });
