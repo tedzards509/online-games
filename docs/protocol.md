@@ -6,7 +6,7 @@
 
 `POST /api/rooms` with `{"nickname":"Alice"}` creates an unconfigured room. `POST /api/rooms/ABC234/join` with `{"nickname":"Bob"}` joins it, including during play. Both return `{"code":"ABC234","member":0,"token":"…"}` with the member's stable room index. Codes are case-insensitive. Nicknames are unique within a room, trimmed, 1–24 characters, with no control characters.
 
-Members are room identities; players are zero-based seats within one game. Tokens authenticate members, not players. The creator is the host, independently of seating, and may remain on the bench. New members join the bench. Only the host may arrange seating; removal and host transfer are not supported. Room capacity is independent of game player limits.
+Members are room identities; players are zero-based seats within one game. Tokens authenticate members, not players. The creator is the host, independently of seating, and may remain on the bench. Before any game exists, a new member takes the next seat unless the selected game is full; otherwise, and whenever a game exists, they join the bench. Only the host may arrange seating; removal and host transfer are not supported. Room capacity is independent of game player limits.
 
 Use `Authorization: Bearer <token>` for HTTP reads:
 
@@ -41,7 +41,7 @@ Host-only setup commands require the exact current revision:
 {"type":"start","revision":4}
 ```
 
-`configure` selects a game and its complete settings atomically; null clears the selection. Shithead uses `{"game":"shithead","rules":{"four_card_bombs":false}}`; Tempel uses `{"game":"tempel_des_schreckens","rules":{"initial_key":0}}`. Other games use empty `rules: {}`. Unknown fields and invalid rule types are rejected. Every accepted setting change is broadcast live. Configuration and seating are locked while the current game is unfinished. Selecting a game does not implicitly seat or bench anyone; `start` validates its player count and configuration, including the initial key index.
+`configure` selects a game and its complete settings atomically; null clears the selection. Shithead uses `{"game":"shithead","rules":{"four_card_bombs":false}}`; Tempel uses `{"game":"tempel_des_schreckens","rules":{"initial_key":0}}`. Other games use empty `rules: {}`. Unknown fields and invalid rule types are rejected. Every accepted setting change is broadcast live. Configuration and seating are locked while the current game is unfinished. Selecting a game does not seat or bench existing members; `start` validates its player count and configuration, including the initial key index.
 
 `seat` supplies the complete ordered list of players for the next game. Each ID must identify a distinct member. Everyone absent is on the bench. Starting freezes this roster and configuration into a fresh game with its own ID and explicit start revision. Reordering never changes member identity, authentication, or host authority.
 

@@ -228,7 +228,8 @@ async fn game_independent_membership_live_settings_seating_and_permissions() {
     let mut other = snapshot(&mut guest, 4).await;
     assert!(room["config"].is_null());
     assert!(room["game"].is_null());
-    assert_eq!(room["seating"], json!([]));
+    // Without a game, joining members take seats in join order.
+    assert_eq!(room["seating"], json!([0, 1, 2, 3]));
     assert_eq!(room["members"].as_array().unwrap().len(), 4);
     assert_eq!(room["host"], 0);
     for command in [
@@ -291,6 +292,9 @@ async fn game_independent_membership_live_settings_seating_and_permissions() {
     assert_eq!(room["seating"], json!([2, 1]));
     assert_eq!(room["replays"], json!([]));
     assert_eq!(server.snapshot(&members[0]).await, room);
+    // The selected two-player game is full, so a new member joins the bench.
+    let benched = server.join(&members[0].code, "Benched").await;
+    assert_eq!(server.snapshot(&benched).await["seating"], json!([2, 1]));
 }
 
 #[tokio::test]

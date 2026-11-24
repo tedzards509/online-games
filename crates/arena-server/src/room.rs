@@ -67,12 +67,25 @@ impl Room {
             nickname: nickname.into(),
             token_hash: hash(&token),
         });
+        if self.has_free_seat() {
+            self.seating.push(member);
+        }
         self.revision += 1;
         Ok(Membership {
             code: self.code.clone(),
             member,
             token,
         })
+    }
+
+    /// Whether a joining member takes a seat: only before any game exists, while
+    /// the selected game (if any) has room below its maximum player count.
+    fn has_free_seat(&self) -> bool {
+        self.game.is_none()
+            && self
+                .config
+                .as_ref()
+                .is_none_or(|config| self.seating.len() < config.kind().max_players())
     }
 
     pub fn authenticate(&self, token: &str) -> Result<usize, ApiError> {

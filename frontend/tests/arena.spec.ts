@@ -347,7 +347,14 @@ async function join(page: Page, path: string, name: string) {
   await page.getByRole('button', { name: 'Join room' }).click();
   await expect(page.getByLabel('Members')).toContainText(name);
 }
+/** Moves a member to the end of the seating, so call order sets player order. */
 async function seat(host: Page, name: string) {
+  await expect(host.getByLabel('Members')).toContainText(name);
+  const bench = host.getByRole('button', {
+    name: `Bench ${name}`,
+    exact: true,
+  });
+  if (await bench.count()) await bench.click();
   await host.getByRole('button', { name: `Seat ${name}`, exact: true }).click();
   await expect(host.getByLabel('Seating')).toContainText(name);
 }
@@ -362,7 +369,8 @@ test('room settings update live; seating, bench, abort, and switching games', as
   const path = await create(host);
   expect((await snapshot(host)).config).toBeNull();
   await join(guest, path, 'Bob');
-  await expect(host.getByLabel('Bench')).toContainText('Bob');
+  // Before any game exists, joining members take a seat.
+  await expect(host.getByLabel('Seating')).toContainText('Bob');
   await expect(
     guest.getByText('Waiting for host to choose a game'),
   ).toBeVisible();
@@ -471,6 +479,7 @@ test('The Crew: benched host records results independently of player order', asy
     await join(page, path, ['Bob', 'Carol', 'Dave'][i]);
   await host.getByRole('radio', { name: 'The Crew', exact: true }).check();
   for (const name of ['Dave', 'Bob', 'Carol']) await seat(host, name);
+  await host.getByRole('button', { name: 'Bench Alice', exact: true }).click();
   await host.getByRole('button', { name: 'Start game', exact: true }).click();
   await expect(
     host.getByText('You are on the bench', { exact: true }),
