@@ -19,6 +19,7 @@
     border: var(--arena-line);
     border-radius: var(--arena-control-radius);
     background: var(--arena-surface);
+    color: var(--arena-text);
     font-weight: 600;
   }
   .error {
