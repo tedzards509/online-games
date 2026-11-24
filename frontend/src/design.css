@@ -13,5 +13,7 @@
   --arena-page-width: 72rem;
   /* All card layers share a 5:7 shell; boards may override the width locally. */
   --arena-card-width: 4.5rem;
+  /* Secondary cards: opponents' grids and face-up cards beside a player. */
+  --arena-card-width-small: 3rem;
   --arena-transition: 90ms ease;
 }

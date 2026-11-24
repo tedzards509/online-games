@@ -19,10 +19,12 @@ design tokens:
 | `Corner`, `Popover` | Corner-fixed trigger placement and the matching dismissible native popover (`start` or `end`). |
 | `Notice` | Inline status, or an alert with `tone="error"`. |
 
-`components/table/` holds shared game widgets: `PlayerBar` (avatar, name, public
-details, `active` highlight), `Avatar`, `TableSurface` (the green playing area),
-`CardRow` (labelled, horizontally scrolling hand), `Pile` (card with caption), and
-`Actions` (command button row). Boards receive `BoardProps` (`lib/types.ts`):
+`components/table/` holds shared game widgets: `Board` (every board's root),
+`PlayerBar` (avatar, name, public details, `active` highlight, `data-active`),
+`PlayerList` (labelled list of player bars with a details snippet), `Avatar`,
+`TableSurface` (the green playing area), `CardRow` (labelled, horizontally
+scrolling hand), `Pile` (card with caption), `BoardSpace` (square cell or round
+pit, raised while it accepts a move), and `Actions` (command button row). Boards receive `BoardProps` (`lib/types.ts`):
 view, legal actions, names, viewer index, active players, finished flag, and
 `move`.
 
@@ -67,11 +69,13 @@ license. Standard suit drawings and icons are inline SVG rather than icon fonts.
 | `SymbolCard` | Uses `PlayingCard`; required `rank` and `label`, optional text `symbol` or `symbolContent` snippet. Mirrored corner indices and a central symbol. |
 | `StandardPlayingCard` | Uses `SymbolCard`; required typed `card: { rank, suit }`. Derives face letters, suit SVG/color, and translated accessible name. Optional `label` override. |
 | `CardBack` | Uses `PlayingCard`; face-down pattern and translated name. Accepts no face data. |
+| `CardSlot` | Card-sized placeholder: dashed outline (empty pile) or an invisible gap (`outlined={false}`). |
 
 All layers accept `width` (CSS length), `background`, `onclick`, `disabled`,
 `selected`, `muted` (opaque illegal-play face), and `highlighted` (e.g. the most
 recent play); the shell and symbol layer also accept `color`. Standard cards derive
-their own suit color. `width` defaults to `--arena-card-width`; corners and symbols
+their own suit color. `width` defaults to `--arena-card-width`
+(`--arena-card-width-small` for secondary cards); corners and symbols
 scale with the card using container units. Games choose card width and hand layout.
 Image snippets should constrain their own content to fit the shell.
 
