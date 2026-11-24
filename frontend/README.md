@@ -23,8 +23,8 @@ design tokens:
 `PlayerBar` (avatar, name, public details, `active` highlight, `data-active`),
 `PlayerList` (labelled list of player bars with a details snippet), `Avatar`,
 `TableSurface` (the green playing area), `CardRow` (labelled, horizontally
-scrolling card row), `Pile` (card with caption), `BoardSpace` (square cell or round
-pit, raised while it accepts a move), and `Actions` (command button row).
+scrolling card row), `Pile` (card with caption), and `BoardSpace` (square cell or round
+pit, raised while it accepts a move).
 
 `PlayerDock` is the viewer's seat, rendered last in a board for seated viewers:
 `name`, `colorIndex`, `attention` (must act now; `data-active`), `hint` (short
