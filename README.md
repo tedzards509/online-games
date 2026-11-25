@@ -1,4 +1,4 @@
-# Friends' Arena
+# Online Games
 
 A small live-game arena for friends: **Shithead, Crazy Eights, Skyjo, Mancala, Tic-Tac-Toe, The Crew, and Tempel des Schreckens**. Anonymous rooms, nicknames, reconnectable membership, and downloadable replays. No accounts.
 

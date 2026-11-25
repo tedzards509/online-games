@@ -117,7 +117,7 @@
 </script>
 
 <svelte:head
-  ><title>{code ? `${code} · ` : ''}Friends' Arena</title></svelte:head
+  ><title>{code ? `${code} · ` : ''}Online Games</title></svelte:head
 >
 
 <main class:entry={!member} class:immersive>

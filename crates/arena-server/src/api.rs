@@ -35,7 +35,7 @@ use utoipa::{
 
 #[derive(OpenApi)]
 #[openapi(
-    info(title = "Friends' Arena", version = "0.1.0", description = "Anonymous rooms. HTTP uses bearer room tokens. WebSockets authenticate in the first frame; see ClientMessage and ServerMessage schemas."),
+    info(title = "Online Games", version = "0.1.0", description = "Anonymous rooms. HTTP uses bearer room tokens. WebSockets authenticate in the first frame; see ClientMessage and ServerMessage schemas."),
     paths(create_room, join_room, room_snapshot, replay, websocket, health),
     components(schemas(CreateRoom, JoinRoom, Membership, Snapshot, ClientMessage, ServerMessage, ErrorBody, arena_core::Replay)),
     modifiers(&Security)

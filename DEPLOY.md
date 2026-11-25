@@ -41,7 +41,7 @@ Apply `.env` changes with `docker compose up -d`. Container-internal ports stay 
 
 ### 2. Route requests through nginx
 
-On Debian/Ubuntu, save this as `/etc/nginx/sites-available/friends-arena`, replacing the domain. The `map` must be in nginx's `http` context; Debian/Ubuntu includes site files there. If your nginx already defines this map, reuse it instead of defining it twice.
+On Debian/Ubuntu, save this as `/etc/nginx/sites-available/online-games`, replacing the domain. The `map` must be in nginx's `http` context; Debian/Ubuntu includes site files there. If your nginx already defines this map, reuse it instead of defining it twice.
 
 ```nginx
 map $http_upgrade $connection_upgrade {
@@ -84,12 +84,12 @@ server {
 Enable and validate it (remove or adjust a conflicting site for the same domain first):
 
 ```sh
-sudo ln -s /etc/nginx/sites-available/friends-arena /etc/nginx/sites-enabled/friends-arena
+sudo ln -s /etc/nginx/sites-available/online-games /etc/nginx/sites-enabled/online-games
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-On other distributions, put the configuration in a file included from nginx's `http` block, such as `/etc/nginx/conf.d/friends-arena.conf`. If nginx runs on another machine, loopback upstreams will not work: use a private network or tunnel and restrict access to nginx rather than exposing the API publicly.
+On other distributions, put the configuration in a file included from nginx's `http` block, such as `/etc/nginx/conf.d/online-games.conf`. If nginx runs on another machine, loopback upstreams will not work: use a private network or tunnel and restrict access to nginx rather than exposing the API publicly.
 
 ### 3. Obtain an HTTPS certificate
 

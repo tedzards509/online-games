@@ -1,4 +1,4 @@
-# Working on Friends' Arena
+# Working on Online Games
 
 Read `README.md`, `docs/design.md`, and the relevant game's `crates/arena-core/src/games/<id>/rules.md` first. This is a small hobby framework to refine collaboratively with the user, not a finished product to embellish autonomously. Keep changes focused on the requested feature. No accounts, monetization, unsolicited decorative UI, or speculative infrastructure.
 
