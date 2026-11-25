@@ -5,6 +5,12 @@
   "joinRoom": "Join room",
   "settings": "Settings",
   "language": "Language",
+  "colorMode": "Color mode",
+  "colorModes": {
+    "device": "Device",
+    "light": "Light",
+    "dark": "Dark"
+  },
   "enterFailed": "Could not enter room",
   "roomNotFound": "Room not found",
   "nicknameTaken": "Nickname already taken",

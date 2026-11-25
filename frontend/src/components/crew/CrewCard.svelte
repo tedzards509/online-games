@@ -30,7 +30,7 @@
       ? 'var(--arena-card-face)'
       : crewInk}
     background={muted
-      ? `color-mix(in srgb, ${crewColors[card.color]} ${card.color === 'black' ? 40 : 55}%, var(--arena-canvas))`
+      ? `color-mix(in srgb, ${crewColors[card.color]} ${card.color === 'black' ? 40 : 55}%, var(--arena-card-muted))`
       : crewColors[card.color]}
     label={label ??
       $t('crew.card', {

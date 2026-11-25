@@ -95,6 +95,15 @@ translation keys. Shared words live in `common`, room screens in `room`, game
 names in `gameNames`, and each board in its own namespace (`crew`, `tempel`,
 `skyjo`, …). Counts use i18next plural keys (`_one`/`_other`).
 
+## Color mode
+
+`lib/colorMode.ts` provides the `colorMode` store (`device`, `light`, or `dark`)
+and `setColorMode`, and sets `<html data-mode>` to the resolved `light` or `dark`;
+`device` follows `prefers-color-scheme` live. An explicit choice is saved under
+`arena-color-mode` in browser storage. `Settings.svelte` holds the language and
+color mode selects. Themes define both modes (see
+[Themes](../docs/frontend-design.md#themes)).
+
 ## Fonts
 
 Each theme imports its font through Fontsource; Inkline uses Bricolage Grotesque

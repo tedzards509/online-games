@@ -2,8 +2,11 @@
 
 /* Inkline: cream canvas, green table, ink outlines. Only pressable controls cast a
    hard shadow; pressing moves them onto it, and chosen options stay pressed in.
-   A theme defines every token below; components use no other theme values. */
+   A theme defines every token in its light block; its dark block overrides only
+   the colors that change, so shape, depth, and card tokens stay shared.
+   Components use no other theme values. */
 :root[data-theme='inkline'] {
+  color-scheme: light;
   --inkline-ink: #16271e;
   --inkline-leaf: #2f8a52;
   --inkline-mint: #d3ecd8;
@@ -42,8 +45,10 @@
   --arena-seat-5: #c7a6f0;
   --arena-seat-6: var(--inkline-mint);
   --arena-on-seat: var(--inkline-ink);
+  /* Dims the page behind a modal dialog. */
+  --arena-backdrop: color-mix(in srgb, var(--inkline-ink) 45%, transparent);
 
-  /* Lines and shape */
+  /* Lines and shape: outlines and hard shadows. */
   --arena-ink: var(--inkline-ink);
   --arena-line: 2.5px solid var(--arena-ink);
   --arena-control-radius: 0.75rem;
@@ -62,7 +67,9 @@
 
   /* Cards */
   --arena-card-radius: 0.7rem;
-  --arena-card-line: var(--arena-line);
+  /* Light card faces with dark outlines in every mode; shadows follow --arena-ink. */
+  --arena-card-ink: var(--inkline-ink);
+  --arena-card-line: 2.5px solid var(--arena-card-ink);
   --arena-card-face: #fffdf7;
   --arena-card-dark: var(--inkline-ink);
   --arena-card-red: var(--inkline-tomato);
@@ -74,4 +81,24 @@
   --arena-card-raised: 3px 3px 0 var(--arena-ink);
   --arena-card-lifted: 5px 8px 0 var(--arena-ink);
   --arena-card-lift: translateY(-0.75rem);
+}
+
+/* Dark: ink canvas and surfaces, cream text, a deeper table. Outlines and hard
+   shadows turn light so they stay visible on dark surfaces. */
+:root[data-theme='inkline'][data-mode='dark'] {
+  color-scheme: dark;
+  --arena-canvas: #101a14;
+  --arena-surface: #1a2a21;
+  --arena-surface-muted: #24392c;
+  --arena-input: #0c1510;
+  --arena-text: #f1eee2;
+  --arena-text-muted: #a9bcae;
+  --arena-disabled: #2a362f;
+  --arena-on-disabled: #8f9c92;
+  --arena-focus: #ff7a5c;
+  --arena-error: #ffb4a3;
+  --arena-error-surface: #4d2219;
+  --arena-table: #1f6a3d;
+  --arena-backdrop: rgb(0 0 0 / 60%);
+  --arena-ink: #d3dfd4;
 }

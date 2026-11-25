@@ -1,5 +1,6 @@
 <script lang="ts">
   import { locale, t, languages, setLanguage } from '../lib/i18n';
+  import { colorMode, colorModes, setColorMode } from '../lib/colorMode';
   import Button from './ui/Button.svelte';
   import Corner from './ui/Corner.svelte';
   import Popover from './ui/Popover.svelte';
@@ -11,7 +12,7 @@
     <Button
       variant="quiet"
       square
-      popovertarget="language-settings"
+      popovertarget="settings"
       aria-label={$t('settings')}
       title={$t('settings')}
     >
@@ -30,17 +31,28 @@
       </svg>
     </Button>
   </Corner>
-  <Popover id="language-settings" label={$t('settings')} placement="end">
-    <Select
-      label={$t('language')}
-      value={$locale}
-      options={languages.map((language) => ({
-        value: language.id,
-        label: language.label,
-        lang: language.id === 'de-cool' ? 'de' : language.id,
-      }))}
-      onchange={setLanguage}
-    />
+  <Popover id="settings" label={$t('settings')} placement="end">
+    <div class="fields">
+      <Select
+        label={$t('language')}
+        value={$locale}
+        options={languages.map((language) => ({
+          value: language.id,
+          label: language.label,
+          lang: language.id === 'de-cool' ? 'de' : language.id,
+        }))}
+        onchange={setLanguage}
+      />
+      <Select
+        label={$t('colorMode')}
+        value={$colorMode}
+        options={colorModes.map((mode) => ({
+          value: mode,
+          label: $t(`colorModes.${mode}`),
+        }))}
+        onchange={setColorMode}
+      />
+    </div>
   </Popover>
 </div>
 
@@ -48,5 +60,9 @@
   /* Only fixed and top-layer children: take no space in the page layout. */
   .settings {
     display: contents;
+  }
+  .fields {
+    display: grid;
+    gap: var(--arena-space-3);
   }
 </style>

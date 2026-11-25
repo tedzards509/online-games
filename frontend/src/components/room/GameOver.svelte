@@ -95,7 +95,7 @@
     display: none;
   }
   dialog::backdrop {
-    background: color-mix(in srgb, var(--arena-ink) 45%, transparent);
+    background: var(--arena-backdrop);
   }
   .game {
     color: var(--arena-text-muted);

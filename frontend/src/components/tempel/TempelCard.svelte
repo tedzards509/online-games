@@ -54,7 +54,11 @@
         />
         <circle cx="16" cy="16" r="5" fill="currentColor" />
       {:else if card === 'trap'}
-        <g stroke="var(--arena-ink)" stroke-width="2" stroke-linejoin="round">
+        <g
+          stroke="var(--arena-card-ink)"
+          stroke-width="2"
+          stroke-linejoin="round"
+        >
           <path
             d="M16 3c1.5 5 8.5 8 8.5 16.5a8.5 8.5 0 0 1-17 0c0-4.5 2.5-6.5 3.5-10 2 2.5 2.5 4 2.5 6 1.5-3.5 2.5-7 2.5-12.5Z"
             fill="currentColor"

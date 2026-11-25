@@ -5,6 +5,12 @@
   "joinRoom": "Raum beitreten",
   "settings": "Einstellungen",
   "language": "Sprache",
+  "colorMode": "Look",
+  "colorModes": {
+    "device": "Wie am Gerät",
+    "light": "Hell",
+    "dark": "Dunkel"
+  },
   "enterFailed": "Beitritt zum Raum fehlgeschlagen",
   "roomNotFound": "Raum nicht gefunden",
   "nicknameTaken": "Spitzname bereits vergeben",

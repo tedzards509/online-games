@@ -12,7 +12,7 @@
   import { cardTableGames, type Membership } from './lib/types';
   import GameBoard from './components/GameBoard.svelte';
   import LandingPage from './components/LandingPage.svelte';
-  import LanguageSettings from './components/LanguageSettings.svelte';
+  import Settings from './components/Settings.svelte';
   import GameOver from './components/room/GameOver.svelte';
   import GameStatus from './components/room/GameStatus.svelte';
   import RoomLobby from './components/room/RoomLobby.svelte';
@@ -116,12 +116,10 @@
   }
 </script>
 
-<svelte:head
-  ><title>{code ? `${code} · ` : ''}Online Games</title></svelte:head
->
+<svelte:head><title>{code ? `${code} · ` : ''}Online Games</title></svelte:head>
 
 <main class:entry={!member} class:immersive>
-  <LanguageSettings />
+  <Settings />
 
   {#if entryError || error || connection?.error || (member && connection?.status !== 'connected')}
     <div class="notices">

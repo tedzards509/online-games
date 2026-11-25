@@ -24,7 +24,7 @@
     border-radius: var(--arena-card-radius);
   }
   .outlined {
-    border: var(--arena-card-line);
+    border: var(--arena-line);
     border-style: dashed;
   }
 </style>

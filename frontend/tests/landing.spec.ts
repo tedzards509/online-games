@@ -54,6 +54,34 @@ test('device German and explicit cool selection persist and retain values', asyn
   await context.close();
 });
 
+test('dark color mode persists and device mode follows the system scheme', async ({
+  page,
+}) => {
+  const html = page.locator('html');
+  const canvas = () =>
+    page.evaluate(
+      () => getComputedStyle(document.documentElement).backgroundColor,
+    );
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.goto('/');
+  await expect(html).toHaveAttribute('data-mode', 'light');
+  const light = await canvas();
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByLabel('Color mode').selectOption('dark');
+  await expect(html).toHaveAttribute('data-mode', 'dark');
+  expect(await canvas()).not.toBe(light);
+  await page.reload();
+  await expect(html).toHaveAttribute('data-mode', 'dark');
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await expect(page.getByLabel('Color mode')).toHaveValue('dark');
+  await page.getByLabel('Color mode').selectOption('device');
+  await expect(html).toHaveAttribute('data-mode', 'light');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect(html).toHaveAttribute('data-mode', 'dark');
+  await page.emulateMedia({ colorScheme: 'light' });
+  await expect(html).toHaveAttribute('data-mode', 'light');
+});
+
 test('device language selection skips unsupported preferences in order', async ({
   page,
 }) => {

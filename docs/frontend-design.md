@@ -26,14 +26,23 @@ moves them onto it, and chosen options stay pressed in.
 ## Themes
 
 `src/style.ts` imports the layout tokens (`design.css`), the active theme, and
-element defaults (`base.css`), then sets `<html data-theme>`. A theme is one CSS
-file in `src/themes/` that scopes its tokens to `:root[data-theme='<name>']` and
-imports its bundled font. It defines every token documented in
-`themes/inkline.css`: type, surfaces and text, meaning colors, seat colors,
-lines and radii, depth (raised, hover, and pressed shadows and shifts), and card
-faces. Components use only these tokens and the layout tokens, so adding a theme
-needs no component changes. Fonts are bundled through Fontsource; fonts and
-translations require no external requests.
+element defaults (`base.css`), then sets `<html data-theme>`; `lib/colorMode.ts`
+sets `<html data-mode>` to `light` or `dark` before the first styled paint. A
+theme is one CSS file in `src/themes/` that imports its bundled font and has two
+blocks:
+
+- Light, `:root[data-theme='<name>']`: every token documented in
+  `themes/inkline.css` (type, surfaces and text, meaning colors, seat colors,
+  backdrop, lines and radii, depth, and card faces) and `color-scheme: light`.
+- Dark, `:root[data-theme='<name>'][data-mode='dark']`: `color-scheme: dark` and
+  only the color tokens that change. Outlines and hard shadows (`--arena-ink`)
+  must stay visible on dark surfaces. Card faces stay light; their outline and
+  printed ink use `--arena-card-ink`.
+
+Components use only these tokens and the layout tokens, so adding a theme needs
+no component changes. The color mode setting offers Device (follows
+`prefers-color-scheme`, including live changes), Light, and Dark. Fonts are
+bundled through Fontsource; fonts and translations require no external requests.
 
 English, German, and German (cool) have independent catalogs. Use the first
 supported device language unless the user has saved a selection; English is the
